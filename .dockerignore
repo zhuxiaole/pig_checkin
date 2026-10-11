@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.cache
+data/
+*.db
+*.db-journal
+*.sqlite3
+__pycache__
+*.py[cod]
+*.egg-info
+build/
+dist/
+.vscode
+.idea

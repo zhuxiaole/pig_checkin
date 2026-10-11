@@ -39,6 +39,36 @@ uv sync
 uv run pig-checkin
 ```
 
+### 3. Docker 部署（推荐）
+
+通过 GitHub Actions 自动构建的轻量化镜像（基于 Python 3.14 Alpine）：
+
+```bash
+docker run -d \
+  --name pig-checkin \
+  -p 8000:8000 \
+  -v $(pwd)/data:/app/data \
+  -e SECRET_KEY="your-custom-strong-secret-key-123456" \
+  --restart unless-stopped \
+  ghcr.io/<github-username>/pig_checkin:latest
+```
+
+或使用 `docker-compose.yml`：
+```yaml
+services:
+  pig-checkin:
+    image: ghcr.io/<github-username>/pig_checkin:latest
+    container_name: pig-checkin
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SECRET_KEY=your-custom-strong-secret-key-123456
+      - TZ=Asia/Shanghai
+```
+
 启动后访问：[http://127.0.0.1:8000](http://127.0.0.1:8000)
 
 - **默认账号**：`admin`
