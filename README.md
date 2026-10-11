@@ -51,14 +51,14 @@ docker run -d \
   -e TZ="Asia/Shanghai" \
   -e SECRET_KEY="your-custom-strong-secret-key-123456" \
   --restart unless-stopped \
-  ghcr.io/<github-username>/pig_checkin:latest
+  ghcr.io/zhuxiaole/pig_checkin:latest
 ```
 
 或使用 `docker-compose.yml`：
 ```yaml
 services:
   pig-checkin:
-    image: ghcr.io/<github-username>/pig_checkin:latest
+    image: ghcr.io/zhuxiaole/pig_checkin:latest
     container_name: pig-checkin
     restart: unless-stopped
     ports:
