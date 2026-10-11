@@ -19,6 +19,13 @@ SITE_TEMPLATES = {
         "auth_label": "Cookies 认证",
         "default_domain": "https://www.ymlyhd.com",
         "cookie_placeholder": "请粘贴登录 ymlyhd.com 后的完整 Cookie 字符串",
+    },
+    "acgrip": {
+        "name": "bbs.acgrip.com (ACG字幕论坛)",
+        "auth_type": "cookie",
+        "auth_label": "Cookies 认证",
+        "default_domain": "https://bbs.acgrip.com",
+        "cookie_placeholder": "请粘贴登录 bbs.acgrip.com 后的完整 Cookie 字符串",
     }
 }
 

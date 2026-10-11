@@ -190,6 +190,14 @@ def checkin_ymlyhd(site_dict: dict) -> Tuple[bool, str]:
         site_label="影迷乐园"
     )
 
+def checkin_acgrip(site_dict: dict) -> Tuple[bool, str]:
+    return checkin_discuz_dsu_paulsign(
+        site_dict,
+        default_domain="https://bbs.acgrip.com",
+        sign_path="/dsu_paulsign-sign.html",
+        site_label="ACG字幕论坛"
+    )
+
 def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
     domain = format_domain(site_dict.get("domain"), default="https://audiences.me")
     cookie_str = site_dict.get("cookies", "")
@@ -271,6 +279,8 @@ def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
         return checkin_audiences(site_dict)
     elif site_type == "ymlyhd":
         return checkin_ymlyhd(site_dict)
+    elif site_type == "acgrip":
+        return checkin_acgrip(site_dict)
     return False, f"不支持的站点类型: {site_type}"
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
