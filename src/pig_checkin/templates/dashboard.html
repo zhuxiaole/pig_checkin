@@ -239,6 +239,9 @@
                                 <button onclick="handleRunSite({{ site.id }}, this)" title="执行签到" class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center disabled:opacity-50">
                                     <i class="ri-play-line text-sm"></i>
                                 </button>
+                                <button onclick="openSiteLogsModal({{ site.id }})" title="查看日志" class="p-2 rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/10 dark:hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30 transition-all inline-flex items-center">
+                                    <i class="ri-file-list-2-line text-sm"></i>
+                                </button>
                                 <button onclick="openEditModal({{ site.id }})" title="编辑配置" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-all inline-flex items-center">
                                     <i class="ri-edit-line text-sm"></i>
                                 </button>
@@ -278,6 +281,9 @@
                         <div class="flex items-center gap-1">
                             <button onclick="handleRunSite({{ site.id }}, this)" class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform disabled:opacity-50" title="签到">
                                 <i class="ri-play-fill text-sm"></i>
+                            </button>
+                            <button onclick="openSiteLogsModal({{ site.id }})" class="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20 active:scale-95 transition-transform" title="日志">
+                                <i class="ri-file-list-2-line text-sm"></i>
                             </button>
                             <button onclick="openEditModal({{ site.id }})" class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 active:scale-95 transition-transform" title="编辑">
                                 <i class="ri-edit-line text-sm"></i>
@@ -727,6 +733,35 @@
         </div>
     </div>
 
+    <!-- 站点专属日志 Modal -->
+    <div id="siteLogsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-2xl sm:max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
+            <div class="px-6 sm:px-8 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400 flex items-center justify-center text-lg">
+                        <i class="ri-file-list-2-line"></i>
+                    </div>
+                    <div>
+                        <h3 id="site_logs_title" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">站点历史签到日志</h3>
+                        <p id="site_logs_subtitle" class="text-xs text-slate-400">仅展示当前站点的专属签到打卡记录</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('siteLogsModal')" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+
+            <!-- 日志内容列表 -->
+            <div id="site_logs_body" class="overflow-y-auto px-6 sm:px-8 py-4 space-y-3 flex-1 text-sm">
+                <!-- 动态填充 -->
+            </div>
+
+            <div class="px-6 sm:px-8 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/90 flex justify-end shrink-0">
+                <button type="button" onclick="closeModal('siteLogsModal')" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 浮动 Toast 通知容器 (置于最高层级 z-[100]，在模态弹窗及毛玻璃遮罩上方浮动显示) -->
     <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-2.5 pointer-events-none max-w-sm sm:max-w-md w-full"></div>
 
@@ -837,6 +872,9 @@
                     <button onclick="handleRunSite(${site.id}, this)" title="执行签到" class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center disabled:opacity-50">
                         <i class="ri-play-line text-sm"></i>
                     </button>
+                    <button onclick="openSiteLogsModal(${site.id})" title="查看日志" class="p-2 rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/10 dark:hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30 transition-all inline-flex items-center">
+                        <i class="ri-file-list-2-line text-sm"></i>
+                    </button>
                     <button onclick="openEditModal(${site.id})" title="编辑配置" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-all inline-flex items-center">
                         <i class="ri-edit-line text-sm"></i>
                     </button>
@@ -865,6 +903,9 @@
                     <div class="flex items-center gap-1">
                         <button onclick="handleRunSite(${site.id}, this)" class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform disabled:opacity-50" title="签到">
                             <i class="ri-play-fill text-sm"></i>
+                        </button>
+                        <button onclick="openSiteLogsModal(${site.id})" class="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20 active:scale-95 transition-transform" title="日志">
+                            <i class="ri-file-list-2-line text-sm"></i>
                         </button>
                         <button onclick="openEditModal(${site.id})" class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 active:scale-95 transition-transform" title="编辑">
                             <i class="ri-edit-line text-sm"></i>
@@ -1510,6 +1551,65 @@
             toggleScheduleFields('edit');
             updateTemplateUI('edit', false);
             openModal('editSiteModal');
+        }
+
+        async function openSiteLogsModal(siteId) {
+            const site = allSites.find(s => s.id === siteId);
+            const siteName = site ? site.name : `站点 #${siteId}`;
+
+            document.getElementById('site_logs_title').textContent = `[${siteName}] 历史签到日志`;
+            document.getElementById('site_logs_subtitle').textContent = `仅展示当前站点的专属签到打卡记录`;
+
+            const body = document.getElementById('site_logs_body');
+            body.innerHTML = `
+                <div class="py-12 text-center text-slate-400">
+                    <i class="ri-loader-4-line animate-spin text-2xl mb-2 block text-sky-500"></i>
+                    正在加载专属历史日志...
+                </div>
+            `;
+            openModal('siteLogsModal');
+
+            try {
+                const res = await fetch(`/api/site-logs/${siteId}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (!data.ok) {
+                    body.innerHTML = `<div class="py-12 text-center text-rose-500">${escapeHtml(data.message || '加载日志失败')}</div>`;
+                    return;
+                }
+
+                const logs = data.logs || [];
+                if (logs.length === 0) {
+                    body.innerHTML = `
+                        <div class="py-12 text-center text-slate-400">
+                            <i class="ri-inbox-line text-3xl mb-2 block text-slate-300 dark:text-slate-600"></i>
+                            该站点暂无专属历史签到日志
+                        </div>
+                    `;
+                    return;
+                }
+
+                body.innerHTML = logs.map(log => {
+                    const isSuccess = log.status === '成功';
+                    return `
+                        <div class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-900/40 space-y-1.5 text-xs">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-mono text-slate-400 text-[11px]">${escapeHtml(log.created_at)}</span>
+                                ${isSuccess 
+                                    ? '<span class="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-[11px] font-medium shrink-0">✓ 成功</span>'
+                                    : '<span class="px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 text-[11px] font-medium shrink-0">✗ 失败</span>'
+                                }
+                            </div>
+                            <div class="text-slate-700 dark:text-slate-200 leading-relaxed break-all">
+                                ${escapeHtml(log.message)}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                body.innerHTML = `<div class="py-12 text-center text-rose-500">网络异常: ${escapeHtml(err.message)}</div>`;
+            }
         }
 
         function validateAccountForm(form) {

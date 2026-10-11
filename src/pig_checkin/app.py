@@ -281,6 +281,26 @@ def delete_site(request: Request, site_id: int, user: str = Depends(get_current_
         return JSONResponse({"ok": True, "message": "站点已成功删除"})
     return RedirectResponse(url="/", status_code=303)
 
+@app.get("/api/site-logs/{site_id}")
+def api_site_logs(site_id: int, user: str = Depends(get_current_user)):
+    with get_db() as conn:
+        site = conn.execute("SELECT id, name FROM sites WHERE id = ?", (site_id,)).fetchone()
+        if not site:
+            return JSONResponse({"ok": False, "message": "站点不存在"}, status_code=404)
+        
+        logs_cur = conn.execute(
+            "SELECT * FROM logs WHERE site_id = ? OR site_name = ? ORDER BY id DESC LIMIT 100", 
+            (site_id, site["name"])
+        ).fetchall()
+        logs = [dict(l) for l in logs_cur]
+
+    return {
+        "ok": True,
+        "site_id": site_id,
+        "site_name": site["name"],
+        "logs": logs
+    }
+
 @app.get("/run-site/{site_id}")
 def run_site(request: Request, site_id: int, user: str = Depends(get_current_user)):
     with get_db() as conn:
