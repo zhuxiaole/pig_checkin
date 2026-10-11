@@ -190,6 +190,7 @@
                             <th class="py-3.5 px-4">站点 / 域名</th>
                             <th class="py-3.5 px-4">认证方式</th>
                             <th class="py-3.5 px-4">调度策略</th>
+                            <th class="py-3.5 px-4">上次执行</th>
                             <th class="py-3.5 px-4">下次执行</th>
                             <th class="py-3.5 px-4">最新状态</th>
                             <th class="py-3.5 px-4">开关</th>
@@ -224,6 +225,11 @@
                                     <i class="ri-shuffle-line mr-1"></i>每日随机
                                 </span>
                                 {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <div class="text-xs font-mono {{ 'text-slate-400 dark:text-slate-500' if not site.last_run else 'text-slate-600 dark:text-slate-300' }}">
+                                    {{ site.last_run or "未执行" }}
+                                </div>
                             </td>
                             <td class="py-3.5 px-4">
                                 <div class="text-xs font-mono {{ 'text-slate-400' if not site.enabled else 'text-indigo-600 dark:text-indigo-400 font-semibold' }}">
@@ -264,7 +270,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="py-12 text-center text-slate-400">
+                            <td colspan="8" class="py-12 text-center text-slate-400">
                                 <i class="ri-inbox-line text-4xl mb-2 block text-slate-300 dark:text-slate-600"></i>
                                 暂无站点配置，请点击右上角「添加新网站」
                             </td>
@@ -321,6 +327,10 @@
 
                     <!-- 执行状态与下次时间 -->
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-1">
+                        <div class="flex justify-between items-center text-slate-500 dark:text-slate-400">
+                            <span>上次执行</span>
+                            <span class="font-mono {{ 'text-slate-400 dark:text-slate-500' if not site.last_run else 'text-slate-600 dark:text-slate-300' }}">{{ site.last_run or "未执行" }}</span>
+                        </div>
                         <div class="flex justify-between items-center text-slate-500 dark:text-slate-400">
                             <span>下次执行</span>
                             <span class="font-mono {{ 'text-slate-400' if not site.enabled else 'text-indigo-600 dark:text-indigo-400 font-medium' }}">{{ site.next_run_display }}</span>
