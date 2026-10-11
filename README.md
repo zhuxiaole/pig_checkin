@@ -118,18 +118,20 @@ services:
 
 ---
 
-## 站点使用说明
+## 支持签到站点
 
-### 添加 / 配置 `cnlang.org` (国语视界)
-1. 登录 `https://cnlang.org`，按 `F12` 打开开发者工具，在网络面板复制当前请求完整的 `Cookie` 字符串。
-2. 在管理面板点击 **「+ 添加新网站」**（模板选 `cnlang.org`）或在现有站点上点击 **「编辑配置」**。
-3. 将 Cookie 粘贴至 **Cookies 字符串** 输入框中，保存即可。
-4. 可点击 **「执行签到」** 立即测试连通性，并在下方查看详细返回日志。
+本项目已内置支持多个 Discuz 论坛与 NexusPHP PT 站点的全自动化打卡签到。
 
-### 添加 / 配置 `audiences.me` (观众 PT)
-1. 浏览器访问并登录 `https://audiences.me`，按 `F12` 在网络面板获取携带的完整 Cookie（确保包含 `c_secure_uid`、`c_secure_pass` 及 Cloudflare 的 `cf_clearance` 凭据）。
-2. 在管理面板点击 **「+ 添加新网站」**，站点模板选择 **audiences.me (观众 PT)**。
-3. 粘贴完整 Cookies 并保存。签到地址将自动路由至 `/attendance.php`，若遇到 Cloudflare 质询拦截将自动调度 `invisible_playwright` 进行处理。
+👉 **[点击查看完整支持站点列表与各站点配置指引 (SUPPORTED_SITES.md)](SUPPORTED_SITES.md)**
+
+| 站点名称 | 默认地址 | 模板标识 (`site_type`) | 架构 / 签到机制 | 认证方式 |
+| :--- | :--- | :--- | :--- | :--- |
+| **国语视界** | `https://cnlang.org` | `cnlang` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
+| **观众 PT** | `https://audiences.me` | `audiences` | NexusPHP (`/attendance.php`) | Cookies 认证 (含 cf_clearance) |
+| **影迷乐园** | `https://www.ymlyhd.com` | `ymlyhd` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
+| **ACG 字幕论坛** | `https://bbs.acgrip.com` | `acgrip` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
+
+*(后续每新增一个网站将在 [SUPPORTED_SITES.md](SUPPORTED_SITES.md) 中持续更新维护)*
 
 ---
 
