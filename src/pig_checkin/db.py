@@ -2,11 +2,17 @@ import sqlite3
 import hashlib
 import hmac
 import secrets
+import shutil
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "checkin.db"
+OLD_DB_PATH = Path(__file__).resolve().parent / "checkin.db"
+DB_DIR = Path.cwd() / "data"
+DB_PATH = DB_DIR / "checkin.db"
 
 def get_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not DB_PATH.exists() and OLD_DB_PATH.exists():
+        shutil.copy2(OLD_DB_PATH, DB_PATH)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn

@@ -64,7 +64,7 @@ uv run pig-checkin
 
 ## 数据存储与维护
 
-- **数据库路径**：`src/pig_checkin/checkin.db`（SQLite 单文件存储）。
+- **数据库路径**：`data/checkin.db`（当前目录下 SQLite 单文件存储）。
 - **重置密码命令**（若遗忘管理员密码）：
   ```bash
   uv run python -c "from pig_checkin.db import get_db, hash_password; get_db().execute('UPDATE users SET password = ? WHERE username = ?', (hash_password('新密码'), 'admin')).connection.commit(); print('重置成功')"
