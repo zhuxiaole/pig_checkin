@@ -289,7 +289,7 @@ def api_site_logs(site_id: int, user: str = Depends(get_current_user)):
             return JSONResponse({"ok": False, "message": "站点不存在"}, status_code=404)
         
         logs_cur = conn.execute(
-            "SELECT * FROM logs WHERE site_id = ? OR site_name = ? ORDER BY id DESC LIMIT 100", 
+            "SELECT * FROM logs WHERE site_id = ? OR site_name = ? ORDER BY id DESC LIMIT 500", 
             (site_id, site["name"])
         ).fetchall()
         logs = [dict(l) for l in logs_cur]

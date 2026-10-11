@@ -756,6 +756,9 @@
                 <!-- 动态填充 -->
             </div>
 
+            <!-- 独立分页栏 -->
+            <div id="site_logs_pagination" class="px-6 sm:px-8 py-3 border-t border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 shrink-0"></div>
+
             <div class="px-6 sm:px-8 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/90 flex justify-end shrink-0">
                 <button type="button" onclick="closeModal('siteLogsModal')" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">关闭</button>
             </div>
@@ -1553,44 +1556,27 @@
             openModal('editSiteModal');
         }
 
-        async function openSiteLogsModal(siteId) {
-            const site = allSites.find(s => s.id === siteId);
-            const siteName = site ? site.name : `站点 #${siteId}`;
+        let currentSiteLogs = [];
+        let currentSiteLogsPage = 1;
+        const currentSiteLogsPageSize = 10;
 
-            document.getElementById('site_logs_title').textContent = `[${siteName}] 历史签到日志`;
-            document.getElementById('site_logs_subtitle').textContent = `仅展示当前站点的专属签到打卡记录`;
-
+        function renderSiteLogsPage() {
             const body = document.getElementById('site_logs_body');
-            body.innerHTML = `
-                <div class="py-12 text-center text-slate-400">
-                    <i class="ri-loader-4-line animate-spin text-2xl mb-2 block text-sky-500"></i>
-                    正在加载专属历史日志...
-                </div>
-            `;
-            openModal('siteLogsModal');
+            const total = currentSiteLogs.length;
+            const totalPages = Math.max(1, Math.ceil(total / currentSiteLogsPageSize));
+            currentSiteLogsPage = Math.min(Math.max(1, currentSiteLogsPage), totalPages);
 
-            try {
-                const res = await fetch(`/api/site-logs/${siteId}`, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const data = await res.json();
-                if (!data.ok) {
-                    body.innerHTML = `<div class="py-12 text-center text-rose-500">${escapeHtml(data.message || '加载日志失败')}</div>`;
-                    return;
-                }
-
-                const logs = data.logs || [];
-                if (logs.length === 0) {
-                    body.innerHTML = `
-                        <div class="py-12 text-center text-slate-400">
-                            <i class="ri-inbox-line text-3xl mb-2 block text-slate-300 dark:text-slate-600"></i>
-                            该站点暂无专属历史签到日志
-                        </div>
-                    `;
-                    return;
-                }
-
-                body.innerHTML = logs.map(log => {
+            if (total === 0) {
+                body.innerHTML = `
+                    <div class="py-12 text-center text-slate-400">
+                        <i class="ri-inbox-line text-3xl mb-2 block text-slate-300 dark:text-slate-600"></i>
+                        该站点暂无专属历史签到日志
+                    </div>
+                `;
+            } else {
+                const start = (currentSiteLogsPage - 1) * currentSiteLogsPageSize;
+                const pageLogs = currentSiteLogs.slice(start, start + currentSiteLogsPageSize);
+                body.innerHTML = pageLogs.map(log => {
                     const isSuccess = log.status === '成功';
                     return `
                         <div class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/60 dark:bg-slate-900/40 space-y-1.5 text-xs">
@@ -1607,6 +1593,47 @@
                         </div>
                     `;
                 }).join('');
+            }
+
+            renderPaginationControls('site_logs_pagination', currentSiteLogsPage, totalPages, total, currentSiteLogsPageSize, 'goSiteLogsPage');
+        }
+
+        function goSiteLogsPage(page) {
+            currentSiteLogsPage = page;
+            renderSiteLogsPage();
+        }
+
+        async function openSiteLogsModal(siteId) {
+            const site = allSites.find(s => s.id === siteId);
+            const siteName = site ? site.name : `站点 #${siteId}`;
+
+            document.getElementById('site_logs_title').textContent = `[${siteName}] 历史签到日志`;
+            document.getElementById('site_logs_subtitle').textContent = `仅展示当前站点的专属签到打卡记录`;
+
+            const body = document.getElementById('site_logs_body');
+            body.innerHTML = `
+                <div class="py-12 text-center text-slate-400">
+                    <i class="ri-loader-4-line animate-spin text-2xl mb-2 block text-sky-500"></i>
+                    正在加载专属历史日志...
+                </div>
+            `;
+            const pagContainer = document.getElementById('site_logs_pagination');
+            if (pagContainer) pagContainer.innerHTML = '';
+            openModal('siteLogsModal');
+
+            try {
+                const res = await fetch(`/api/site-logs/${siteId}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (!data.ok) {
+                    body.innerHTML = `<div class="py-12 text-center text-rose-500">${escapeHtml(data.message || '加载日志失败')}</div>`;
+                    return;
+                }
+
+                currentSiteLogs = data.logs || [];
+                currentSiteLogsPage = 1;
+                renderSiteLogsPage();
             } catch (err) {
                 body.innerHTML = `<div class="py-12 text-center text-rose-500">网络异常: ${escapeHtml(err.message)}</div>`;
             }
