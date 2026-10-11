@@ -95,4 +95,14 @@ def init_db():
                 INSERT INTO sites (name, site_type, auth_type, domain, schedule_type, schedule_time, max_retries, retry_interval, enabled, next_run, last_status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
             """, ("cnlang.org", "cnlang", "cookie", "https://cnlang.org", "random", "09:00", 3, 60, init_next))
+
+        # 默认站点 ymlyhd.com
+        site_ymly = conn.execute("SELECT id FROM sites WHERE name = 'ymlyhd.com'").fetchone()
+        if not site_ymly:
+            from pig_checkin.scheduler import compute_initial_next_run
+            init_next = compute_initial_next_run("random", "09:00")
+            conn.execute("""
+                INSERT INTO sites (name, site_type, auth_type, domain, schedule_type, schedule_time, max_retries, retry_interval, enabled, next_run, last_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
+            """, ("ymlyhd.com", "ymlyhd", "cookie", "https://www.ymlyhd.com", "random", "09:00", 3, 60, init_next))
         conn.commit()
