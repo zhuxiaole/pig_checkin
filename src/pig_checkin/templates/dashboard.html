@@ -455,7 +455,7 @@
                             <select name="site_type" id="add_site_type" onchange="updateTemplateUI('add', true)"
                                     class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                                 {% for key, tpl in site_templates.items() %}
-                                <option value="{{ key }}">{{ tpl.name }} &nbsp;·&nbsp; {{ tpl.default_domain }}</option>
+                                <option value="{{ key }}" {% if loop.first %}selected{% endif %}>{{ tpl.name }} &nbsp;·&nbsp; {{ tpl.default_domain }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -463,7 +463,7 @@
 
                     <div>
                         <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点地址 (Domain)</label>
-                        <input type="text" name="domain" id="add_domain" required value="https://cnlang.org" placeholder="包含协议，如 https://cnlang.org"
+                        <input type="text" name="domain" id="add_domain" required placeholder="包含协议，如 https://cnlang.org"
                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500">
                     </div>
 
@@ -1353,15 +1353,20 @@
             }
         }
 
-        function clearTemplateSearch(prefix) {
+        function clearTemplateSearch(prefix, selectFirst = false) {
             const searchInput = document.getElementById(prefix + '_tpl_search');
             if (searchInput) searchInput.value = '';
-            filterTemplates(prefix);
+            const firstKey = selectFirst ? Object.keys(templatesMeta)[0] : null;
+            filterTemplates(prefix, firstKey);
         }
 
         function openAddSiteModal() {
-            clearTemplateSearch('add');
-            updateTemplateUI('add', false);
+            clearTemplateSearch('add', true);
+            const addSelect = document.getElementById('add_site_type');
+            if (addSelect && addSelect.options.length > 0) {
+                addSelect.selectedIndex = 0;
+            }
+            updateTemplateUI('add', true);
             toggleScheduleFields('add');
             openModal('addSiteModal');
         }
@@ -1441,6 +1446,10 @@
         }
 
         // 初始化添加框 UI
+        const initAddSelect = document.getElementById('add_site_type');
+        if (initAddSelect && initAddSelect.options.length > 0) {
+            initAddSelect.selectedIndex = 0;
+        }
         updateTemplateUI('add', true);
         toggleScheduleFields('add');
     </script>
