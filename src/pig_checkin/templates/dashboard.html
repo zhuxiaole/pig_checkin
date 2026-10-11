@@ -29,6 +29,9 @@
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 selection:bg-indigo-500 selection:text-white flex flex-col antialiased transition-colors duration-200">
+    <!-- 浮动 Toast 通知容器 (用于 Fetch API 交互提示) -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-none max-w-sm sm:max-w-md w-full"></div>
+
     <!-- 背景流光装饰 -->
     <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl"></div>
@@ -77,7 +80,7 @@
                 <!-- 管理员徽章 -->
                 <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
                     <i class="ri-shield-user-line text-indigo-500 dark:text-indigo-400 text-sm"></i>
-                    <span>{{ current_user }}</span>
+                    <span id="current-user-display">{{ current_user }}</span>
                 </div>
 
                 <button onclick="openModal('changeAccountModal')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 transition-all">
@@ -94,31 +97,6 @@
 
     <!-- 主要内容容器 -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <!-- 提示通知横幅 -->
-        {% if pwd_ok %}
-        <div class="p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl text-emerald-800 dark:text-emerald-300 text-sm flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-2.5">
-                <i class="ri-checkbox-circle-fill text-lg text-emerald-500 dark:text-emerald-400"></i>
-                <span>{{ pwd_ok }}</span>
-            </div>
-            <button onclick="this.parentElement.remove()" class="text-emerald-600 dark:text-emerald-400/70 hover:opacity-100 p-1">
-                <i class="ri-close-line text-lg"></i>
-            </button>
-        </div>
-        {% endif %}
-
-        {% if pwd_err %}
-        <div class="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-2xl text-rose-800 dark:text-rose-300 text-sm flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-2.5">
-                <i class="ri-error-warning-fill text-lg text-rose-500 dark:text-rose-400"></i>
-                <span>{{ pwd_err }}</span>
-            </div>
-            <button onclick="this.parentElement.remove()" class="text-rose-600 dark:text-rose-400/70 hover:opacity-100 p-1">
-                <i class="ri-close-line text-lg"></i>
-            </button>
-        </div>
-        {% endif %}
-
         <!-- 概览指标卡片组 -->
         <section class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div class="bg-white/90 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-sm dark:shadow-none transition-colors">
@@ -127,7 +105,7 @@
                 </div>
                 <div>
                     <div class="text-xs text-slate-500 dark:text-slate-400">监控站点</div>
-                    <div class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{{ sites | length }} <span class="text-xs font-normal text-slate-400">个</span></div>
+                    <div class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5"><span id="stat-total-sites">{{ sites | length }}</span> <span class="text-xs font-normal text-slate-400">个</span></div>
                 </div>
             </div>
 
@@ -137,7 +115,7 @@
                 </div>
                 <div>
                     <div class="text-xs text-slate-500 dark:text-slate-400">运行活跃</div>
-                    <div class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{{ sites | selectattr('enabled') | list | length }} <span class="text-xs font-normal text-slate-400">启用</span></div>
+                    <div class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5"><span id="stat-active-sites">{{ sites | selectattr('enabled') | list | length }}</span> <span class="text-xs font-normal text-slate-400">启用</span></div>
                 </div>
             </div>
 
@@ -171,10 +149,10 @@
                     <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">站点配置与定时任务</h2>
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap">
-                    <a href="/run-all" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-medium shadow-md shadow-emerald-600/20 transition-all">
+                    <button id="btn-run-all" onclick="handleRunAll(this)" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs sm:text-sm font-medium shadow-md shadow-emerald-600/20 transition-all">
                         <i class="ri-play-fill text-base"></i>
                         <span>立即全部签到</span>
-                    </a>
+                    </button>
                     <button onclick="openAddSiteModal()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs sm:text-sm font-medium shadow-md shadow-indigo-500/20 transition-all">
                         <i class="ri-add-line text-base"></i>
                         <span>添加新网站</span>
@@ -197,7 +175,7 @@
                             <th class="py-3.5 px-4 text-right">操作</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-200/70 dark:divide-slate-700/40">
+                    <tbody id="sites-desktop-body" class="divide-y divide-slate-200/70 dark:divide-slate-700/40">
                         {% for site in sites %}
                         <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                             <td class="py-3.5 px-4">
@@ -252,20 +230,20 @@
                                 {% endif %}
                             </td>
                             <td class="py-3.5 px-4">
-                                <a href="/toggle-site/{{ site.id }}" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' if site.enabled else 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700' }}">
+                                <button onclick="handleToggleSite({{ site.id }})" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' if site.enabled else 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700' }}">
                                     {{ "已启用" if site.enabled else "已停用" }}
-                                </a>
+                                </button>
                             </td>
                             <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                                <a href="/run-site/{{ site.id }}" title="执行签到" class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center">
+                                <button onclick="handleRunSite({{ site.id }}, this)" title="执行签到" class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center disabled:opacity-50">
                                     <i class="ri-play-line text-sm"></i>
-                                </a>
+                                </button>
                                 <button onclick="openEditModal({{ site.id }})" title="编辑配置" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-all inline-flex items-center">
                                     <i class="ri-edit-line text-sm"></i>
                                 </button>
-                                <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" title="删除站点" class="p-2 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 transition-all inline-flex items-center">
+                                <button onclick="handleDeleteSite({{ site.id }})" title="删除站点" class="p-2 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 transition-all inline-flex items-center">
                                     <i class="ri-delete-bin-line text-sm"></i>
-                                </a>
+                                </button>
                             </td>
                         </tr>
                         {% else %}
@@ -281,31 +259,31 @@
             </div>
 
             <!-- 移动端卡片视图 (md 以下屏幕显示) -->
-            <div class="block md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60">
+            <div id="sites-mobile-list" class="block md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60">
                 {% for site in sites %}
                 <div class="p-4 space-y-3 hover:bg-slate-50/80 dark:hover:bg-slate-700/20 transition-colors">
                     <div class="flex items-start justify-between gap-2">
                         <div>
                             <div class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-1.5">
                                 <span>{{ site.name }}</span>
-                                <a href="/toggle-site/{{ site.id }}" class="text-[11px] px-2 py-0.5 rounded-full font-medium {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' if site.enabled else 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }}">
+                                <button onclick="handleToggleSite({{ site.id }})" class="text-[11px] px-2 py-0.5 rounded-full font-medium {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' if site.enabled else 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }}">
                                     {{ "运行中" if site.enabled else "已停用" }}
-                                </a>
+                                </button>
                             </div>
                             <div class="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">
                                 {{ site.domain }}
                             </div>
                         </div>
                         <div class="flex items-center gap-1">
-                            <a href="/run-site/{{ site.id }}" class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform" title="签到">
+                            <button onclick="handleRunSite({{ site.id }}, this)" class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform disabled:opacity-50" title="签到">
                                 <i class="ri-play-fill text-sm"></i>
-                            </a>
+                            </button>
                             <button onclick="openEditModal({{ site.id }})" class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 active:scale-95 transition-transform" title="编辑">
                                 <i class="ri-edit-line text-sm"></i>
                             </button>
-                            <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" class="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 active:scale-95 transition-transform" title="删除">
+                            <button onclick="handleDeleteSite({{ site.id }})" class="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 active:scale-95 transition-transform" title="删除">
                                 <i class="ri-delete-bin-line text-sm"></i>
-                            </a>
+                            </button>
                         </div>
                     </div>
 
@@ -357,12 +335,12 @@
                 <div class="flex items-center gap-2">
                     <div class="w-2.5 h-2.5 rounded-full bg-cyan-500"></div>
                     <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">最近签到日志</h2>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">最新 {{ logs | length }} 条</span>
+                    <span id="logs-count-badge" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">最新 {{ logs | length }} 条</span>
                 </div>
-                <a href="/clear-logs" onclick="return confirm('确定清空所有历史签到日志吗？');" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200 dark:border-slate-600/50 transition-all">
+                <button onclick="handleClearLogs(this)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200 dark:border-slate-600/50 transition-all">
                     <i class="ri-delete-bin-2-line"></i>
                     <span>清空日志</span>
-                </a>
+                </button>
             </div>
 
             <!-- 桌面端日志表格 -->
@@ -376,7 +354,7 @@
                             <th class="py-3 px-4">执行详情</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-200/70 dark:divide-slate-700/40 text-xs font-mono">
+                    <tbody id="logs-desktop-body" class="divide-y divide-slate-200/70 dark:divide-slate-700/40 text-xs font-mono">
                         {% for log in logs %}
                         <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                             <td class="py-2.5 px-4 text-slate-400 whitespace-nowrap">{{ log.created_at }}</td>
@@ -404,7 +382,7 @@
             </div>
 
             <!-- 移动端日志卡片流 -->
-            <div class="block md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60 max-h-[380px] overflow-y-auto">
+            <div id="logs-mobile-list" class="block md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60 max-h-[380px] overflow-y-auto">
                 {% for log in logs %}
                 <div class="p-3.5 space-y-1.5 text-xs">
                     <div class="flex items-center justify-between">
@@ -449,7 +427,7 @@
                 </button>
             </div>
             
-            <form method="post" action="/add-site" class="overflow-y-auto p-5 space-y-4 text-sm flex-1">
+            <form id="addSiteForm" onsubmit="return handleAddSite(event)" class="overflow-y-auto p-5 space-y-4 text-sm flex-1">
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点名称</label>
                     <input type="text" name="name" required placeholder="例如: 国语视界"
@@ -529,7 +507,7 @@
 
                 <div class="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
                     <button type="button" onclick="closeModal('addSiteModal')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium">取消</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存站点</button>
+                    <button type="submit" id="btn-submit-add" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20 disabled:opacity-50">保存站点</button>
                 </div>
             </form>
         </div>
@@ -548,7 +526,7 @@
                 </button>
             </div>
             
-            <form method="post" action="/edit-site" class="overflow-y-auto p-5 space-y-4 text-sm flex-1">
+            <form id="editSiteForm" onsubmit="return handleEditSite(event)" class="overflow-y-auto p-5 space-y-4 text-sm flex-1">
                 <input type="hidden" name="id" id="edit_id">
 
                 <div>
@@ -639,7 +617,7 @@
 
                 <div class="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
                     <button type="button" onclick="closeModal('editSiteModal')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium">取消</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存修改</button>
+                    <button type="submit" id="btn-submit-edit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20 disabled:opacity-50">保存修改</button>
                 </div>
             </form>
         </div>
@@ -658,16 +636,16 @@
                 </button>
             </div>
             
-            <form method="post" action="/change-account" onsubmit="return validateAccountForm(this);" class="p-5 space-y-4 text-sm">
+            <form id="changeAccountForm" onsubmit="return handleChangeAccount(event)" class="p-5 space-y-4 text-sm">
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">用户名</label>
-                    <input type="text" name="new_username" value="{{ current_user }}" required
+                    <input type="text" name="new_username" id="acc_new_username" value="{{ current_user }}" required
                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">原密码 <span class="text-rose-500 dark:text-rose-400">*</span></label>
-                    <input type="password" name="old_password" required placeholder="验证当前密码"
+                    <input type="password" name="old_password" id="acc_old_pwd" required placeholder="验证当前密码"
                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
@@ -685,7 +663,7 @@
 
                 <div class="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
                     <button type="button" onclick="closeModal('changeAccountModal')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium">取消</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存设置</button>
+                    <button type="submit" id="btn-submit-account" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20 disabled:opacity-50">保存设置</button>
                 </div>
             </form>
         </div>
@@ -694,7 +672,445 @@
     <!-- JS 逻辑控制 -->
     <script>
         const templatesMeta = {{ site_templates | tojson }};
-        const allSites = {{ sites | tojson }};
+        let allSites = {{ sites | tojson }};
+
+        // ========== Toast 消息通知组件 ==========
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const isSuccess = type === 'success';
+            
+            const bgClass = isSuccess 
+                ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200 shadow-emerald-950/30' 
+                : 'bg-rose-950/90 border-rose-500/40 text-rose-200 shadow-rose-950/30';
+            const iconClass = isSuccess ? 'ri-checkbox-circle-fill text-emerald-400' : 'ri-error-warning-fill text-rose-400';
+            
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl text-xs sm:text-sm font-medium transition-all duration-300 transform -translate-y-2 opacity-0 ${bgClass}`;
+            toast.innerHTML = `<i class="${iconClass} text-lg shrink-0"></i><span class="break-all leading-snug">${escapeHtml(message)}</span>`;
+            
+            container.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('-translate-y-2', 'opacity-0');
+            });
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function renderStatusBadge(status) {
+            status = status || '等待签到';
+            if (status.includes('成功')) {
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-checkbox-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
+            } else if (status.includes('失败') || status.includes('失效')) {
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-close-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
+            }
+            return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-600/50">${escapeHtml(status)}</span>`;
+        }
+
+        // ========== DOM 局部异步渲染 ==========
+        function renderSiteDesktopRow(site) {
+            const domainLink = site.domain ? `<a href="${encodeURI(site.domain)}" target="_blank" class="hover:text-indigo-500"><i class="ri-external-link-line"></i></a>` : '';
+            const scheduleBadge = site.schedule_type === 'fixed'
+                ? `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20"><i class="ri-alarm-line mr-1"></i>固定 ${escapeHtml(site.schedule_time || '09:00')}</span>`
+                : `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20"><i class="ri-shuffle-line mr-1"></i>每日随机</span>`;
+
+            return `
+            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
+                <td class="py-3.5 px-4">
+                    <div class="font-medium text-slate-900 dark:text-white">${escapeHtml(site.name)}</div>
+                    <div class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                        <span>${escapeHtml(site.domain || "无地址")}</span>
+                        ${domainLink}
+                    </div>
+                </td>
+                <td class="py-3.5 px-4">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
+                        <i class="ri-key-2-line mr-1 text-slate-400"></i>
+                        ${site.auth_type === 'cookie' ? 'Cookies' : '账号密码'}
+                    </span>
+                </td>
+                <td class="py-3.5 px-4">
+                    ${scheduleBadge}
+                </td>
+                <td class="py-3.5 px-4">
+                    <div class="text-xs font-mono ${!site.last_run ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}">
+                        ${escapeHtml(site.last_run_display || site.last_run || "未执行")}
+                    </div>
+                </td>
+                <td class="py-3.5 px-4">
+                    <div class="text-xs font-mono ${!site.enabled ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400 font-semibold'}">
+                        ${escapeHtml(site.next_run_display || "待计算")}
+                    </div>
+                </td>
+                <td class="py-3.5 px-4">
+                    ${renderStatusBadge(site.last_status)}
+                </td>
+                <td class="py-3.5 px-4">
+                    <button onclick="handleToggleSite(${site.id})" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${site.enabled ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+                        ${site.enabled ? '已启用' : '已停用'}
+                    </button>
+                </td>
+                <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                    <button onclick="handleRunSite(${site.id}, this)" title="执行签到" class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center disabled:opacity-50">
+                        <i class="ri-play-line text-sm"></i>
+                    </button>
+                    <button onclick="openEditModal(${site.id})" title="编辑配置" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-all inline-flex items-center">
+                        <i class="ri-edit-line text-sm"></i>
+                    </button>
+                    <button onclick="handleDeleteSite(${site.id})" title="删除站点" class="p-2 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 transition-all inline-flex items-center">
+                        <i class="ri-delete-bin-line text-sm"></i>
+                    </button>
+                </td>
+            </tr>`;
+        }
+
+        function renderSiteMobileCard(site) {
+            return `
+            <div class="p-4 space-y-3 hover:bg-slate-50/80 dark:hover:bg-slate-700/20 transition-colors">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <div class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-1.5">
+                            <span>${escapeHtml(site.name)}</span>
+                            <button onclick="handleToggleSite(${site.id})" class="text-[11px] px-2 py-0.5 rounded-full font-medium ${site.enabled ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}">
+                                ${site.enabled ? '运行中' : '已停用'}
+                            </button>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">
+                            ${escapeHtml(site.domain || '')}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="handleRunSite(${site.id}, this)" class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform disabled:opacity-50" title="签到">
+                            <i class="ri-play-fill text-sm"></i>
+                        </button>
+                        <button onclick="openEditModal(${site.id})" class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 active:scale-95 transition-transform" title="编辑">
+                            <i class="ri-edit-line text-sm"></i>
+                        </button>
+                        <button onclick="handleDeleteSite(${site.id})" class="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 active:scale-95 transition-transform" title="删除">
+                            <i class="ri-delete-bin-line text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 text-xs">
+                    <span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600/40">
+                        ${site.auth_type === 'cookie' ? 'Cookies' : '账号密码'}
+                    </span>
+                    ${site.schedule_type === 'fixed'
+                        ? `<span class="px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">固定 ${escapeHtml(site.schedule_time || '09:00')}</span>`
+                        : `<span class="px-2 py-0.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">每日随机</span>`
+                    }
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-1">
+                    <div class="flex justify-between items-center text-slate-500 dark:text-slate-400">
+                        <span>上次执行</span>
+                        <span class="font-mono ${!site.last_run ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}">${escapeHtml(site.last_run_display || site.last_run || "未执行")}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-500 dark:text-slate-400">
+                        <span>下次执行</span>
+                        <span class="font-mono ${!site.enabled ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400 font-medium'}">${escapeHtml(site.next_run_display || "待计算")}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-500 dark:text-slate-400">最近状态</span>
+                        <span class="truncate max-w-[180px] ${site.last_status && site.last_status.includes('成功') ? 'text-emerald-600 dark:text-emerald-400' : (site.last_status && (site.last_status.includes('失败') || site.last_status.includes('失效')) ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300')}">
+                            ${escapeHtml(site.last_status || '等待签到')}
+                        </span>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function renderLogDesktopRow(log) {
+            const isSuccess = log.status === '成功';
+            return `
+            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
+                <td class="py-2.5 px-4 text-slate-400 whitespace-nowrap">${escapeHtml(log.created_at)}</td>
+                <td class="py-2.5 px-4 font-sans font-medium text-slate-900 dark:text-white">${escapeHtml(log.site_name)}</td>
+                <td class="py-2.5 px-4 font-sans">
+                    <span class="inline-flex items-center ${isSuccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-medium">
+                        <i class="${isSuccess ? 'ri-check-line' : 'ri-close-line'} mr-1"></i>${isSuccess ? '成功' : '失败'}
+                    </span>
+                </td>
+                <td class="py-2.5 px-4 font-sans text-slate-600 dark:text-slate-300 break-all">${escapeHtml(log.message)}</td>
+            </tr>`;
+        }
+
+        function renderLogMobileCard(log) {
+            const isSuccess = log.status === '成功';
+            return `
+            <div class="p-3.5 space-y-1.5 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-slate-900 dark:text-white">${escapeHtml(log.site_name)}</span>
+                    <span class="px-2 py-0.5 rounded-full ${isSuccess ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'} text-[11px] font-medium">
+                        ${isSuccess ? '✓ 成功' : '✗ 失败'}
+                    </span>
+                </div>
+                <div class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed break-all">
+                    ${escapeHtml(log.message)}
+                </div>
+                <div class="text-slate-400 font-mono text-[11px]">
+                    ${escapeHtml(log.created_at)}
+                </div>
+            </div>`;
+        }
+
+        // ========== Fetch API 异步数据刷新 ==========
+        async function refreshDashboard() {
+            try {
+                const res = await fetch('/api/dashboard-data', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.ok) return;
+
+                allSites = data.sites;
+                const sites = data.sites;
+                const logs = data.logs;
+
+                // 1. 更新顶部指标
+                document.getElementById('stat-total-sites').textContent = sites.length;
+                document.getElementById('stat-active-sites').textContent = sites.filter(s => s.enabled).length;
+
+                // 2. 渲染站点列表 (桌面端与移动端)
+                const desktopTbody = document.getElementById('sites-desktop-body');
+                const mobileList = document.getElementById('sites-mobile-list');
+
+                if (sites.length === 0) {
+                    desktopTbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="py-12 text-center text-slate-400">
+                                <i class="ri-inbox-line text-4xl mb-2 block text-slate-300 dark:text-slate-600"></i>
+                                暂无站点配置，请点击右上角「添加新网站」
+                            </td>
+                        </tr>`;
+                    mobileList.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">暂无站点配置，请点击顶部按钮添加</div>`;
+                } else {
+                    desktopTbody.innerHTML = sites.map(renderSiteDesktopRow).join('');
+                    mobileList.innerHTML = sites.map(renderSiteMobileCard).join('');
+                }
+
+                // 3. 渲染日志列表 (桌面端与移动端)
+                document.getElementById('logs-count-badge').textContent = `最新 ${logs.length} 条`;
+                const logsDesktopBody = document.getElementById('logs-desktop-body');
+                const logsMobileList = document.getElementById('logs-mobile-list');
+
+                if (logs.length === 0) {
+                    logsDesktopBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400 font-sans">暂无历史日志</td></tr>`;
+                    logsMobileList.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">暂无日志</div>`;
+                } else {
+                    logsDesktopBody.innerHTML = logs.map(renderLogDesktopRow).join('');
+                    logsMobileList.innerHTML = logs.map(renderLogMobileCard).join('');
+                }
+            } catch (err) {
+                console.error('refreshDashboard error:', err);
+            }
+        }
+
+        // ========== Fetch API 异步业务操作 ==========
+
+        // 1. 执行单个站点签到
+        async function handleRunSite(siteId, btn) {
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-sm"></i>`;
+            try {
+                const res = await fetch(`/run-site/${siteId}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                showToast(data.message || (data.ok ? '签到执行完成' : '签到执行失败'), data.ok ? 'success' : 'error');
+                await refreshDashboard();
+            } catch (err) {
+                showToast('网络请求异常: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        // 2. 立即全部签到
+        async function handleRunAll(btn) {
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-base"></i><span>执行中...</span>`;
+            try {
+                const res = await fetch('/run-all', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                showToast(data.message || '全部签到执行完毕', data.ok ? 'success' : 'error');
+                await refreshDashboard();
+            } catch (err) {
+                showToast('网络请求异常: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        // 3. 切换启用/禁用状态
+        async function handleToggleSite(siteId) {
+            try {
+                const res = await fetch(`/toggle-site/${siteId}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                await refreshDashboard();
+            } catch (err) {
+                showToast('切换失败: ' + err.message, 'error');
+            }
+        }
+
+        // 4. 删除站点
+        async function handleDeleteSite(siteId) {
+            if (!confirm('确定彻底删除该站点吗？')) return;
+            try {
+                const res = await fetch(`/delete-site/${siteId}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                showToast(data.message || '站点已删除', 'success');
+                await refreshDashboard();
+            } catch (err) {
+                showToast('删除失败: ' + err.message, 'error');
+            }
+        }
+
+        // 5. 清空历史日志
+        async function handleClearLogs(btn) {
+            if (!confirm('确定清空所有历史签到日志吗？')) return;
+            try {
+                const res = await fetch('/clear-logs', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                showToast(data.message || '日志已清空', 'success');
+                await refreshDashboard();
+            } catch (err) {
+                showToast('清空日志失败: ' + err.message, 'error');
+            }
+        }
+
+        // 6. 添加站点表单提交 (Fetch API)
+        async function handleAddSite(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitBtn = document.getElementById('btn-submit-add');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+
+            try {
+                const formData = new FormData(form);
+                const res = await fetch('/add-site', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showToast(data.message || '站点添加成功', 'success');
+                    closeModal('addSiteModal');
+                    form.reset();
+                    updateTemplateUI('add', true);
+                    toggleScheduleFields('add');
+                    await refreshDashboard();
+                } else {
+                    showToast(data.message || '添加失败', 'error');
+                }
+            } catch (err) {
+                showToast('请求失败: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存站点';
+            }
+            return false;
+        }
+
+        // 7. 编辑站点表单提交 (Fetch API)
+        async function handleEditSite(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitBtn = document.getElementById('btn-submit-edit');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+
+            try {
+                const formData = new FormData(form);
+                const res = await fetch('/edit-site', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showToast(data.message || '配置修改成功', 'success');
+                    closeModal('editSiteModal');
+                    await refreshDashboard();
+                } else {
+                    showToast(data.message || '修改失败', 'error');
+                }
+            } catch (err) {
+                showToast('请求失败: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存修改';
+            }
+            return false;
+        }
+
+        // 8. 修改管理员账号设置 (Fetch API)
+        async function handleChangeAccount(event) {
+            event.preventDefault();
+            const form = event.target;
+            if (!validateAccountForm(form)) return false;
+
+            const submitBtn = document.getElementById('btn-submit-account');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+
+            try {
+                const formData = new FormData(form);
+                const res = await fetch('/change-account', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showToast(data.message || '账号设置保存成功', 'success');
+                    if (data.new_username) {
+                        document.getElementById('current-user-display').textContent = data.new_username;
+                    }
+                    closeModal('changeAccountModal');
+                    document.getElementById('acc_old_pwd').value = '';
+                    document.getElementById('acc_new_pwd').value = '';
+                    document.getElementById('acc_confirm_pwd').value = '';
+                } else {
+                    showToast(data.message || '修改失败', 'error');
+                }
+            } catch (err) {
+                showToast('请求失败: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存设置';
+            }
+            return false;
+        }
 
         // ========== 主题系统控制 ==========
         function applyTheme(theme) {
@@ -741,7 +1157,6 @@
             if (menu) menu.classList.toggle('hidden');
         }
 
-        // 点击页面其他区域关闭下拉菜单
         document.addEventListener('click', (e) => {
             const menu = document.getElementById('theme-dropdown-menu');
             const container = menu?.parentElement;
@@ -750,14 +1165,12 @@
             }
         });
 
-        // 监听系统主题变化事件
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
             if ((localStorage.getItem('theme') || 'system') === 'system') {
                 applyTheme('system');
             }
         });
 
-        // 初始化指示状态
         applyTheme(localStorage.getItem('theme') || 'system');
 
         // ========== 模态弹窗系统 ==========
@@ -777,14 +1190,12 @@
             }
         }
 
-        // 点击遮罩层外侧关闭
         document.querySelectorAll('[id$="Modal"]').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeModal(modal.id);
             });
         });
 
-        // 按 ESC 键关闭
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.querySelectorAll('[id$="Modal"]').forEach(m => m.classList.add('hidden'));
@@ -862,7 +1273,7 @@
             const p1 = document.getElementById('acc_new_pwd').value;
             const p2 = document.getElementById('acc_confirm_pwd').value;
             if (p1 && p1 !== p2) {
-                alert('两次输入的新密码不一致，请重新确认！');
+                showToast('两次输入的新密码不一致，请重新确认！', 'error');
                 return false;
             }
             return true;

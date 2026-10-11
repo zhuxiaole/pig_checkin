@@ -1,7 +1,7 @@
 import os
 import datetime
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -41,6 +41,27 @@ def login_action(request: Request, username: str = Form(...), password: str = Fo
             return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(request, "login.html", {"error": "用户名或密码错误"})
 
+def is_api_request(request: Request) -> bool:
+    accept = request.headers.get("Accept", "")
+    return "application/json" in accept or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+def get_dashboard_state():
+    with get_db() as conn:
+        sites_cur = conn.execute("SELECT * FROM sites ORDER BY id ASC").fetchall()
+        sites = [dict(s) for s in sites_cur]
+        for s in sites:
+            if not s.get("enabled"):
+                s["next_run_display"] = "已停用"
+            elif s.get("next_run"):
+                s["next_run_display"] = str(s["next_run"])
+            else:
+                s["next_run_display"] = "待计算"
+            s["last_run_display"] = str(s.get("last_run")) if s.get("last_run") else "未执行"
+
+        logs_cur = conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 50").fetchall()
+        logs = [dict(l) for l in logs_cur]
+    return sites, logs
+
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
@@ -57,19 +78,27 @@ def change_account(
 ):
     new_username = new_username.strip()
     if not new_username:
+        if is_api_request(request):
+            return JSONResponse({"ok": False, "message": "用户名不能为空"}, status_code=400)
         return RedirectResponse(url="/?pwd_err=用户名不能为空", status_code=303)
 
     if new_password and new_password != confirm_password:
+        if is_api_request(request):
+            return JSONResponse({"ok": False, "message": "两次输入的新密码不一致"}, status_code=400)
         return RedirectResponse(url="/?pwd_err=两次输入的新密码不一致", status_code=303)
 
     with get_db() as conn:
         row = conn.execute("SELECT * FROM users WHERE username = ?", (user,)).fetchone()
         if not row or not verify_password(row["password"], old_password):
+            if is_api_request(request):
+                return JSONResponse({"ok": False, "message": "原密码不正确"}, status_code=400)
             return RedirectResponse(url="/?pwd_err=原密码不正确", status_code=303)
 
         if new_username != user:
             conflict = conn.execute("SELECT id FROM users WHERE username = ?", (new_username,)).fetchone()
             if conflict:
+                if is_api_request(request):
+                    return JSONResponse({"ok": False, "message": "新用户名已被占用"}, status_code=400)
                 return RedirectResponse(url="/?pwd_err=新用户名已被占用", status_code=303)
 
         if new_password.strip():
@@ -85,6 +114,8 @@ def change_account(
         conn.commit()
 
     request.session["user"] = new_username
+    if is_api_request(request):
+        return JSONResponse({"ok": True, "message": "账号信息修改成功", "new_username": new_username})
     return RedirectResponse(url="/?pwd_ok=账号信息修改成功", status_code=303)
 
 @app.post("/change-password")
@@ -96,25 +127,23 @@ def change_password(
 ):
     return change_account(request, new_username=user, old_password=old_password, new_password=new_password, user=user)
 
+@app.get("/api/dashboard-data")
+def api_dashboard_data(user: str = Depends(get_current_user)):
+    sites, logs = get_dashboard_state()
+    return {
+        "ok": True,
+        "current_user": user,
+        "sites": sites,
+        "logs": logs
+    }
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     user = request.session.get("user")
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     
-    with get_db() as conn:
-        sites_cur = conn.execute("SELECT * FROM sites ORDER BY id ASC").fetchall()
-        sites = [dict(s) for s in sites_cur]
-        for s in sites:
-            if not s.get("enabled"):
-                s["next_run_display"] = "已停用"
-            elif s.get("next_run"):
-                s["next_run_display"] = str(s["next_run"])
-            else:
-                s["next_run_display"] = "待计算"
-        logs_cur = conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 50").fetchall()
-        logs = [dict(l) for l in logs_cur]
-    
+    sites, logs = get_dashboard_state()
     return templates.TemplateResponse(request, "dashboard.html", {
         "current_user": user,
         "sites": sites,
@@ -147,6 +176,8 @@ def add_site(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
         """, (name, site_type, domain, auth_type, cookies, username, password, schedule_type, schedule_time, max_retries, retry_interval, initial_next_run))
         conn.commit()
+    if is_api_request(request):
+        return JSONResponse({"ok": True, "message": f"成功添加站点 [{name}]"})
     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/edit-site")
@@ -176,27 +207,35 @@ def edit_site(
             WHERE id = ?
         """, (name, site_type, domain, auth_type, cookies, username, password, schedule_type, schedule_time, max_retries, retry_interval, enabled, initial_next_run, id))
         conn.commit()
+    if is_api_request(request):
+        return JSONResponse({"ok": True, "message": f"成功更新站点 [{name}] 配置"})
     return RedirectResponse(url="/", status_code=303)
 
 @app.get("/toggle-site/{site_id}")
-def toggle_site(site_id: int, user: str = Depends(get_current_user)):
+def toggle_site(request: Request, site_id: int, user: str = Depends(get_current_user)):
     with get_db() as conn:
         conn.execute("UPDATE sites SET enabled = 1 - enabled WHERE id = ?", (site_id,))
         conn.commit()
+    if is_api_request(request):
+        return JSONResponse({"ok": True, "message": "站点状态已更新"})
     return RedirectResponse(url="/", status_code=303)
 
 @app.get("/delete-site/{site_id}")
-def delete_site(site_id: int, user: str = Depends(get_current_user)):
+def delete_site(request: Request, site_id: int, user: str = Depends(get_current_user)):
     with get_db() as conn:
         conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
         conn.commit()
+    if is_api_request(request):
+        return JSONResponse({"ok": True, "message": "站点已成功删除"})
     return RedirectResponse(url="/", status_code=303)
 
 @app.get("/run-site/{site_id}")
-def run_site(site_id: int, user: str = Depends(get_current_user)):
+def run_site(request: Request, site_id: int, user: str = Depends(get_current_user)):
     with get_db() as conn:
         site = conn.execute("SELECT * FROM sites WHERE id = ?", (site_id,)).fetchone()
         if not site:
+            if is_api_request(request):
+                return JSONResponse({"ok": False, "message": "站点不存在"}, status_code=404)
             return RedirectResponse(url="/", status_code=303)
         site_dict = dict(site)
 
@@ -222,16 +261,24 @@ def run_site(site_id: int, user: str = Depends(get_current_user)):
         )
         conn.commit()
 
+    if is_api_request(request):
+        return JSONResponse({"ok": ok, "message": message, "status": status_text, "last_run": now_str})
     return RedirectResponse(url="/", status_code=303)
 
 @app.get("/run-all")
-def run_all(user: str = Depends(get_current_user)):
+def run_all(request: Request, user: str = Depends(get_current_user)):
     with get_db() as conn:
         sites = conn.execute("SELECT * FROM sites WHERE enabled = 1").fetchall()
 
+    success_count = 0
+    fail_count = 0
     for site in sites:
         site_dict = dict(site)
         ok, message = execute_checkin(site_dict)
+        if ok:
+            success_count += 1
+        else:
+            fail_count += 1
         status_text = "签到成功" if ok else "签到失败"
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with get_db() as conn:
@@ -252,11 +299,20 @@ def run_all(user: str = Depends(get_current_user)):
             )
             conn.commit()
 
+    if is_api_request(request):
+        return JSONResponse({
+            "ok": True,
+            "message": f"全部签到完成：成功 {success_count} 个，失败 {fail_count} 个",
+            "success_count": success_count,
+            "fail_count": fail_count
+        })
     return RedirectResponse(url="/", status_code=303)
 
 @app.get("/clear-logs")
-def clear_logs(user: str = Depends(get_current_user)):
+def clear_logs(request: Request, user: str = Depends(get_current_user)):
     with get_db() as conn:
         conn.execute("DELETE FROM logs")
         conn.commit()
+    if is_api_request(request):
+        return JSONResponse({"ok": True, "message": "签到日志已清空"})
     return RedirectResponse(url="/", status_code=303)
