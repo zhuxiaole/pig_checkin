@@ -586,6 +586,15 @@
                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
 
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">定时开关</label>
+                        <select name="enabled" id="edit_enabled"
+                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                            <option value="1">开启</option>
+                            <option value="0">关闭</option>
+                        </select>
+                    </div>
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">定时策略</label>
@@ -613,15 +622,6 @@
                             <input type="number" name="retry_interval" id="edit_retry_interval" min="1" max="3600"
                                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                         </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">定时开关</label>
-                        <select name="enabled" id="edit_enabled"
-                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-                            <option value="1">已开启 (正常执行定时签到)</option>
-                            <option value="0">已关闭 (暂停自动签到)</option>
-                        </select>
                     </div>
 
                     <div>
