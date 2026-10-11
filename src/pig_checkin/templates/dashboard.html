@@ -497,7 +497,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">固定认证方式</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">认证方式</label>
                         <div id="add_auth_display" class="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-slate-500 dark:text-slate-400 text-xs">
                             Cookies 认证
                         </div>
@@ -625,7 +625,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">固定认证方式</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">认证方式</label>
                         <div id="edit_auth_display" class="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-slate-500 dark:text-slate-400 text-xs">
                             Cookies 认证
                         </div>
@@ -1282,7 +1282,9 @@
             
             const authDisplay = document.getElementById(prefix + '_auth_display');
             if (authDisplay) {
-                authDisplay.textContent = meta.auth_label || (meta.auth_type === 'cookie' ? 'Cookies 认证' : '用户名 & 密码认证');
+                let label = meta.auth_label || (meta.auth_type === 'cookie' ? 'Cookies 认证' : '账号 & 密码认证');
+                label = label.replace(/\s*[\(（][^\)）]*[\)）]/g, '');
+                authDisplay.textContent = label;
             }
 
             if (changeDomain && meta.default_domain) {
