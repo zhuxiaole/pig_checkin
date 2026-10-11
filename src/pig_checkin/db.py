@@ -92,16 +92,6 @@ def init_db():
                 ("admin", hash_password("admin123"))
             )
 
-        # 初始默认站点 cnlang.org (仅全新安装、表内没有任何站点时创建)
-        site_count = conn.execute("SELECT COUNT(*) FROM sites").fetchone()[0]
-        if site_count == 0:
-            from pig_checkin.scheduler import compute_initial_next_run
-            init_next = compute_initial_next_run("random", "09:00")
-            conn.execute("""
-                INSERT INTO sites (name, site_type, auth_type, domain, schedule_type, schedule_time, max_retries, retry_interval, enabled, next_run, last_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
-            """, ("cnlang.org", "cnlang", "cookie", "https://cnlang.org", "random", "09:00", 3, 60, init_next))
-
         # 自动加密现有历史明文凭据 (cookies, username, password)
         from pig_checkin.crypto import encrypt_text, is_encrypted
         site_rows = conn.execute("SELECT id, cookies, username, password FROM sites").fetchall()

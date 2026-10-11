@@ -2,6 +2,7 @@ import os
 import datetime
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -13,6 +14,10 @@ from pig_checkin.templates_config import SITE_TEMPLATES, get_template_auth_type
 
 app = FastAPI(title="Pig Checkin Service")
 app.add_middleware(SessionMiddleware, secret_key="pig-checkin-super-secret-key-lazy-is-best")
+
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
