@@ -128,14 +128,31 @@ def checkin_discuz_dsu_paulsign(
         session.cookies.update(new_cookies)
         res_text = content
 
-    if "您需要先登录才能继续本操作" in res_text or "<title>登录" in res_text or ("title=\"访问我的空间\"" not in res_text and "member.php?mod=logging" in res_text):
-        logger.warning("[%s] 登录凭据无效或已过期", site_label)
+    # 统一精准的 Discuz 登录状态判定 (利用全局 UID、退出链接与未登录提示)
+    uid_match = re.search(r"discuz_uid\s*=\s*['\"]?(\d+)['\"]?", res_text)
+    discuz_uid = int(uid_match.group(1)) if uid_match else None
+    has_logout = "action=logout" in res_text
+
+    is_logged_in = (discuz_uid and discuz_uid > 0) or has_logout
+    if not is_logged_in or "您需要先登录才能继续本操作" in res_text or "<title>登录" in res_text:
+        logger.warning("[%s] 登录凭据无效或已过期 (uid=%s, has_logout=%s)", site_label, discuz_uid, has_logout)
         return False, "Cookies 已失效或未登录，请更新 Cookies"
 
-    user_match = re.search(r'title="访问我的空间">(.*?)</a>', res_text) or re.search(r'class="vwmy"><a [^>]*>(.*?)</a>', res_text)
+    # 多模板通用提取用户名
+    user_match = (
+        re.search(r'title="访问我的空间">(.*?)</a>', res_text) or
+        re.search(r'class="vwmy"><a [^>]*>(.*?)</a>', res_text) or
+        re.search(r'<a [^>]*space-uid-\d+\.html[^>]*title="([^"]+)"', res_text) or
+        re.search(r'<span class="user_avt">([^<]+)</span>', res_text)
+    )
     user_name = user_match.group(1).strip() if user_match else site_dict.get("name", "用户")
 
-    if "今日已签" in res_text or "您今天已经签到过了" in res_text or "您今日已经签到" in res_text:
+    if (
+        "今日已签" in res_text or
+        "您今天已经签到过了" in res_text or
+        "您今日已经签到" in res_text or
+        "已经签到过了" in res_text
+    ):
         logger.info("[%s] 用户 [%s] 今日已完成签到，无需重复提交", site_label, user_name)
         return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
 
