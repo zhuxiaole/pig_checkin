@@ -2,9 +2,12 @@ import time
 import random
 import threading
 import datetime
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from pig_checkin.db import get_db
 from pig_checkin.checkin import execute_checkin
+
+logger = logging.getLogger("pig_checkin")
 
 # ponytail: 固定 3 个 worker 控制单机并发与浏览器实例数；超千站再上分布式队列
 executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="checkin_worker")
@@ -102,6 +105,7 @@ def _scheduler_loop():
                 with _lock:
                     if sid not in _running_site_ids:
                         _running_site_ids.add(sid)
+                        logger.info("⏰ [定时调度] 触发站点任务: ID=%d 到达计划时刻 (%s)，提交执行", sid, now_str)
                         executor.submit(run_site_checkin, sid)
         except Exception:
             pass

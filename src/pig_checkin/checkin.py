@@ -2,6 +2,7 @@ import os
 import re
 import time
 import random
+import logging
 import requests
 from bs4 import BeautifulSoup
 from typing import Tuple
@@ -9,7 +10,20 @@ from urllib.parse import urlparse
 
 os.environ.setdefault("INVISIBLE_PLAYWRIGHT_CACHE_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".cache", "inv_pw")))
 
+logger = logging.getLogger("pig_checkin")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# 单次网络请求超时时间 (秒，支持 PIG_REQUEST_TIMEOUT 环境变量覆盖，默认 30 秒)
+REQUEST_TIMEOUT = int(os.environ.get("PIG_REQUEST_TIMEOUT", 30))
+# 无痕浏览器页面加载超时 (毫秒，支持 PIG_PLAYWRIGHT_TIMEOUT 覆盖，默认 35000 毫秒)
+PLAYWRIGHT_TIMEOUT = int(os.environ.get("PIG_PLAYWRIGHT_TIMEOUT", 35000))
 
 def parse_cookies_str(cookie_str: str) -> dict:
     cookies = {}
@@ -31,6 +45,7 @@ def is_cloudflare_challenge(text: str, status_code: int = 200) -> bool:
 def solve_with_invisible_playwright(url: str, cookies: dict = None) -> Tuple[bool, str, dict]:
     try:
         from invisible_playwright import InvisiblePlaywright
+        logger.info("[Playwright] 启动无痕浏览器访问页面: %s (超时限制: %d 秒)", url, PLAYWRIGHT_TIMEOUT // 1000)
         with InvisiblePlaywright(headless=True) as pw:
             page = pw.new_page()
             if cookies:
@@ -39,12 +54,14 @@ def solve_with_invisible_playwright(url: str, cookies: dict = None) -> Tuple[boo
                     page.context.add_cookies(pw_cookies)
                 except Exception:
                     pass
-            page.goto(url, wait_until="networkidle", timeout=30000)
+            page.goto(url, wait_until="networkidle", timeout=PLAYWRIGHT_TIMEOUT)
             page.wait_for_timeout(3000)
             content = page.content()
             new_cookies = {c["name"]: c["value"] for c in page.context.cookies()}
+            logger.info("[Playwright] 页面渲染完毕，已获取新会话状态及 %d 个 Cookies", len(new_cookies))
             return True, content, new_cookies
     except Exception as e:
+        logger.error("[Playwright] 无头浏览器执行失败或超时: %s", e)
         return False, f"invisible_playwright 执行失败: {e}", {}
 
 def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
@@ -77,9 +94,14 @@ def checkin_discuz_dsu_paulsign(
     session.headers.update(headers)
     session.cookies.update(cookies)
 
+    logger.info("[%s] 发起 GET 访问签到页面: %s", site_label, sign_page_url)
     try:
-        res = session.get(sign_page_url, timeout=15)
+        res = session.get(sign_page_url, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.Timeout:
+        logger.error("[%s] 访问签到页面超时 (超过 %d 秒): %s", site_label, REQUEST_TIMEOUT, sign_page_url)
+        return False, f"网络请求超时 (超过 {REQUEST_TIMEOUT} 秒)"
     except Exception as e:
+        logger.error("[%s] 访问签到页面网络失败: %s", site_label, e)
         return False, f"网络请求失败: {e}"
 
     # 自动识别并解码 GBK / GB2312 编码
@@ -97,19 +119,24 @@ def checkin_discuz_dsu_paulsign(
         res_text = res.text
 
     if is_cloudflare_challenge(res_text, res.status_code):
+        logger.warning("[%s] 检测到 Cloudflare 防护拦截 (HTTP %d)，启动无头浏览器处理...", site_label, res.status_code)
         ok, content, new_cookies = solve_with_invisible_playwright(sign_page_url, cookies)
         if not ok:
+            logger.error("[%s] 无头浏览器绕过 Cloudflare 失败: %s", site_label, content)
             return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
+        logger.info("[%s] 无头浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_label)
         session.cookies.update(new_cookies)
         res_text = content
 
     if "您需要先登录才能继续本操作" in res_text or "<title>登录" in res_text or ("title=\"访问我的空间\"" not in res_text and "member.php?mod=logging" in res_text):
+        logger.warning("[%s] 登录凭据无效或已过期", site_label)
         return False, "Cookies 已失效或未登录，请更新 Cookies"
 
     user_match = re.search(r'title="访问我的空间">(.*?)</a>', res_text) or re.search(r'class="vwmy"><a [^>]*>(.*?)</a>', res_text)
     user_name = user_match.group(1).strip() if user_match else site_dict.get("name", "用户")
 
     if "今日已签" in res_text or "您今天已经签到过了" in res_text or "您今日已经签到" in res_text:
+        logger.info("[%s] 用户 [%s] 今日已完成签到，无需重复提交", site_label, user_name)
         return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
 
     soup = BeautifulSoup(res_text, "html.parser")
@@ -121,6 +148,7 @@ def checkin_discuz_dsu_paulsign(
         if fh_match:
             formhash = fh_match.group(1)
         else:
+            logger.error("[%s] 未能从页面中提取到 formhash", site_label)
             return False, "未能提取到 formhash"
 
     greetings = [
@@ -141,6 +169,7 @@ def checkin_discuz_dsu_paulsign(
         "fastreply": "0"
     }
 
+    logger.info("[%s] 提交签到表单 POST: %s (formhash: %s, todaysay: %s)", site_label, post_url, formhash, todaysay)
     try:
         if encoding in ("gbk", "gb2312"):
             import urllib.parse
@@ -149,10 +178,10 @@ def checkin_discuz_dsu_paulsign(
                 post_url,
                 data=data_encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
-                timeout=15
+                timeout=REQUEST_TIMEOUT
             )
         else:
-            sign_res = session.post(post_url, data=payload, timeout=15)
+            sign_res = session.post(post_url, data=payload, timeout=REQUEST_TIMEOUT)
 
         try:
             sign_text = sign_res.content.decode(encoding, errors="replace")
@@ -166,12 +195,19 @@ def checkin_discuz_dsu_paulsign(
             msg = "签到提交完成"
 
         if "签到成功" in sign_text or "恭喜你" in sign_text or "获得" in sign_text or "奖励" in sign_text or "今日已签" in sign_text:
+            logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, msg)
             return True, f"用户 [{user_name}] 签到成功: {msg}"
         elif "已经签到过了" in sign_text or "今天已经签到" in sign_text:
+            logger.info("[%s] 用户 [%s] 今日已签到过: %s", site_label, user_name, msg)
             return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
         else:
+            logger.warning("[%s] 签到返回提示: %s", site_label, msg)
             return False, f"签到返回提示: {msg}"
+    except requests.exceptions.Timeout:
+        logger.error("[%s] 提交签到表单超时 (超过 %d 秒)", site_label, REQUEST_TIMEOUT)
+        return False, f"签到提交超时 (超过 {REQUEST_TIMEOUT} 秒)"
     except Exception as e:
+        logger.error("[%s] 提交签到请求失败: %s", site_label, e)
         return False, f"签到请求提交失败: {e}"
 
 def checkin_cnlang(site_dict: dict) -> Tuple[bool, str]:
@@ -215,16 +251,25 @@ def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
     session.cookies.update(cookies)
 
     attendance_url = f"{domain}/attendance.php"
+    site_name = site_dict.get("name", "audiences")
 
+    logger.info("[%s] 发起 GET 访问 NexusPHP 签到页: %s", site_name, attendance_url)
     try:
-        res = session.get(attendance_url, timeout=15)
+        res = session.get(attendance_url, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.Timeout:
+        logger.error("[%s] 访问签到页超时 (超过 %d 秒): %s", site_name, REQUEST_TIMEOUT, attendance_url)
+        return False, f"网络请求超时 (超过 {REQUEST_TIMEOUT} 秒)"
     except Exception as e:
+        logger.error("[%s] 访问签到页网络失败: %s", site_name, e)
         return False, f"网络请求失败: {e}"
 
     if is_cloudflare_challenge(res.text, res.status_code):
+        logger.warning("[%s] 检测到 Cloudflare 拦截 (HTTP %d)，启动无头浏览器处理...", site_name, res.status_code)
         ok, content, new_cookies = solve_with_invisible_playwright(attendance_url, cookies)
         if not ok:
+            logger.error("[%s] 无头浏览器绕过失败: %s", site_name, content)
             return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
+        logger.info("[%s] 无头浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_name)
         session.cookies.update(new_cookies)
         res_text = content
     else:
@@ -232,6 +277,7 @@ def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
 
     # 检查是否登录（NexusPHP 登录失效判定）
     if "login.php" in res_text or "class=\"login\"" in res_text or "userdetails.php" not in res_text:
+        logger.warning("[%s] 登录凭据无效或已失效", site_name)
         return False, "Cookies 已失效或未登录（请检查是否包含 c_secure_uid/pass 及 cf_clearance）"
 
     # 提取用户信息
@@ -250,16 +296,19 @@ def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
     # 3. 判定签到状态
     if "attendance-card--done" in res_text or "今天已经签到" in res_text or "今日已签到" in res_text or "已经签到过了" in res_text:
         info = f"今日已签到 (连续签到 {attended_days} 天)" if attended_days else (card_desc or "今日已签到")
+        logger.info("[%s] 用户 [%s] %s", site_name, user_name, info)
         return True, f"用户 [{user_name}] {info}"
 
     if "签到成功" in res_text or "获得" in res_text:
         award_match = re.search(r'这是您的第.*?次签到.*?已获得.*?魔力值', res_text) or re.search(r'获得.*?爆米花', res_text)
         award_info = award_match.group(0) if award_match else "签到成功"
+        logger.info("[%s] 用户 [%s] 签到成功: %s", site_name, user_name, award_info)
         return True, f"用户 [{user_name}] {award_info}"
 
     # 未能识别成功特征，避免误报为成功
     soup = BeautifulSoup(res_text, "html.parser")
     title_text = soup.title.string.strip() if soup.title else ""
+    logger.warning("[%s] 未能匹配到明确的签到成功特征 (页面标题: %s)", site_name, title_text)
     return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
 
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
@@ -284,17 +333,33 @@ def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     return False, f"不支持的站点类型: {site_type}"
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
+    site_name = site_dict.get("name", "未命名站点")
+    site_type = site_dict.get("site_type", "unknown")
+    domain = site_dict.get("domain", "")
     max_retries = max(0, int(site_dict.get("max_retries", 3) or 0))
     retry_interval = max(1, int(site_dict.get("retry_interval", 60) or 1))
 
+    logger.info("========== [签到启动] %s (类型: %s, 域名: %s, 重试配置: %d次/%d秒) ==========", site_name, site_type, domain, max_retries, retry_interval)
+
     last_msg = ""
     for attempt in range(max_retries + 1):
+        if attempt > 0:
+            logger.info("[%s] 开始第 %d/%d 次重试...", site_name, attempt, max_retries)
+        else:
+            logger.info("[%s] 发起首次签到请求...", site_name)
+
         ok, msg = execute_checkin_once(site_dict)
         if ok:
-            if attempt > 0:
-                return True, f"{msg} (第 {attempt} 次重试成功)"
-            return True, msg
+            full_msg = f"{msg} (第 {attempt} 次重试成功)" if attempt > 0 else msg
+            logger.info("========== [签到成功] %s: %s ==========", site_name, full_msg)
+            return True, full_msg
+
         last_msg = msg
+        logger.warning("[%s] 签到尝试未成功: %s", site_name, msg)
         if attempt < max_retries:
+            logger.info("[%s] 等待 %d 秒后进行第 %d 次尝试...", site_name, retry_interval, attempt + 1)
             time.sleep(retry_interval)
-    return False, f"尝试 {max_retries + 1} 次均失败，最终错误: {last_msg}"
+
+    final_msg = f"尝试 {max_retries + 1} 次均失败，最终错误: {last_msg}"
+    logger.error("========== [签到结束-失败] %s: %s ==========", site_name, final_msg)
+    return False, final_msg
