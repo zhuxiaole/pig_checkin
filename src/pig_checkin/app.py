@@ -271,26 +271,10 @@ def run_site(request: Request, site_id: int, user: str = Depends(get_current_use
         site_dict = dict(site)
 
     ok, message = execute_checkin(site_dict)
-    status_text = "签到成功" if ok else "签到失败"
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     with get_db() as conn:
-        if ok:
-            next_run_str = compute_next_day_run(site_dict.get("schedule_type", "random"), site_dict.get("schedule_time", "09:00"))
-            conn.execute(
-                "UPDATE sites SET last_status = ?, last_run = ?, next_run = ? WHERE id = ?",
-                (status_text, now_str, next_run_str, site_id)
-            )
-        else:
-            conn.execute(
-                "UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?",
-                (status_text, now_str, site_id)
-            )
-        conn.execute(
-            "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, ?, ?)",
-            (site_id, site_dict["name"], "成功" if ok else "失败", message)
-        )
-        conn.commit()
+        updated = conn.execute("SELECT last_status, last_run FROM sites WHERE id = ?", (site_id,)).fetchone()
+        status_text = updated["last_status"] if updated else ("签到成功" if ok else "签到失败")
+        now_str = updated["last_run"] if updated else ""
 
     if is_api_request(request):
         return JSONResponse({"ok": ok, "message": message, "status": status_text, "last_run": now_str})
@@ -310,25 +294,6 @@ def run_all(request: Request, user: str = Depends(get_current_user)):
             success_count += 1
         else:
             fail_count += 1
-        status_text = "签到成功" if ok else "签到失败"
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with get_db() as conn:
-            if ok:
-                next_run_str = compute_next_day_run(site_dict.get("schedule_type", "random"), site_dict.get("schedule_time", "09:00"))
-                conn.execute(
-                    "UPDATE sites SET last_status = ?, last_run = ?, next_run = ? WHERE id = ?",
-                    (status_text, now_str, next_run_str, site_dict["id"])
-                )
-            else:
-                conn.execute(
-                    "UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?",
-                    (status_text, now_str, site_dict["id"])
-                )
-            conn.execute(
-                "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, ?, ?)",
-                (site_dict["id"], site_dict["name"], "成功" if ok else "失败", message)
-            )
-            conn.commit()
 
     if is_api_request(request):
         return JSONResponse({

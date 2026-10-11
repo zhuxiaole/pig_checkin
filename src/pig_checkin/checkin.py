@@ -350,6 +350,10 @@ def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     return False, f"不支持的站点类型: {site_type}"
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
+    from pig_checkin.db import get_db
+    import datetime
+
+    site_id = site_dict.get("id")
     site_name = site_dict.get("name", "未命名站点")
     site_type = site_dict.get("site_type", "unknown")
     domain = site_dict.get("domain", "")
@@ -366,13 +370,51 @@ def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
             logger.info("[%s] 发起首次签到请求...", site_name)
 
         ok, msg = execute_checkin_once(site_dict)
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         if ok:
             full_msg = f"{msg} (第 {attempt} 次重试成功)" if attempt > 0 else msg
             logger.info("========== [签到成功] %s: %s ==========", site_name, full_msg)
+            if site_id:
+                from pig_checkin.scheduler import compute_next_day_run
+                next_run_str = compute_next_day_run(site_dict.get("schedule_type", "random"), site_dict.get("schedule_time", "09:00"))
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE sites SET last_status = '签到成功', last_run = ?, next_run = ? WHERE id = ?",
+                        (now_str, next_run_str, site_id)
+                    )
+                    conn.execute(
+                        "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, '成功', ?)",
+                        (site_id, site_name, full_msg)
+                    )
+                    conn.commit()
             return True, full_msg
 
         last_msg = msg
         logger.warning("[%s] 签到尝试未成功: %s", site_name, msg)
+
+        # 每次失败，立即写入 web 日志，若仍有重试机会则状态标为“失败重试”
+        with get_db() as conn:
+            if attempt < max_retries:
+                retry_status = "失败重试"
+                if site_id:
+                    conn.execute("UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?", (retry_status, now_str, site_id))
+                log_msg = f"第 {attempt + 1} 次尝试未成功: {msg} (等待 {retry_interval} 秒后重试)"
+                conn.execute(
+                    "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, '失败', ?)",
+                    (site_id, site_name, log_msg)
+                )
+            else:
+                final_status = "签到失败"
+                if site_id:
+                    conn.execute("UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?", (final_status, now_str, site_id))
+                log_msg = f"尝试 {max_retries + 1} 次均失败，最终错误: {msg}"
+                conn.execute(
+                    "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, '失败', ?)",
+                    (site_id, site_name, log_msg)
+                )
+            conn.commit()
+
         if attempt < max_retries:
             logger.info("[%s] 等待 %d 秒后进行第 %d 次尝试...", site_name, retry_interval, attempt + 1)
             time.sleep(retry_interval)

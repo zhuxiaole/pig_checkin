@@ -65,27 +65,7 @@ def run_site_checkin(site_id: int):
                 return
             site_dict = dict(site)
 
-        ok, message = execute_checkin(site_dict)
-        status_text = "签到成功" if ok else "签到失败"
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        with get_db() as conn:
-            if ok:
-                next_run_str = compute_next_day_run(site_dict.get("schedule_type", "random"), site_dict.get("schedule_time", "09:00"))
-                conn.execute(
-                    "UPDATE sites SET last_status = ?, last_run = ?, next_run = ? WHERE id = ?",
-                    (status_text, now_str, next_run_str, site_id)
-                )
-            else:
-                conn.execute(
-                    "UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?",
-                    (status_text, now_str, site_id)
-                )
-            conn.execute(
-                "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, ?, ?)",
-                (site_id, site_dict["name"], "成功" if ok else "失败", message)
-            )
-            conn.commit()
+        execute_checkin(site_dict)
     finally:
         with _lock:
             _running_site_ids.discard(site_id)

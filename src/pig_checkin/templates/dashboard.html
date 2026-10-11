@@ -219,6 +219,10 @@
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-xs truncate" title="{{ site.last_status }}">
                                     <i class="ri-checkbox-circle-line mr-1"></i>{{ site.last_status }}
                                 </span>
+                                {% elif "重试" in site.last_status %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                    <i class="ri-loader-2-line animate-spin mr-1"></i>{{ site.last_status }}
+                                </span>
                                 {% elif "失败" in site.last_status or "失效" in site.last_status %}
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-xs truncate" title="{{ site.last_status }}">
                                     <i class="ri-close-circle-line mr-1"></i>{{ site.last_status }}
@@ -315,7 +319,7 @@
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-slate-500 dark:text-slate-400">最近状态</span>
-                            <span class="truncate max-w-[180px] {{ 'text-emerald-600 dark:text-emerald-400' if '成功' in site.last_status else ('text-rose-600 dark:text-rose-400' if '失败' in site.last_status else 'text-slate-600 dark:text-slate-300') }}">
+                            <span class="truncate max-w-[180px] {{ 'text-emerald-600 dark:text-emerald-400' if '成功' in site.last_status else ('text-amber-600 dark:text-amber-400 font-medium' if '重试' in site.last_status else ('text-rose-600 dark:text-rose-400' if '失败' in site.last_status else 'text-slate-600 dark:text-slate-300')) }}">
                                 {{ site.last_status }}
                             </span>
                         </div>
@@ -765,6 +769,8 @@
             status = status || '等待签到';
             if (status.includes('成功')) {
                 return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-checkbox-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
+            } else if (status.includes('重试')) {
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-loader-2-line animate-spin mr-1"></i>${escapeHtml(status)}</span>`;
             } else if (status.includes('失败') || status.includes('失效')) {
                 return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-close-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
             }
@@ -877,7 +883,7 @@
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-slate-500 dark:text-slate-400">最近状态</span>
-                        <span class="truncate max-w-[180px] ${site.last_status && site.last_status.includes('成功') ? 'text-emerald-600 dark:text-emerald-400' : (site.last_status && (site.last_status.includes('失败') || site.last_status.includes('失效')) ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300')}">
+                        <span class="truncate max-w-[180px] ${site.last_status && site.last_status.includes('成功') ? 'text-emerald-600 dark:text-emerald-400' : (site.last_status && site.last_status.includes('重试') ? 'text-amber-600 dark:text-amber-400 font-medium' : (site.last_status && (site.last_status.includes('失败') || site.last_status.includes('失效')) ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'))}">
                             ${escapeHtml(site.last_status || '等待签到')}
                         </span>
                     </div>
