@@ -29,9 +29,6 @@
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 selection:bg-indigo-500 selection:text-white flex flex-col antialiased transition-colors duration-200">
-    <!-- 浮动 Toast 通知容器 (用于 Fetch API 交互提示) -->
-    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-none max-w-sm sm:max-w-md w-full"></div>
-
     <!-- 背景流光装饰 -->
     <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl"></div>
@@ -723,6 +720,9 @@
             </form>
         </div>
     </div>
+
+    <!-- 浮动 Toast 通知容器 (置于最高层级 z-[100]，在模态弹窗及毛玻璃遮罩上方浮动显示) -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-2.5 pointer-events-none max-w-sm sm:max-w-md w-full"></div>
 
     <!-- JS 逻辑控制 -->
     <script>
@@ -1421,6 +1421,14 @@
             const p2 = document.getElementById('acc_confirm_pwd').value;
             if (p1 && p1 !== p2) {
                 showToast('两次输入的新密码不一致，请重新确认！', 'error');
+                const p2Input = document.getElementById('acc_confirm_pwd');
+                if (p2Input) {
+                    p2Input.focus();
+                    p2Input.classList.add('!border-rose-500', 'ring-2', 'ring-rose-500/30');
+                    setTimeout(() => {
+                        p2Input.classList.remove('!border-rose-500', 'ring-2', 'ring-rose-500/30');
+                    }, 3000);
+                }
                 return false;
             }
             return true;
