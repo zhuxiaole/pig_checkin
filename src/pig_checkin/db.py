@@ -101,4 +101,29 @@ def init_db():
                 INSERT INTO sites (name, site_type, auth_type, domain, schedule_type, schedule_time, max_retries, retry_interval, enabled, next_run, last_status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
             """, ("cnlang.org", "cnlang", "cookie", "https://cnlang.org", "random", "09:00", 3, 60, init_next))
+
+        # 自动加密现有历史明文凭据 (cookies, username, password)
+        from pig_checkin.crypto import encrypt_text, is_encrypted
+        site_rows = conn.execute("SELECT id, cookies, username, password FROM sites").fetchall()
+        for r in site_rows:
+            sid = r["id"]
+            ck = r["cookies"] or ""
+            un = r["username"] or ""
+            pw = r["password"] or ""
+            needs_update = False
+            new_ck, new_un, new_pw = ck, un, pw
+            if ck and not is_encrypted(ck):
+                new_ck = encrypt_text(ck)
+                needs_update = True
+            if un and not is_encrypted(un):
+                new_un = encrypt_text(un)
+                needs_update = True
+            if pw and not is_encrypted(pw):
+                new_pw = encrypt_text(pw)
+                needs_update = True
+            if needs_update:
+                conn.execute(
+                    "UPDATE sites SET cookies = ?, username = ?, password = ? WHERE id = ?",
+                    (new_ck, new_un, new_pw, sid)
+                )
         conn.commit()

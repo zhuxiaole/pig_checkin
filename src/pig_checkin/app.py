@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from pig_checkin.db import init_db, get_db, verify_password, hash_password
+from pig_checkin.crypto import encrypt_text, decrypt_text
 from pig_checkin.checkin import execute_checkin
 from pig_checkin.scheduler import start_scheduler, compute_initial_next_run, compute_next_day_run
 from pig_checkin.templates_config import SITE_TEMPLATES, get_template_auth_type
@@ -57,6 +58,14 @@ def get_dashboard_state():
             else:
                 s["next_run_display"] = "待计算"
             s["last_run_display"] = str(s.get("last_run")) if s.get("last_run") else "未执行"
+
+            # 解密凭据用于编辑模态框展示
+            if s.get("cookies"):
+                s["cookies"] = decrypt_text(s["cookies"])
+            if s.get("username"):
+                s["username"] = decrypt_text(s["username"])
+            if s.get("password"):
+                s["password"] = decrypt_text(s["password"])
 
         logs_cur = conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 50").fetchall()
         logs = [dict(l) for l in logs_cur]
@@ -170,11 +179,14 @@ def add_site(
 ):
     auth_type = get_template_auth_type(site_type)
     initial_next_run = compute_initial_next_run(schedule_type, schedule_time)
+    enc_cookies = encrypt_text(cookies.strip())
+    enc_username = encrypt_text(username.strip())
+    enc_password = encrypt_text(password.strip())
     with get_db() as conn:
         conn.execute("""
             INSERT INTO sites (name, site_type, domain, auth_type, cookies, username, password, schedule_type, schedule_time, max_retries, retry_interval, enabled, next_run, last_status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
-        """, (name, site_type, domain, auth_type, cookies, username, password, schedule_type, schedule_time, max_retries, retry_interval, initial_next_run))
+        """, (name, site_type, domain, auth_type, enc_cookies, enc_username, enc_password, schedule_type, schedule_time, max_retries, retry_interval, initial_next_run))
         conn.commit()
     if is_api_request(request):
         return JSONResponse({"ok": True, "message": f"成功添加站点 [{name}]"})
@@ -199,13 +211,16 @@ def edit_site(
 ):
     auth_type = get_template_auth_type(site_type)
     initial_next_run = compute_initial_next_run(schedule_type, schedule_time)
+    enc_cookies = encrypt_text(cookies.strip())
+    enc_username = encrypt_text(username.strip())
+    enc_password = encrypt_text(password.strip())
     with get_db() as conn:
         conn.execute("""
             UPDATE sites 
             SET name = ?, site_type = ?, domain = ?, auth_type = ?, cookies = ?, username = ?, password = ?,
                 schedule_type = ?, schedule_time = ?, max_retries = ?, retry_interval = ?, enabled = ?, next_run = ?
             WHERE id = ?
-        """, (name, site_type, domain, auth_type, cookies, username, password, schedule_type, schedule_time, max_retries, retry_interval, enabled, initial_next_run, id))
+        """, (name, site_type, domain, auth_type, enc_cookies, enc_username, enc_password, schedule_type, schedule_time, max_retries, retry_interval, enabled, initial_next_run, id))
         conn.commit()
     if is_api_request(request):
         return JSONResponse({"ok": True, "message": f"成功更新站点 [{name}] 配置"})

@@ -47,6 +47,34 @@ uv run pig-checkin
 
 ---
 
+## 安全配置与密钥设置（强烈建议）
+
+> ⚠️ **重要安全提醒**：
+> 数据库中存储的站点 **Cookies**、**用户名** 与 **密码** 均采用工业级 **Fernet (AES-128-CBC + HMAC-SHA256)** 对称加密存储。
+> 系统默认会读取环境变量 `SECRET_KEY` 作为加密根密钥。**为了保护您的站点账号凭据安全，强烈建议您在生产或公网环境中部署时，务必自定义设置 `SECRET_KEY` 环境变量**！若未配置，系统将回退使用代码内置默认密钥。
+
+### 设置环境变量运行方式：
+
+- **Linux / macOS**:
+  ```bash
+  export SECRET_KEY="your-custom-strong-secret-key-123456"
+  uv run pig-checkin
+  ```
+
+- **Windows PowerShell**:
+  ```powershell
+  $env:SECRET_KEY="your-custom-strong-secret-key-123456"
+  uv run pig-checkin
+  ```
+
+- **Docker / systemd**:
+  在环境变量列表或 `.env` 中加入：
+  ```env
+  SECRET_KEY=your-custom-strong-secret-key-123456
+  ```
+
+---
+
 ## 站点使用说明
 
 ### 添加 / 配置 `cnlang.org` (国语视界)

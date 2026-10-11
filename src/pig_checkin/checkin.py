@@ -255,6 +255,15 @@ def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
     return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
 
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
+    from pig_checkin.crypto import decrypt_text
+    site_dict = dict(site_dict)
+    if site_dict.get("cookies"):
+        site_dict["cookies"] = decrypt_text(site_dict["cookies"])
+    if site_dict.get("username"):
+        site_dict["username"] = decrypt_text(site_dict["username"])
+    if site_dict.get("password"):
+        site_dict["password"] = decrypt_text(site_dict["password"])
+
     site_type = site_dict.get("site_type", "cnlang")
     if site_type == "cnlang":
         return checkin_cnlang(site_dict)
