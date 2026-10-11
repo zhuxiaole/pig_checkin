@@ -51,9 +51,14 @@ uv run pig-checkin
 
 ### 添加 / 配置 `cnlang.org` (国语视界)
 1. 登录 `https://cnlang.org`，按 `F12` 打开开发者工具，在网络面板复制当前请求完整的 `Cookie` 字符串。
-2. 在管理面板点击 **「+ 添加新网站」** 或在现有站点上点击 **「编辑配置」**。
+2. 在管理面板点击 **「+ 添加新网站」**（模板选 `cnlang.org`）或在现有站点上点击 **「编辑配置」**。
 3. 将 Cookie 粘贴至 **Cookies 字符串** 输入框中，保存即可。
 4. 可点击 **「执行签到」** 立即测试连通性，并在下方查看详细返回日志。
+
+### 添加 / 配置 `audiences.me` (观众 PT)
+1. 浏览器访问并登录 `https://audiences.me`，按 `F12` 在网络面板获取携带的完整 Cookie（确保包含 `c_secure_uid`、`c_secure_pass` 及 Cloudflare 的 `cf_clearance` 凭据）。
+2. 在管理面板点击 **「+ 添加新网站」**，站点模板选择 **audiences.me (观众 PT)**。
+3. 粘贴完整 Cookies 并保存。签到地址将自动路由至 `/attendance.php`，若遇到 Cloudflare 质询拦截将自动调度 `invisible_playwright` 进行处理。
 
 ---
 

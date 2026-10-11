@@ -47,16 +47,16 @@ def solve_with_invisible_playwright(url: str, cookies: dict = None) -> Tuple[boo
     except Exception as e:
         return False, f"invisible_playwright 执行失败: {e}", {}
 
-def format_domain(domain: str) -> str:
+def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
     domain = (domain or "").strip()
     if not domain:
-        return "https://cnlang.org"
+        return default
     if not domain.startswith("http://") and not domain.startswith("https://"):
         domain = "https://" + domain
     return domain.rstrip("/")
 
 def checkin_cnlang(site_dict: dict) -> Tuple[bool, str]:
-    domain = format_domain(site_dict.get("domain", "https://cnlang.org"))
+    domain = format_domain(site_dict.get("domain"), default="https://cnlang.org")
     cookie_str = site_dict.get("cookies", "")
     cookies = parse_cookies_str(cookie_str)
     
@@ -81,14 +81,14 @@ def checkin_cnlang(site_dict: dict) -> Tuple[bool, str]:
     if is_cloudflare_challenge(res.text, res.status_code):
         ok, content, new_cookies = solve_with_invisible_playwright(sign_page_url, cookies)
         if not ok:
-            return False, f"检测到反爬/CF，且无头浏览器绕过失败: {content}"
+            return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
         session.cookies.update(new_cookies)
         res_text = content
     else:
         res_text = res.text
 
     if "您需要先登录才能继续本操作" in res_text or "title=\"访问我的空间\"" not in res_text:
-        return False, "Cookies 已失效或未登录，请重新配置 Cookies 或账号密码"
+        return False, "Cookies 已失效或未登录，请更新 Cookies"
 
     user_match = re.search(r'title="访问我的空间">(.*?)</a>', res_text)
     user_name = user_match.group(1) if user_match else "未知用户"
@@ -125,10 +125,76 @@ def checkin_cnlang(site_dict: dict) -> Tuple[bool, str]:
     except Exception as e:
         return False, f"签到请求提交失败: {e}"
 
+def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
+    domain = format_domain(site_dict.get("domain"), default="https://audiences.me")
+    cookie_str = site_dict.get("cookies", "")
+    cookies = parse_cookies_str(cookie_str)
+    
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Referer": f"{domain}/index.php",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Upgrade-Insecure-Requests": "1"
+    }
+
+    session = requests.Session()
+    session.headers.update(headers)
+    session.cookies.update(cookies)
+
+    attendance_url = f"{domain}/attendance.php"
+
+    try:
+        res = session.get(attendance_url, timeout=15)
+    except Exception as e:
+        return False, f"网络请求失败: {e}"
+
+    if is_cloudflare_challenge(res.text, res.status_code):
+        ok, content, new_cookies = solve_with_invisible_playwright(attendance_url, cookies)
+        if not ok:
+            return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
+        session.cookies.update(new_cookies)
+        res_text = content
+    else:
+        res_text = res.text
+
+    # 检查是否登录（NexusPHP 登录失效判定）
+    if "login.php" in res_text or "class=\"login\"" in res_text or "userdetails.php" not in res_text:
+        return False, "Cookies 已失效或未登录（请检查是否包含 c_secure_uid/pass 及 cf_clearance）"
+
+    # 提取用户信息
+    user_match = re.search(r'userdetails\.php\?id=\d+[^>]*>.*?<b>(.*?)</b>', res_text)
+    user_name = user_match.group(1).strip() if user_match else "NexusPT用户"
+
+    # 提取 audiences 特色的签到卡片或顶部状态
+    # 1. 顶部已获得天数/奖励 (如 title="(签到已得22)")
+    attended_match = re.search(r'title=[\'"]\(签到已得(\d+)\)[\'"]', res_text)
+    attended_days = attended_match.group(1) if attended_match else ""
+
+    # 2. 签到卡片提示 (如 "您今天已经签到过了，请勿重复刷新。")
+    card_desc_match = re.search(r'class=[\'"]attendance-card__desc[\'"]>(.*?)</p>', res_text)
+    card_desc = card_desc_match.group(1).strip() if card_desc_match else ""
+
+    # 3. 判定签到状态
+    if "attendance-card--done" in res_text or "今天已经签到" in res_text or "今日已签到" in res_text or "已经签到过了" in res_text:
+        info = f"今日已签到 (连续签到 {attended_days} 天)" if attended_days else (card_desc or "今日已签到")
+        return True, f"用户 [{user_name}] {info}"
+
+    if "签到成功" in res_text or "获得" in res_text:
+        award_match = re.search(r'这是您的第.*?次签到.*?已获得.*?魔力值', res_text) or re.search(r'获得.*?爆米花', res_text)
+        award_info = award_match.group(0) if award_match else "签到成功"
+        return True, f"用户 [{user_name}] {award_info}"
+
+    # 未能识别成功特征，避免误报为成功
+    soup = BeautifulSoup(res_text, "html.parser")
+    title_text = soup.title.string.strip() if soup.title else ""
+    return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
+
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     site_type = site_dict.get("site_type", "cnlang")
     if site_type == "cnlang":
         return checkin_cnlang(site_dict)
+    elif site_type == "audiences":
+        return checkin_audiences(site_dict)
     return False, f"不支持的站点类型: {site_type}"
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
