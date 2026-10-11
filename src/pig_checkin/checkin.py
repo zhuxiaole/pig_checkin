@@ -251,8 +251,13 @@ def checkin_acgrip(site_dict: dict) -> Tuple[bool, str]:
         site_label="ACG字幕论坛"
     )
 
-def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
-    domain = format_domain(site_dict.get("domain"), default="https://audiences.me")
+def checkin_nexusphp(
+    site_dict: dict,
+    default_domain: str = "https://audiences.me",
+    sign_path: str = "/attendance.php",
+    site_label: str = "NexusPHP"
+) -> Tuple[bool, str]:
+    domain = format_domain(site_dict.get("domain"), default=default_domain)
     cookie_str = site_dict.get("cookies", "")
     cookies = parse_cookies_str(cookie_str)
     
@@ -267,8 +272,8 @@ def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
     session.headers.update(headers)
     session.cookies.update(cookies)
 
-    attendance_url = f"{domain}/attendance.php"
-    site_name = site_dict.get("name", "audiences")
+    attendance_url = f"{domain}{sign_path}"
+    site_name = site_dict.get("name", site_label)
 
     logger.info("[%s] 发起 GET 访问 NexusPHP 签到页: %s", site_name, attendance_url)
     try:
@@ -328,6 +333,22 @@ def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
     logger.warning("[%s] 未能匹配到明确的签到成功特征 (页面标题: %s)", site_name, title_text)
     return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
 
+def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
+    return checkin_nexusphp(
+        site_dict,
+        default_domain="https://audiences.me",
+        sign_path="/attendance.php",
+        site_label="audiences"
+    )
+
+def checkin_xingyunge(site_dict: dict) -> Tuple[bool, str]:
+    return checkin_nexusphp(
+        site_dict,
+        default_domain="https://pt.xingyungept.org",
+        sign_path="/attendance.php",
+        site_label="星运阁"
+    )
+
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     from pig_checkin.crypto import decrypt_text
     site_dict = dict(site_dict)
@@ -347,6 +368,8 @@ def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
         return checkin_ymlyhd(site_dict)
     elif site_type == "acgrip":
         return checkin_acgrip(site_dict)
+    elif site_type == "xingyunge":
+        return checkin_xingyunge(site_dict)
     return False, f"不支持的站点类型: {site_type}"
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:

@@ -26,6 +26,13 @@ SITE_TEMPLATES = {
         "auth_label": "Cookies 认证",
         "default_domain": "https://bbs.acgrip.com",
         "cookie_placeholder": "请粘贴登录 bbs.acgrip.com 后的完整 Cookie 字符串",
+    },
+    "xingyunge": {
+        "name": "pt.xingyungept.org (星运阁 PT)",
+        "auth_type": "cookie",
+        "auth_label": "Cookies 认证",
+        "default_domain": "https://pt.xingyungept.org",
+        "cookie_placeholder": "请粘贴登录 pt.xingyungept.org 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)",
     }
 }
 
