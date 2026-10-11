@@ -14,6 +14,25 @@ from pig_checkin.templates_config import SITE_TEMPLATES, get_template_auth_type
 app = FastAPI(title="Pig Checkin Service")
 app.add_middleware(SessionMiddleware, secret_key="pig-checkin-super-secret-key-lazy-is-best")
 
+def get_app_version() -> str:
+    try:
+        import importlib.metadata
+        return importlib.metadata.version("pig-checkin")
+    except Exception:
+        pass
+    try:
+        import tomllib
+        from pathlib import Path
+        pyproject_file = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+        if pyproject_file.exists():
+            with open(pyproject_file, "rb") as f:
+                return tomllib.load(f).get("project", {}).get("version", "0.1.0")
+    except Exception:
+        pass
+    return "0.1.0"
+
+APP_VERSION = get_app_version()
+
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
 @app.on_event("startup")
@@ -142,6 +161,7 @@ def api_dashboard_data(user: str = Depends(get_current_user)):
     return {
         "ok": True,
         "current_user": user,
+        "app_version": APP_VERSION,
         "sites": sites,
         "logs": logs
     }
@@ -155,6 +175,7 @@ def dashboard(request: Request):
     sites, logs = get_dashboard_state()
     return templates.TemplateResponse(request, "dashboard.html", {
         "current_user": user,
+        "app_version": APP_VERSION,
         "sites": sites,
         "logs": logs,
         "site_templates": SITE_TEMPLATES,
