@@ -436,13 +436,28 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点模板</label>
-                        <select name="site_type" id="add_site_type" onchange="updateTemplateUI('add', true)"
-                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-                            {% for key, tpl in site_templates.items() %}
-                            <option value="{{ key }}">{{ tpl.name }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">站点模板</label>
+                            <span class="text-[11px] text-slate-400">支持名称 / 网址搜索</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                                    <i class="ri-search-line text-sm"></i>
+                                </span>
+                                <input type="text" id="add_tpl_search" oninput="filterTemplates('add')" placeholder="搜索模板名称或网址 (如: 国语、audiences、ymlyhd)..."
+                                       class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                                <button type="button" onclick="clearTemplateSearch('add')" id="add_tpl_search_clear" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                    <i class="ri-close-circle-fill text-sm"></i>
+                                </button>
+                            </div>
+                            <select name="site_type" id="add_site_type" onchange="updateTemplateUI('add', true)"
+                                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                                {% for key, tpl in site_templates.items() %}
+                                <option value="{{ key }}">{{ tpl.name }} &nbsp;·&nbsp; {{ tpl.default_domain }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
 
                     <div>
@@ -540,13 +555,28 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点模板</label>
-                        <select name="site_type" id="edit_site_type" onchange="updateTemplateUI('edit', true)"
-                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-                            {% for key, tpl in site_templates.items() %}
-                            <option value="{{ key }}">{{ tpl.name }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">站点模板</label>
+                            <span class="text-[11px] text-slate-400">支持名称 / 网址搜索</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                                    <i class="ri-search-line text-sm"></i>
+                                </span>
+                                <input type="text" id="edit_tpl_search" oninput="filterTemplates('edit')" placeholder="搜索模板名称或网址 (如: 国语、audiences、ymlyhd)..."
+                                       class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                                <button type="button" onclick="clearTemplateSearch('edit')" id="edit_tpl_search_clear" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                    <i class="ri-close-circle-fill text-sm"></i>
+                                </button>
+                            </div>
+                            <select name="site_type" id="edit_site_type" onchange="updateTemplateUI('edit', true)"
+                                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                                {% for key, tpl in site_templates.items() %}
+                                <option value="{{ key }}">{{ tpl.name }} &nbsp;·&nbsp; {{ tpl.default_domain }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
 
                     <div>
@@ -1250,7 +1280,63 @@
             }
         }
 
+        function filterTemplates(prefix, targetSelectValue = null) {
+            const searchInput = document.getElementById(prefix + '_tpl_search');
+            const clearBtn = document.getElementById(prefix + '_tpl_search_clear');
+            const select = document.getElementById(prefix + '_site_type');
+            if (!select) return;
+
+            const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+            if (clearBtn) {
+                if (query) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            const currentVal = targetSelectValue || select.value;
+            select.innerHTML = '';
+            let matches = [];
+
+            for (const [key, tpl] of Object.entries(templatesMeta)) {
+                const name = (tpl.name || '').toLowerCase();
+                const domain = (tpl.default_domain || '').toLowerCase();
+                if (!query || name.includes(query) || domain.includes(query) || key.toLowerCase().includes(query)) {
+                    matches.push({ key, tpl });
+                }
+            }
+
+            if (matches.length === 0) {
+                const opt = document.createElement('option');
+                opt.disabled = true;
+                opt.textContent = '未找到匹配的模板';
+                select.appendChild(opt);
+            } else {
+                let hasSelected = false;
+                matches.forEach(({ key, tpl }) => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = `${tpl.name} · ${tpl.default_domain || ''}`;
+                    if (key === currentVal) {
+                        opt.selected = true;
+                        hasSelected = true;
+                    }
+                    select.appendChild(opt);
+                });
+
+                if (!hasSelected && matches.length > 0) {
+                    select.value = matches[0].key;
+                    updateTemplateUI(prefix, true);
+                }
+            }
+        }
+
+        function clearTemplateSearch(prefix) {
+            const searchInput = document.getElementById(prefix + '_tpl_search');
+            if (searchInput) searchInput.value = '';
+            filterTemplates(prefix);
+        }
+
         function openAddSiteModal() {
+            clearTemplateSearch('add');
             updateTemplateUI('add', false);
             toggleScheduleFields('add');
             openModal('addSiteModal');
@@ -1260,6 +1346,7 @@
             const site = allSites.find(s => s.id === siteId);
             if (!site) return;
 
+            clearTemplateSearch('edit');
             document.getElementById('edit_id').value = site.id;
             document.getElementById('edit_name').value = site.name || '';
             document.getElementById('edit_site_type').value = site.site_type || 'cnlang';
