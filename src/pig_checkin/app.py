@@ -86,7 +86,7 @@ def get_dashboard_state():
             s["username"] = ""
             s["password"] = ""
 
-        logs_cur = conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 50").fetchall()
+        logs_cur = conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 500").fetchall()
         logs = [dict(l) for l in logs_cur]
     return sites, logs
 

@@ -328,6 +328,9 @@
                 </div>
                 {% endfor %}
             </div>
+
+            <!-- 站点分页控制栏 -->
+            <div id="sites-pagination" class="px-4 sm:px-6 py-3 border-t border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400"></div>
         </section>
 
         <!-- 最近执行日志区域 -->
@@ -405,6 +408,9 @@
                 <div class="p-6 text-center text-slate-400 text-sm">暂无日志</div>
                 {% endfor %}
             </div>
+
+            <!-- 日志分页控制栏 -->
+            <div id="logs-pagination" class="px-4 sm:px-6 py-3 border-t border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400"></div>
         </section>
     </main>
 
@@ -728,6 +734,13 @@
     <script>
         const templatesMeta = {{ site_templates | tojson }};
         let allSites = {{ sites | tojson }};
+        let allLogs = {{ logs | tojson }};
+
+        // 分页状态管理 (默认每页 10 条)
+        let sitesCurrentPage = 1;
+        const sitesPageSize = 10;
+        let logsCurrentPage = 1;
+        const logsPageSize = 10;
 
         // ========== Toast 消息通知组件 ==========
         function showToast(message, type = 'success') {
@@ -925,6 +938,106 @@
             </div>`;
         }
 
+        function renderPaginationControls(containerId, currentPage, totalPages, totalItems, pageSize, onPageFn) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (totalItems === 0) {
+                container.innerHTML = `
+                    <div class="text-slate-400">暂无数据记录</div>
+                    <div></div>
+                `;
+                return;
+            }
+
+            const startIdx = (currentPage - 1) * pageSize + 1;
+            const endIdx = Math.min(currentPage * pageSize, totalItems);
+
+            container.innerHTML = `
+                <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <span>显示第 <strong class="text-slate-700 dark:text-slate-200">${startIdx}</strong> - <strong class="text-slate-700 dark:text-slate-200">${endIdx}</strong> 条，共 <strong class="text-slate-700 dark:text-slate-200">${totalItems}</strong> 条</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="${onPageFn}(1)" ${currentPage <= 1 ? 'disabled' : ''} class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 disabled:opacity-40 disabled:cursor-not-allowed transition-all" title="首页">
+                        <i class="ri-skip-left-line"></i>
+                    </button>
+                    <button onclick="${onPageFn}(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                        上一页
+                    </button>
+                    <span class="px-2.5 py-1 font-mono font-medium text-slate-700 dark:text-slate-200">${currentPage} / ${totalPages}</span>
+                    <button onclick="${onPageFn}(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                        下一页
+                    </button>
+                    <button onclick="${onPageFn}(${totalPages})" ${currentPage >= totalPages ? 'disabled' : ''} class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 disabled:opacity-40 disabled:cursor-not-allowed transition-all" title="尾页">
+                        <i class="ri-skip-right-line"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderSitesList() {
+            const desktopTbody = document.getElementById('sites-desktop-body');
+            const mobileList = document.getElementById('sites-mobile-list');
+            if (!desktopTbody || !mobileList) return;
+
+            const total = allSites.length;
+            const totalPages = Math.max(1, Math.ceil(total / sitesPageSize));
+            sitesCurrentPage = Math.min(Math.max(1, sitesCurrentPage), totalPages);
+
+            if (total === 0) {
+                desktopTbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-slate-400">
+                            <i class="ri-inbox-line text-4xl mb-2 block text-slate-300 dark:text-slate-600"></i>
+                            暂无站点配置，请点击右上角「添加新网站」
+                        </td>
+                    </tr>`;
+                mobileList.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">暂无站点配置，请点击顶部按钮添加</div>`;
+            } else {
+                const start = (sitesCurrentPage - 1) * sitesPageSize;
+                const pageSites = allSites.slice(start, start + sitesPageSize);
+                desktopTbody.innerHTML = pageSites.map(renderSiteDesktopRow).join('');
+                mobileList.innerHTML = pageSites.map(renderSiteMobileCard).join('');
+            }
+
+            renderPaginationControls('sites-pagination', sitesCurrentPage, totalPages, total, sitesPageSize, 'goSitesPage');
+        }
+
+        function goSitesPage(page) {
+            sitesCurrentPage = page;
+            renderSitesList();
+        }
+
+        function renderLogsList() {
+            const logsDesktopBody = document.getElementById('logs-desktop-body');
+            const logsMobileList = document.getElementById('logs-mobile-list');
+            const logsBadge = document.getElementById('logs-count-badge');
+            if (!logsDesktopBody || !logsMobileList) return;
+
+            const total = allLogs.length;
+            const totalPages = Math.max(1, Math.ceil(total / logsPageSize));
+            logsCurrentPage = Math.min(Math.max(1, logsCurrentPage), totalPages);
+
+            if (logsBadge) logsBadge.textContent = `最新 ${total} 条`;
+
+            if (total === 0) {
+                logsDesktopBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400 font-sans">暂无历史日志</td></tr>`;
+                logsMobileList.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">暂无日志</div>`;
+            } else {
+                const start = (logsCurrentPage - 1) * logsPageSize;
+                const pageLogs = allLogs.slice(start, start + logsPageSize);
+                logsDesktopBody.innerHTML = pageLogs.map(renderLogDesktopRow).join('');
+                logsMobileList.innerHTML = pageLogs.map(renderLogMobileCard).join('');
+            }
+
+            renderPaginationControls('logs-pagination', logsCurrentPage, totalPages, total, logsPageSize, 'goLogsPage');
+        }
+
+        function goLogsPage(page) {
+            logsCurrentPage = page;
+            renderLogsList();
+        }
+
         // ========== Fetch API 异步数据刷新 ==========
         async function refreshDashboard() {
             try {
@@ -936,47 +1049,19 @@
                 if (!data.ok) return;
 
                 allSites = data.sites;
-                const sites = data.sites;
-                const logs = data.logs;
+                allLogs = data.logs;
 
                 // 1. 更新顶部指标
                 if (data.app_version) {
                     const badge = document.getElementById('app-version-badge');
                     if (badge) badge.textContent = 'v' + data.app_version;
                 }
-                document.getElementById('stat-total-sites').textContent = sites.length;
-                document.getElementById('stat-active-sites').textContent = sites.filter(s => s.enabled).length;
+                document.getElementById('stat-total-sites').textContent = allSites.length;
+                document.getElementById('stat-active-sites').textContent = allSites.filter(s => s.enabled).length;
 
-                // 2. 渲染站点列表 (桌面端与移动端)
-                const desktopTbody = document.getElementById('sites-desktop-body');
-                const mobileList = document.getElementById('sites-mobile-list');
-
-                if (sites.length === 0) {
-                    desktopTbody.innerHTML = `
-                        <tr>
-                            <td colspan="8" class="py-12 text-center text-slate-400">
-                                <i class="ri-inbox-line text-4xl mb-2 block text-slate-300 dark:text-slate-600"></i>
-                                暂无站点配置，请点击右上角「添加新网站」
-                            </td>
-                        </tr>`;
-                    mobileList.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">暂无站点配置，请点击顶部按钮添加</div>`;
-                } else {
-                    desktopTbody.innerHTML = sites.map(renderSiteDesktopRow).join('');
-                    mobileList.innerHTML = sites.map(renderSiteMobileCard).join('');
-                }
-
-                // 3. 渲染日志列表 (桌面端与移动端)
-                document.getElementById('logs-count-badge').textContent = `最新 ${logs.length} 条`;
-                const logsDesktopBody = document.getElementById('logs-desktop-body');
-                const logsMobileList = document.getElementById('logs-mobile-list');
-
-                if (logs.length === 0) {
-                    logsDesktopBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400 font-sans">暂无历史日志</td></tr>`;
-                    logsMobileList.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">暂无日志</div>`;
-                } else {
-                    logsDesktopBody.innerHTML = logs.map(renderLogDesktopRow).join('');
-                    logsMobileList.innerHTML = logs.map(renderLogMobileCard).join('');
-                }
+                // 2. 渲染站点列表与日志列表分页
+                renderSitesList();
+                renderLogsList();
             } catch (err) {
                 console.error('refreshDashboard error:', err);
             }
@@ -1452,6 +1537,10 @@
         }
         updateTemplateUI('add', true);
         toggleScheduleFields('add');
+
+        // 初始化站点列表与日志列表分页渲染
+        renderSitesList();
+        renderLogsList();
     </script>
 </body>
 </html>
