@@ -71,7 +71,7 @@ def get_dashboard_state():
         sites = [dict(s) for s in sites_cur]
         for s in sites:
             if not s.get("enabled"):
-                s["next_run_display"] = "已停用"
+                s["next_run_display"] = "已关闭"
             elif s.get("next_run"):
                 s["next_run_display"] = str(s["next_run"])
             else:
@@ -269,7 +269,7 @@ def toggle_site(request: Request, site_id: int, user: str = Depends(get_current_
         conn.execute("UPDATE sites SET enabled = 1 - enabled WHERE id = ?", (site_id,))
         conn.commit()
     if is_api_request(request):
-        return JSONResponse({"ok": True, "message": "站点状态已更新"})
+        return JSONResponse({"ok": True, "message": "定时开关状态已更新"})
     return RedirectResponse(url="/", status_code=303)
 
 @app.get("/delete-site/{site_id}")

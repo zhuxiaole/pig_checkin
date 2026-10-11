@@ -112,7 +112,7 @@
                 </div>
                 <div>
                     <div class="text-xs text-slate-500 dark:text-slate-400">运行活跃</div>
-                    <div class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5"><span id="stat-active-sites">{{ sites | selectattr('enabled') | list | length }}</span> <span class="text-xs font-normal text-slate-400">启用</span></div>
+                    <div class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5"><span id="stat-active-sites">{{ sites | selectattr('enabled') | list | length }}</span> <span class="text-xs font-normal text-slate-400">开启</span></div>
                 </div>
             </div>
 
@@ -168,7 +168,7 @@
                             <th class="py-3.5 px-4 w-44 min-w-[175px] whitespace-nowrap">上次执行</th>
                             <th class="py-3.5 px-4 w-48 min-w-[190px] whitespace-nowrap">下次执行</th>
                             <th class="py-3.5 px-4">最新状态</th>
-                            <th class="py-3.5 px-4">开关</th>
+                            <th class="py-3.5 px-4">定时开关</th>
                             <th class="py-3.5 px-4 text-right">操作</th>
                         </tr>
                     </thead>
@@ -232,7 +232,7 @@
                             </td>
                             <td class="py-3.5 px-4">
                                 <button onclick="handleToggleSite({{ site.id }})" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' if site.enabled else 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700' }}">
-                                    {{ "已启用" if site.enabled else "已停用" }}
+                                    {{ "已开启" if site.enabled else "已关闭" }}
                                 </button>
                             </td>
                             <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
@@ -268,7 +268,7 @@
                             <div class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-1.5">
                                 <span>{{ site.name }}</span>
                                 <button onclick="handleToggleSite({{ site.id }})" class="text-[11px] px-2 py-0.5 rounded-full font-medium {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' if site.enabled else 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }}">
-                                    {{ "运行中" if site.enabled else "已停用" }}
+                                    {{ "已开启" if site.enabled else "已关闭" }}
                                 </button>
                             </div>
                             <div class="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">
@@ -616,11 +616,11 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">启用状态</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">定时开关</label>
                         <select name="enabled" id="edit_enabled"
                                 class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-                            <option value="1">启用 (正常执行定时签到)</option>
-                            <option value="0">禁用 (暂停自动签到)</option>
+                            <option value="1">已开启 (正常执行定时签到)</option>
+                            <option value="0">已关闭 (暂停自动签到)</option>
                         </select>
                     </div>
 
@@ -817,7 +817,7 @@
                 </td>
                 <td class="py-3.5 px-4">
                     <button onclick="handleToggleSite(${site.id})" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${site.enabled ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700'}">
-                        ${site.enabled ? '已启用' : '已停用'}
+                        ${site.enabled ? '已开启' : '已关闭'}
                     </button>
                 </td>
                 <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
@@ -842,7 +842,7 @@
                         <div class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-1.5">
                             <span>${escapeHtml(site.name)}</span>
                             <button onclick="handleToggleSite(${site.id})" class="text-[11px] px-2 py-0.5 rounded-full font-medium ${site.enabled ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}">
-                                ${site.enabled ? '运行中' : '已停用'}
+                                ${site.enabled ? '已开启' : '已关闭'}
                             </button>
                         </div>
                         <div class="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">
