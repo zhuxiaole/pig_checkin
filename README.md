@@ -122,7 +122,7 @@ services:
 
 本项目已内置支持多个 Discuz 论坛与 NexusPHP PT 站点的全自动化打卡签到。
 
-👉 **[点击查看完整支持站点列表与各站点配置指引 (SUPPORTED_SITES.md)](SUPPORTED_SITES.md)**
+👉 **[点击查看完整支持站点列表 (SUPPORTED_SITES.md)](SUPPORTED_SITES.md)**
 
 | 站点名称 | 默认地址 | 模板标识 (`site_type`) | 架构 / 签到机制 | 认证方式 |
 | :--- | :--- | :--- | :--- | :--- |
