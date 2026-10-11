@@ -59,13 +59,13 @@ def get_dashboard_state():
                 s["next_run_display"] = "待计算"
             s["last_run_display"] = str(s.get("last_run")) if s.get("last_run") else "未执行"
 
-            # 解密凭据用于编辑模态框展示
-            if s.get("cookies"):
-                s["cookies"] = decrypt_text(s["cookies"])
-            if s.get("username"):
-                s["username"] = decrypt_text(s["username"])
-            if s.get("password"):
-                s["password"] = decrypt_text(s["password"])
+            # 仅在前端下发是否已填写的状态标识，凭据脱敏置空，不在前端暴露真实明文或密文
+            s["has_cookies"] = bool(s.get("cookies") and str(s["cookies"]).strip())
+            s["has_username"] = bool(s.get("username") and str(s["username"]).strip())
+            s["has_password"] = bool(s.get("password") and str(s["password"]).strip())
+            s["cookies"] = ""
+            s["username"] = ""
+            s["password"] = ""
 
         logs_cur = conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 50").fetchall()
         logs = [dict(l) for l in logs_cur]
@@ -211,10 +211,26 @@ def edit_site(
 ):
     auth_type = get_template_auth_type(site_type)
     initial_next_run = compute_initial_next_run(schedule_type, schedule_time)
-    enc_cookies = encrypt_text(cookies.strip())
-    enc_username = encrypt_text(username.strip())
-    enc_password = encrypt_text(password.strip())
+    
     with get_db() as conn:
+        old_site = conn.execute("SELECT cookies, username, password FROM sites WHERE id = ?", (id,)).fetchone()
+        
+        # 增量覆盖规则：填入新值则加密覆盖；留空/未填写则保留原有保存值
+        if cookies.strip():
+            enc_cookies = encrypt_text(cookies.strip())
+        else:
+            enc_cookies = old_site["cookies"] if old_site and old_site["cookies"] else ""
+
+        if username.strip():
+            enc_username = encrypt_text(username.strip())
+        else:
+            enc_username = old_site["username"] if old_site and old_site["username"] else ""
+
+        if password.strip():
+            enc_password = encrypt_text(password.strip())
+        else:
+            enc_password = old_site["password"] if old_site and old_site["password"] else ""
+
         conn.execute("""
             UPDATE sites 
             SET name = ?, site_type = ?, domain = ?, auth_type = ?, cookies = ?, username = ?, password = ?,

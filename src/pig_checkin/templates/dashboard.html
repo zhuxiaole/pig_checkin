@@ -631,21 +631,33 @@
                     </div>
 
                     <div id="edit_cookie_field">
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Cookie 字符串</label>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Cookie 字符串</label>
+                            <span id="edit_cookie_status" class="text-xs font-medium"></span>
+                        </div>
                         <textarea name="cookies" id="edit_cookies" rows="3"
                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
+                        <p class="text-[11px] text-slate-400 mt-1">留空则保持原有 Cookie 不变；输入新内容将覆盖原配置。</p>
                     </div>
 
                     <div id="edit_cred_fields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">账号 / 用户名</label>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">账号 / 用户名</label>
+                                <span id="edit_username_status" class="text-xs font-medium"></span>
+                            </div>
                             <input type="text" name="username" id="edit_username"
                                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                            <p class="text-[11px] text-slate-400 mt-1">留空则保持原有账号不变</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">密码</label>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">密码</label>
+                                <span id="edit_password_status" class="text-xs font-medium"></span>
+                            </div>
                             <input type="password" name="password" id="edit_password"
                                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                            <p class="text-[11px] text-slate-400 mt-1">留空则保持原有密码不变</p>
                         </div>
                     </div>
                 </div>
@@ -1356,9 +1368,42 @@
             document.getElementById('edit_max_retries').value = site.max_retries !== undefined ? site.max_retries : 3;
             document.getElementById('edit_retry_interval').value = site.retry_interval !== undefined ? site.retry_interval : 60;
             document.getElementById('edit_enabled').value = site.enabled !== undefined ? site.enabled : 1;
-            document.getElementById('edit_cookies').value = site.cookies || '';
-            document.getElementById('edit_username').value = site.username || '';
-            document.getElementById('edit_password').value = site.password || '';
+
+            // 凭据脱敏处理：输入框不显示原有密文/明文，每次打开模态框均置空
+            const editCookiesInput = document.getElementById('edit_cookies');
+            editCookiesInput.value = '';
+            const editUserInput = document.getElementById('edit_username');
+            editUserInput.value = '';
+            const editPwdInput = document.getElementById('edit_password');
+            editPwdInput.value = '';
+
+            // 显示「已填写」或「未填写」状态提示
+            const cookieStatus = document.getElementById('edit_cookie_status');
+            if (site.has_cookies) {
+                cookieStatus.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><i class="ri-checkbox-circle-fill"></i>已填写</span>`;
+                editCookiesInput.placeholder = '已安全加密保存，留空则保持原配置；输入新内容将覆盖原值';
+            } else {
+                cookieStatus.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1"><i class="ri-error-warning-fill"></i>未填写</span>`;
+                editCookiesInput.placeholder = '未配置，请粘贴浏览器中复制的完整 Cookie 字符串';
+            }
+
+            const userStatus = document.getElementById('edit_username_status');
+            if (site.has_username) {
+                userStatus.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><i class="ri-checkbox-circle-fill"></i>已填写</span>`;
+                editUserInput.placeholder = '留空则保持原有账号不变';
+            } else {
+                userStatus.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1"><i class="ri-error-warning-fill"></i>未填写</span>`;
+                editUserInput.placeholder = '请输入账号 / 用户名';
+            }
+
+            const pwdStatus = document.getElementById('edit_password_status');
+            if (site.has_password) {
+                pwdStatus.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><i class="ri-checkbox-circle-fill"></i>已填写</span>`;
+                editPwdInput.placeholder = '留空则保持原有密码不变';
+            } else {
+                pwdStatus.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1"><i class="ri-error-warning-fill"></i>未填写</span>`;
+                editPwdInput.placeholder = '请输入密码';
+            }
 
             toggleScheduleFields('edit');
             updateTemplateUI('edit', false);
