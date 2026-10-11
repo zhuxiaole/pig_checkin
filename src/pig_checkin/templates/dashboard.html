@@ -3,399 +3,732 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自动签到管理面板</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>控制台 - Pig Checkin 自动签到系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <style>
-        body { background-color: #f4f6f9; }
-        .navbar { margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .card { border: none; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .table td, .table th { vertical-align: middle; }
-        .badge-status { font-size: 0.85rem; }
+        /* 自定义滚动条样式 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.6); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.8); }
     </style>
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid px-4">
-            <a class="navbar-brand fw-bold" href="/">🐖 Pig Checkin 自动签到</a>
-            <div class="d-flex align-items-center">
-                <span class="navbar-text me-3 text-light">当前管理员: <strong>{{ current_user }}</strong></span>
-                <button class="btn btn-outline-info btn-sm me-2" data-bs-toggle="modal" data-bs-target="#changeAccountModal">账号设置</button>
-                <a href="/logout" class="btn btn-outline-light btn-sm">退出登录</a>
+<body class="min-h-screen bg-slate-900 text-slate-100 selection:bg-indigo-500 selection:text-white flex flex-col antialiased">
+    <!-- 背景流光装饰 -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/3 -left-40 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-40 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl"></div>
+    </div>
+
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20">
+                    🐖
+                </div>
+                <div>
+                    <span class="text-base sm:text-lg font-bold text-white tracking-tight">Pig Checkin</span>
+                    <span class="hidden sm:inline-block ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">v1.0</span>
+                </div>
+            </div>
+
+            <!-- 右侧管理操作 -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
+                    <i class="ri-shield-user-line text-indigo-400 text-sm"></i>
+                    <span>{{ current_user }}</span>
+                </div>
+                <button onclick="openModal('changeAccountModal')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-xs text-slate-300 hover:text-white transition-all">
+                    <i class="ri-settings-4-line text-slate-400"></i>
+                    <span class="hidden sm:inline">账号设置</span>
+                </button>
+                <a href="/logout" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs text-rose-300 hover:text-rose-200 transition-all">
+                    <i class="ri-logout-box-r-line"></i>
+                    <span class="hidden sm:inline">退出</span>
+                </a>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <div class="container-fluid px-4">
+    <!-- 主要内容容器 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <!-- 提示通知横幅 -->
         {% if pwd_ok %}
-        <div class="alert alert-success alert-dismissible fade show py-2 mb-3" role="alert">
-            {{ pwd_ok }}
-            <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+        <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-300 text-sm flex items-center justify-between shadow-lg shadow-emerald-950/20">
+            <div class="flex items-center gap-2.5">
+                <i class="ri-checkbox-circle-fill text-lg text-emerald-400"></i>
+                <span>{{ pwd_ok }}</span>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-emerald-400/70 hover:text-emerald-300 p-1">
+                <i class="ri-close-line text-lg"></i>
+            </button>
         </div>
         {% endif %}
+
         {% if pwd_err %}
-        <div class="alert alert-danger alert-dismissible fade show py-2 mb-3" role="alert">
-            {{ pwd_err }}
-            <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+        <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm flex items-center justify-between shadow-lg shadow-rose-950/20">
+            <div class="flex items-center gap-2.5">
+                <i class="ri-error-warning-fill text-lg text-rose-400"></i>
+                <span>{{ pwd_err }}</span>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-rose-400/70 hover:text-rose-300 p-1">
+                <i class="ri-close-line text-lg"></i>
+            </button>
         </div>
         {% endif %}
 
-        <!-- 操作栏与添加按钮 -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">签到站点列表</h4>
-            <div>
-                <a href="/run-all" class="btn btn-success me-2">▶ 立即全部签到</a>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSiteModal">+ 添加新网站</button>
-            </div>
-        </div>
-
-        <!-- 站点列表卡片 -->
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>ID</th>
-                                <th>站点名称</th>
-                                <th>认证方式</th>
-                                <th>定时策略</th>
-                                <th>下次执行时间</th>
-                                <th>最新状态</th>
-                                <th>上次执行时间</th>
-                                <th>运行状态</th>
-                                <th class="text-end">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for site in sites %}
-                            <tr>
-                                <td>{{ site.id }}</td>
-                                <td><strong>{{ site.name }}</strong></td>
-                                <td><span class="badge bg-secondary">{{ "Cookies" if site.auth_type == 'cookie' else "用户名密码" }}</span></td>
-                                <td>
-                                    {% if site.schedule_type == 'fixed' %}
-                                    <span class="badge bg-info text-dark">固定: {{ site.schedule_time }}</span>
-                                    {% else %}
-                                    <span class="badge bg-warning text-dark">每日随机</span>
-                                    {% endif %}
-                                </td>
-                                <td><span class="text-primary fw-semibold">{{ site.next_run_display }}</span></td>
-                                <td>
-                                    {% if "成功" in site.last_status %}
-                                    <span class="badge bg-success badge-status">{{ site.last_status }}</span>
-                                    {% elif "失败" in site.last_status or "失效" in site.last_status %}
-                                    <span class="badge bg-danger badge-status">{{ site.last_status }}</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary badge-status">{{ site.last_status }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ site.last_run or "从未" }}</td>
-                                <td>
-                                    {% if site.enabled %}
-                                    <span class="badge bg-success">已启用</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">已禁用</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <a href="/toggle-site/{{ site.id }}" class="btn btn-sm {{ 'btn-outline-warning' if site.enabled else 'btn-outline-primary' }}">
-                                        {{ "禁用" if site.enabled else "启用" }}
-                                    </a>
-                                    <a href="/run-site/{{ site.id }}" class="btn btn-sm btn-outline-success">执行签到</a>
-                                    <button class="btn btn-sm btn-outline-primary" onclick='editSite({{ site | tojson }})'>编辑配置</button>
-                                    <a href="/delete-site/{{ site.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除该网站吗？');">删除</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="9" class="text-center py-4 text-muted">暂无配置站点，点击右上角添加。</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        <!-- 概览指标卡片组 -->
+        <section class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
+                <div class="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl shrink-0">
+                    <i class="ri-global-line"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400">监控站点</div>
+                    <div class="text-xl sm:text-2xl font-bold text-white mt-0.5">{{ sites | length }} <span class="text-xs font-normal text-slate-500">个</span></div>
                 </div>
             </div>
-        </div>
 
-        <!-- 签到日志卡片 -->
-        <div class="card mt-4">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">最近签到日志</h5>
-                <a href="/clear-logs" class="btn btn-sm btn-outline-secondary" onclick="return confirm('确认清空所有历史日志？');">清空日志</a>
+            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
+                <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                    <i class="ri-play-circle-line"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400">运行活跃</div>
+                    <div class="text-xl sm:text-2xl font-bold text-emerald-400 mt-0.5">{{ sites | selectattr('enabled') | list | length }} <span class="text-xs font-normal text-slate-500">启用</span></div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 180px;">时间</th>
-                                <th style="width: 140px;">站点</th>
-                                <th style="width: 100px;">状态</th>
-                                <th>详情</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for log in logs %}
-                            <tr>
-                                <td>{{ log.created_at }}</td>
-                                <td><strong>{{ log.site_name }}</strong></td>
-                                <td>
-                                    {% if log.status == "成功" %}
-                                    <span class="text-success fw-bold">✓ 成功</span>
-                                    {% else %}
-                                    <span class="text-danger fw-bold">✗ 失败</span>
+
+            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
+                <div class="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-xl shrink-0">
+                    <i class="ri-time-line"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400">调度策略</div>
+                    <div class="text-sm sm:text-base font-semibold text-white mt-0.5">随机 + 固定</div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
+                <div class="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center text-xl shrink-0">
+                    <i class="ri-shield-check-line"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400">自动化防盾</div>
+                    <div class="text-sm sm:text-base font-semibold text-purple-300 mt-0.5">无痕 Playwright</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 站点列表区域 -->
+        <section class="bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden">
+            <!-- 头部操作栏 -->
+            <div class="p-4 sm:p-5 border-b border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
+                    <h2 class="text-base sm:text-lg font-bold text-white">站点配置与定时任务</h2>
+                </div>
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <a href="/run-all" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-600/25 transition-all">
+                        <i class="ri-play-fill text-base"></i>
+                        <span>立即全部签到</span>
+                    </a>
+                    <button onclick="openAddSiteModal()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs sm:text-sm font-medium shadow-lg shadow-indigo-500/25 transition-all">
+                        <i class="ri-add-line text-base"></i>
+                        <span>添加新网站</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 桌面端表格视图 (md 及以上显示) -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-900/50 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60">
+                        <tr>
+                            <th class="py-3.5 px-4">站点 / 域名</th>
+                            <th class="py-3.5 px-4">认证方式</th>
+                            <th class="py-3.5 px-4">调度策略</th>
+                            <th class="py-3.5 px-4">下次执行</th>
+                            <th class="py-3.5 px-4">最新状态</th>
+                            <th class="py-3.5 px-4">开关</th>
+                            <th class="py-3.5 px-4 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/40">
+                        {% for site in sites %}
+                        <tr class="hover:bg-slate-700/30 transition-colors">
+                            <td class="py-3.5 px-4">
+                                <div class="font-medium text-white">{{ site.name }}</div>
+                                <div class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                                    <span>{{ site.domain or "无地址" }}</span>
+                                    {% if site.domain %}
+                                    <a href="{{ site.domain }}" target="_blank" class="hover:text-indigo-400"><i class="ri-external-link-line"></i></a>
                                     {% endif %}
-                                </td>
-                                <td>{{ log.message }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center py-3 text-muted">暂无日志</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-700/70 text-slate-300 border border-slate-600/50">
+                                    <i class="ri-key-2-line mr-1 text-slate-400"></i>
+                                    {{ "Cookies" if site.auth_type == 'cookie' else "账号密码" }}
+                                </span>
+                            </td>
+                            <td class="py-3.5 px-4">
+                                {% if site.schedule_type == 'fixed' %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                    <i class="ri-alarm-line mr-1"></i>固定 {{ site.schedule_time }}
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    <i class="ri-shuffle-line mr-1"></i>每日随机
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <div class="text-xs font-mono {{ 'text-slate-500' if not site.enabled else 'text-indigo-400' }}">
+                                    {{ site.next_run_display }}
+                                </div>
+                            </td>
+                            <td class="py-3.5 px-4">
+                                {% if "成功" in site.last_status %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                    <i class="ri-checkbox-circle-line mr-1"></i>{{ site.last_status }}
+                                </span>
+                                {% elif "失败" in site.last_status or "失效" in site.last_status %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                    <i class="ri-close-circle-line mr-1"></i>{{ site.last_status }}
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-700 text-slate-400 border border-slate-600/50">
+                                    {{ site.last_status }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <a href="/toggle-site/{{ site.id }}" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25' if site.enabled else 'bg-slate-700/50 text-slate-400 border border-slate-600/40 hover:bg-slate-700' }}">
+                                    {{ "已启用" if site.enabled else "已停用" }}
+                                </a>
+                            </td>
+                            <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                                <a href="/run-site/{{ site.id }}" title="执行签到" class="p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all inline-flex items-center">
+                                    <i class="ri-play-line text-sm"></i>
+                                </a>
+                                <button onclick="openEditModal({{ site.id }})" title="编辑配置" class="p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition-all inline-flex items-center">
+                                    <i class="ri-edit-line text-sm"></i>
+                                </button>
+                                <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" title="删除站点" class="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-all inline-flex items-center">
+                                    <i class="ri-delete-bin-line text-sm"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="py-12 text-center text-slate-500">
+                                <i class="ri-inbox-line text-4xl mb-2 block text-slate-600"></i>
+                                暂无站点配置，请点击右上角「添加新网站」
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        </div>
-    </div>
 
-    <!-- 添加网站 Modal -->
-    <div class="modal fade" id="addSiteModal" tabindex="-1">
-        <div class="modal-dialog">
-            <form method="post" action="/add-site" class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">添加签到网站</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">站点名称</label>
-                        <input type="text" name="name" class="form-control" placeholder="例如: 国语视界" required>
+            <!-- 移动端卡片视图 (md 以下屏幕显示，卡片流式布局) -->
+            <div class="block md:hidden divide-y divide-slate-700/60">
+                {% for site in sites %}
+                <div class="p-4 space-y-3 hover:bg-slate-700/20 transition-colors">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="font-bold text-white text-base flex items-center gap-1.5">
+                                <span>{{ site.name }}</span>
+                                <a href="/toggle-site/{{ site.id }}" class="text-[11px] px-2 py-0.5 rounded-full font-medium {{ 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' if site.enabled else 'bg-slate-700 text-slate-400' }}">
+                                    {{ "运行中" if site.enabled else "已停用" }}
+                                </a>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">
+                                {{ site.domain }}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <a href="/run-site/{{ site.id }}" class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 active:scale-95 transition-transform" title="签到">
+                                <i class="ri-play-fill text-sm"></i>
+                            </a>
+                            <button onclick="openEditModal({{ site.id }})" class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 active:scale-95 transition-transform" title="编辑">
+                                <i class="ri-edit-line text-sm"></i>
+                            </button>
+                            <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" class="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 active:scale-95 transition-transform" title="删除">
+                                <i class="ri-delete-bin-line text-sm"></i>
+                            </a>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">站点模板</label>
-                        <select name="site_type" id="add_site_type" class="form-select" onchange="updateTemplateUI('add', true)">
-                            {% for key, tpl in site_templates.items() %}
-                            <option value="{{ key }}" data-auth="{{ tpl.auth_type }}" data-domain="{{ tpl.default_domain }}">{{ tpl.name }}</option>
-                            {% endfor %}
+
+                    <!-- 属性标签 -->
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="px-2 py-0.5 rounded-lg bg-slate-700/60 text-slate-300 border border-slate-600/40">
+                            {{ "Cookies" if site.auth_type == 'cookie' else "账号密码" }}
+                        </span>
+                        {% if site.schedule_type == 'fixed' %}
+                        <span class="px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                            固定 {{ site.schedule_time }}
+                        </span>
+                        {% else %}
+                        <span class="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            每日随机
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 执行状态与下次时间 -->
+                    <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs space-y-1">
+                        <div class="flex justify-between items-center text-slate-400">
+                            <span>下次执行</span>
+                            <span class="font-mono {{ 'text-slate-500' if not site.enabled else 'text-indigo-400' }}">{{ site.next_run_display }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">最近状态</span>
+                            <span class="truncate max-w-[180px] {{ 'text-emerald-400' if '成功' in site.last_status else ('text-rose-400' if '失败' in site.last_status else 'text-slate-300') }}">
+                                {{ site.last_status }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="p-8 text-center text-slate-500 text-sm">
+                    暂无站点配置，请点击顶部按钮添加
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- 最近执行日志区域 -->
+        <section class="bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-700/60 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-cyan-500"></div>
+                    <h2 class="text-base sm:text-lg font-bold text-white">最近签到日志</h2>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">最新 {{ logs | length }} 条</span>
+                </div>
+                <a href="/clear-logs" onclick="return confirm('确定清空所有历史签到日志吗？');" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-600/50 transition-all">
+                    <i class="ri-delete-bin-2-line"></i>
+                    <span>清空日志</span>
+                </a>
+            </div>
+
+            <!-- 桌面端日志表格 -->
+            <div class="hidden md:block overflow-x-auto max-h-[380px] overflow-y-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-900/50 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60 sticky top-0 backdrop-blur-md">
+                        <tr>
+                            <th class="py-3 px-4 w-44">时间</th>
+                            <th class="py-3 px-4 w-36">站点</th>
+                            <th class="py-3 px-4 w-28">状态</th>
+                            <th class="py-3 px-4">执行详情</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/40 text-xs font-mono">
+                        {% for log in logs %}
+                        <tr class="hover:bg-slate-700/30 transition-colors">
+                            <td class="py-2.5 px-4 text-slate-400 whitespace-nowrap">{{ log.created_at }}</td>
+                            <td class="py-2.5 px-4 font-sans font-medium text-white">{{ log.site_name }}</td>
+                            <td class="py-2.5 px-4 font-sans">
+                                {% if log.status == "成功" %}
+                                <span class="inline-flex items-center text-emerald-400 font-medium">
+                                    <i class="ri-check-line mr-1"></i>成功
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center text-rose-400 font-medium">
+                                    <i class="ri-close-line mr-1"></i>失败
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-2.5 px-4 font-sans text-slate-300 break-all">{{ log.message }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="py-8 text-center text-slate-500 font-sans">暂无历史日志</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 移动端日志卡片流 -->
+            <div class="block md:hidden divide-y divide-slate-700/60 max-h-[380px] overflow-y-auto">
+                {% for log in logs %}
+                <div class="p-3.5 space-y-1.5 text-xs">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-white">{{ log.site_name }}</span>
+                        {% if log.status == "成功" %}
+                        <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium">✓ 成功</span>
+                        {% else %}
+                        <span class="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[11px] font-medium">✗ 失败</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-slate-300 text-xs leading-relaxed break-all">
+                        {{ log.message }}
+                    </div>
+                    <div class="text-slate-500 font-mono text-[11px]">
+                        {{ log.created_at }}
+                    </div>
+                </div>
+                {% else %}
+                <div class="p-6 text-center text-slate-500 text-sm">暂无日志</div>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        Pig Checkin · 极简高效现代化多站点签到服务
+    </footer>
+
+    <!-- ================= 模态弹窗区域 ================= -->
+
+    <!-- 添加站点 Modal -->
+    <div id="addSiteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="p-5 border-b border-slate-700 flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="ri-add-circle-line text-indigo-400 text-lg"></i>
+                    <span>添加签到网站</span>
+                </h3>
+                <button onclick="closeModal('addSiteModal')" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <form method="post" action="/add-site" class="overflow-y-auto p-5 space-y-4 text-sm flex-1">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点名称</label>
+                    <input type="text" name="name" required placeholder="例如: 国语视界"
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点模板</label>
+                    <select name="site_type" id="add_site_type" onchange="updateTemplateUI('add', true)"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                        {% for key, tpl in site_templates.items() %}
+                        <option value="{{ key }}">{{ tpl.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点地址 (Domain)</label>
+                    <input type="text" name="domain" id="add_domain" required value="https://cnlang.org" placeholder="包含协议，如 https://cnlang.org"
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">定时策略</label>
+                        <select name="schedule_type" id="add_schedule_type" onchange="toggleScheduleFields('add')"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                            <option value="random" selected>每日随机时间 (推荐)</option>
+                            <option value="fixed">每日固定时间</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">站点地址 (Domain，包含协议/域名/端口)</label>
-                        <input type="text" name="domain" id="add_domain" class="form-control" value="https://cnlang.org" placeholder="例如: https://cnlang.org 或 http://127.0.0.1:8080" required>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">签到定时策略</label>
-                            <select name="schedule_type" class="form-select" id="add_schedule_type" onchange="toggleScheduleFields('add')">
-                                <option value="random" selected>每日随机时间 (默认)</option>
-                                <option value="fixed">每日固定时间</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3" id="add_schedule_time_box" style="display: none;">
-                            <label class="form-label">固定触发时刻</label>
-                            <input type="time" name="schedule_time" class="form-control" value="09:00">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">失败重试次数</label>
-                            <input type="number" name="max_retries" class="form-control" value="3" min="0" max="10">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">重试间隔 (秒)</label>
-                            <input type="number" name="retry_interval" class="form-control" value="60" min="1" max="3600">
-                        </div>
-                    </div>
-
-                    <!-- 固定的认证方式展示 -->
-                    <div class="mb-3">
-                        <label class="form-label">认证方式</label>
-                        <div class="form-control bg-light" id="add_auth_display">Cookies 认证</div>
-                    </div>
-
-                    <!-- 凭据输入区域 -->
-                    <div class="mb-3" id="add_cookie_field">
-                        <label class="form-label">Cookies 字符串</label>
-                        <textarea name="cookies" class="form-control" rows="3" placeholder="请粘贴浏览器中登录后的完整 Cookie 字符串"></textarea>
-                    </div>
-                    <div class="row" id="add_cred_fields" style="display: none;">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">账号 / 用户名</label>
-                            <input type="text" name="username" class="form-control" placeholder="用户名">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">密码</label>
-                            <input type="password" name="password" class="form-control" placeholder="密码">
-                        </div>
+                    <div id="add_schedule_time_box" class="hidden">
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定时间</label>
+                        <input type="time" name="schedule_time" value="09:00"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="submit" class="btn btn-primary">保存网站</button>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试次数</label>
+                        <input type="number" name="max_retries" value="3" min="0" max="10"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试间隔 (秒)</label>
+                        <input type="number" name="retry_interval" value="60" min="1" max="3600"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定认证方式</label>
+                    <div id="add_auth_display" class="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-400 text-xs">
+                        Cookies 认证
+                    </div>
+                </div>
+
+                <div id="add_cookie_field">
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Cookie 字符串</label>
+                    <textarea name="cookies" rows="3" placeholder="请从浏览器开发者工具中复制粘贴 Cookie 字符串"
+                              class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <div id="add_cred_fields" class="hidden grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">账号 / 用户名</label>
+                        <input type="text" name="username" placeholder="站点账号"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">密码</label>
+                        <input type="password" name="password" placeholder="站点密码"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-700 flex justify-end gap-2.5">
+                    <button type="button" onclick="closeModal('addSiteModal')" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium">取消</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存站点</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 编辑网站 Modal -->
-    <div class="modal fade" id="editSiteModal" tabindex="-1">
-        <div class="modal-dialog">
-            <form method="post" action="/edit-site" class="modal-content">
+    <!-- 编辑站点 Modal -->
+    <div id="editSiteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="p-5 border-b border-slate-700 flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="ri-edit-circle-line text-indigo-400 text-lg"></i>
+                    <span>编辑网站配置</span>
+                </h3>
+                <button onclick="closeModal('editSiteModal')" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <form method="post" action="/edit-site" class="overflow-y-auto p-5 space-y-4 text-sm flex-1">
                 <input type="hidden" name="id" id="edit_id">
-                <div class="modal-header">
-                    <h5 class="modal-title">编辑网站配置</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点名称</label>
+                    <input type="text" name="name" id="edit_name" required
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">站点名称</label>
-                        <input type="text" name="name" id="edit_name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">站点模板</label>
-                        <select name="site_type" id="edit_site_type" class="form-select" onchange="updateTemplateUI('edit', true)">
-                            {% for key, tpl in site_templates.items() %}
-                            <option value="{{ key }}" data-auth="{{ tpl.auth_type }}" data-domain="{{ tpl.default_domain }}">{{ tpl.name }}</option>
-                            {% endfor %}
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点模板</label>
+                    <select name="site_type" id="edit_site_type" onchange="updateTemplateUI('edit', true)"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                        {% for key, tpl in site_templates.items() %}
+                        <option value="{{ key }}">{{ tpl.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点地址 (Domain)</label>
+                    <input type="text" name="domain" id="edit_domain" required
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">定时策略</label>
+                        <select name="schedule_type" id="edit_schedule_type" onchange="toggleScheduleFields('edit')"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                            <option value="random">每日随机时间 (推荐)</option>
+                            <option value="fixed">每日固定时间</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">站点地址 (Domain，包含协议/域名/端口)</label>
-                        <input type="text" name="domain" id="edit_domain" class="form-control" required>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">签到定时策略</label>
-                            <select name="schedule_type" id="edit_schedule_type" class="form-select" onchange="toggleScheduleFields('edit')">
-                                <option value="random">每日随机时间 (默认)</option>
-                                <option value="fixed">每日固定时间</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3" id="edit_schedule_time_box">
-                            <label class="form-label">固定触发时刻</label>
-                            <input type="time" name="schedule_time" id="edit_schedule_time" class="form-control">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">失败重试次数</label>
-                            <input type="number" name="max_retries" id="edit_max_retries" class="form-control" min="0" max="10">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">重试间隔 (秒)</label>
-                            <input type="number" name="retry_interval" id="edit_retry_interval" class="form-control" min="1" max="3600">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">启用状态</label>
-                        <select name="enabled" id="edit_enabled" class="form-select">
-                            <option value="1">启用 (开启自动定时签到)</option>
-                            <option value="0">禁用 (暂停自动签到)</option>
-                        </select>
-                    </div>
-
-                    <!-- 固定的认证方式展示 -->
-                    <div class="mb-3">
-                        <label class="form-label">认证方式</label>
-                        <div class="form-control bg-light" id="edit_auth_display">Cookies 认证</div>
-                    </div>
-
-                    <!-- 凭据输入区域 -->
-                    <div class="mb-3" id="edit_cookie_field">
-                        <label class="form-label">Cookies 字符串</label>
-                        <textarea name="cookies" id="edit_cookies" class="form-control" rows="3"></textarea>
-                    </div>
-                    <div class="row" id="edit_cred_fields" style="display: none;">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">账号 / 用户名</label>
-                            <input type="text" name="username" id="edit_username" class="form-control">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">密码</label>
-                            <input type="password" name="password" id="edit_password" class="form-control">
-                        </div>
+                    <div id="edit_schedule_time_box">
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定时间</label>
+                        <input type="time" name="schedule_time" id="edit_schedule_time"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="submit" class="btn btn-primary">保存修改</button>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试次数</label>
+                        <input type="number" name="max_retries" id="edit_max_retries" min="0" max="10"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试间隔 (秒)</label>
+                        <input type="number" name="retry_interval" id="edit_retry_interval" min="1" max="3600"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">启用状态</label>
+                    <select name="enabled" id="edit_enabled"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                        <option value="1">启用 (正常执行定时签到)</option>
+                        <option value="0">禁用 (暂停自动签到)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定认证方式</label>
+                    <div id="edit_auth_display" class="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-400 text-xs">
+                        Cookies 认证
+                    </div>
+                </div>
+
+                <div id="edit_cookie_field">
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Cookie 字符串</label>
+                    <textarea name="cookies" id="edit_cookies" rows="3"
+                              class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <div id="edit_cred_fields" class="hidden grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">账号 / 用户名</label>
+                        <input type="text" name="username" id="edit_username"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">密码</label>
+                        <input type="password" name="password" id="edit_password"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-700 flex justify-end gap-2.5">
+                    <button type="button" onclick="closeModal('editSiteModal')" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium">取消</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存修改</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 账号设置 Modal (支持修改用户名与密码) -->
-    <div class="modal fade" id="changeAccountModal" tabindex="-1">
-        <div class="modal-dialog">
-            <form method="post" action="/change-account" class="modal-content" onsubmit="return validateAccountForm(this);">
-                <div class="modal-header">
-                    <h5 class="modal-title">账号设置 (修改用户名 / 密码)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- 账号设置 Modal -->
+    <div id="changeAccountModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="p-5 border-b border-slate-700 flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="ri-user-settings-line text-indigo-400 text-lg"></i>
+                    <span>管理员账号设置</span>
+                </h3>
+                <button onclick="closeModal('changeAccountModal')" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            
+            <form method="post" action="/change-account" onsubmit="return validateAccountForm(this);" class="p-5 space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">用户名</label>
+                    <input type="text" name="new_username" value="{{ current_user }}" required
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">用户名</label>
-                        <input type="text" name="new_username" class="form-control" value="{{ current_user }}" required placeholder="请输入新用户名">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">原密码 <span class="text-danger">*</span></label>
-                        <input type="password" name="old_password" class="form-control" required placeholder="请输入当前密码以验证身份">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">新密码 (可选)</label>
-                        <input type="password" name="new_password" id="acc_new_pwd" class="form-control" placeholder="留空则保持原密码不变">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">确认新密码</label>
-                        <input type="password" name="confirm_password" id="acc_confirm_pwd" class="form-control" placeholder="请再次输入新密码">
-                    </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">原密码 <span class="text-rose-400">*</span></label>
+                    <input type="password" name="old_password" required placeholder="验证当前密码"
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="submit" class="btn btn-primary">保存修改</button>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">新密码 (可选)</label>
+                    <input type="password" name="new_password" id="acc_new_pwd" placeholder="留空则保持密码不变"
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">确认新密码</label>
+                    <input type="password" name="confirm_password" id="acc_confirm_pwd" placeholder="再次输入新密码"
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="pt-3 border-t border-slate-700 flex justify-end gap-2.5">
+                    <button type="button" onclick="closeModal('changeAccountModal')" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium">取消</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存设置</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- JS 逻辑控制 -->
     <script>
         const templatesMeta = {{ site_templates | tojson }};
+        const allSites = {{ sites | tojson }};
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            }
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        // 点击遮罩层外侧关闭
+        document.querySelectorAll('[id$="Modal"]').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal(modal.id);
+            });
+        });
+
+        // 按 ESC 键关闭
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('[id$="Modal"]').forEach(m => m.classList.add('hidden'));
+                document.body.classList.remove('overflow-hidden');
+            }
+        });
 
         function toggleScheduleFields(prefix) {
             const stype = document.getElementById(prefix + '_schedule_type').value;
             const timeBox = document.getElementById(prefix + '_schedule_time_box');
-            timeBox.style.display = stype === 'fixed' ? 'block' : 'none';
+            if (timeBox) {
+                if (stype === 'fixed') {
+                    timeBox.classList.remove('hidden');
+                } else {
+                    timeBox.classList.add('hidden');
+                }
+            }
         }
 
         function updateTemplateUI(prefix, changeDomain = false) {
             const siteType = document.getElementById(prefix + '_site_type').value;
             const meta = templatesMeta[siteType] || { auth_type: 'cookie', auth_label: 'Cookies 认证', default_domain: 'https://cnlang.org' };
             
-            document.getElementById(prefix + '_auth_display').textContent = meta.auth_label || (meta.auth_type === 'cookie' ? 'Cookies 认证' : '用户名 & 密码认证');
+            const authDisplay = document.getElementById(prefix + '_auth_display');
+            if (authDisplay) {
+                authDisplay.textContent = meta.auth_label || (meta.auth_type === 'cookie' ? 'Cookies 认证' : '用户名 & 密码认证');
+            }
 
             if (changeDomain && meta.default_domain) {
-                document.getElementById(prefix + '_domain').value = meta.default_domain;
+                const domainInput = document.getElementById(prefix + '_domain');
+                if (domainInput) domainInput.value = meta.default_domain;
             }
 
             const cookieField = document.getElementById(prefix + '_cookie_field');
             const credFields = document.getElementById(prefix + '_cred_fields');
 
             if (meta.auth_type === 'cookie') {
-                cookieField.style.display = 'block';
-                credFields.style.display = 'none';
+                if (cookieField) cookieField.classList.remove('hidden');
+                if (credFields) credFields.classList.add('hidden');
             } else {
-                cookieField.style.display = 'none';
-                credFields.style.display = 'flex';
+                if (cookieField) cookieField.classList.add('hidden');
+                if (credFields) credFields.classList.remove('hidden');
             }
         }
 
-        function editSite(site) {
+        function openAddSiteModal() {
+            updateTemplateUI('add', false);
+            toggleScheduleFields('add');
+            openModal('addSiteModal');
+        }
+
+        function openEditModal(siteId) {
+            const site = allSites.find(s => s.id === siteId);
+            if (!site) return;
+
             document.getElementById('edit_id').value = site.id;
-            document.getElementById('edit_name').value = site.name;
-            document.getElementById('edit_site_type').value = site.site_type;
+            document.getElementById('edit_name').value = site.name || '';
+            document.getElementById('edit_site_type').value = site.site_type || 'cnlang';
             document.getElementById('edit_domain').value = site.domain || 'https://cnlang.org';
             document.getElementById('edit_schedule_type').value = site.schedule_type || 'random';
             document.getElementById('edit_schedule_time').value = site.schedule_time || '09:00';
@@ -405,9 +738,10 @@
             document.getElementById('edit_cookies').value = site.cookies || '';
             document.getElementById('edit_username').value = site.username || '';
             document.getElementById('edit_password').value = site.password || '';
+
             toggleScheduleFields('edit');
-            updateTemplateUI('edit');
-            new bootstrap.Modal(document.getElementById('editSiteModal')).show();
+            updateTemplateUI('edit', false);
+            openModal('editSiteModal');
         }
 
         function validateAccountForm(form) {
@@ -421,7 +755,8 @@
         }
 
         // 初始化添加框 UI
-        updateTemplateUI('add');
+        updateTemplateUI('add', true);
+        toggleScheduleFields('add');
     </script>
 </body>
 </html>

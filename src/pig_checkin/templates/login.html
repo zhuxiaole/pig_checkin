@@ -3,29 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - 自动签到管理系统</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        .login-card { width: 100%; max-width: 400px; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: #fff; }
-    </style>
+    <title>登录 - Pig Checkin 自动签到平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
 </head>
-<body>
-    <div class="login-card">
-        <h3 class="text-center mb-4">自动签到平台</h3>
+<body class="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 selection:bg-indigo-500 selection:text-white">
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="w-full max-w-md bg-slate-800/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl p-8 shadow-2xl relative z-10">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/30 mb-4 text-3xl">
+                🐖
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Pig Checkin</h1>
+            <p class="text-sm text-slate-400 mt-1">现代化全自动化多站点签到管理系统</p>
+        </div>
+
         {% if error %}
-        <div class="alert alert-danger py-2">{{ error }}</div>
+        <div class="mb-6 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm flex items-center gap-2">
+            <i class="ri-error-warning-line text-lg"></i>
+            <span>{{ error }}</span>
+        </div>
         {% endif %}
-        <form method="post" action="/login">
-            <div class="mb-3">
-                <label class="form-label">用户名</label>
-                <input type="text" name="username" class="form-control" required autofocus placeholder="默认: admin">
+
+        <form method="post" action="/login" class="space-y-5">
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">用户名</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                        <i class="ri-user-3-line"></i>
+                    </span>
+                    <input type="text" name="username" required autofocus placeholder="默认: admin"
+                           class="w-full bg-slate-900/60 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="form-label">密码</label>
-                <input type="password" name="password" class="form-control" required placeholder="默认: admin123">
+
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">管理密码</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                        <i class="ri-lock-2-line"></i>
+                    </span>
+                    <input type="password" name="password" required placeholder="默认: admin123"
+                           class="w-full bg-slate-900/60 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100">登录</button>
+
+            <button type="submit"
+                    class="w-full mt-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium py-3 rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-150 transform active:scale-[0.98] flex items-center justify-center gap-2">
+                <span>进入控制台</span>
+                <i class="ri-arrow-right-line"></i>
+            </button>
         </form>
     </div>
 </body>
