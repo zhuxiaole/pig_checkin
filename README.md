@@ -85,8 +85,6 @@ services:
 | **`TZ`** | `Asia/Shanghai` | **推荐配置** | 容器系统时区。依赖预置的 `tzdata`，确保签到日志时间戳、每日定时触发时刻与您所在地区时间精准一致（例如 `Asia/Shanghai`、`UTC`、`America/New_York`）。 |
 | **`SECRET_KEY`** | *(内置默认密钥)* | **强烈建议修改** | 站点凭据（Cookies、密码）对称加密根密钥（Fernet / AES-128-CBC + HMAC-SHA256）。生产与公网部署务必修改为高强度随机字符串。 |
 | **`PIG_RELOAD`** | `false` | 可选 | Uvicorn 服务热重载开关。生产容器环境保持 `false`；本地调试代码若需热加载可设为 `true`。 |
-| **`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`** | `/usr/bin/chromium` | 容器预置 | 系统内置 Chromium 路径，用于绕过反爬验证。通常无需手动修改。 |
-| **`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`** | `1` | 容器预置 | 禁止在容器运行时重复下载庞大的外置浏览器。通常无需修改。 |
 
 ---
 
