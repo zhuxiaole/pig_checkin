@@ -4,26 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - Pig Checkin 自动签到平台</title>
+    <script>
+        // 初始主题检测 (防白屏闪烁 / FOUC)
+        (function() {
+            const saved = localStorage.getItem('theme') || 'system';
+            const isDark = saved === 'dark' || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
 </head>
-<body class="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 selection:bg-indigo-500 selection:text-white">
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"></div>
+<body class="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 flex items-center justify-center p-4 selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+    <!-- 背景流光装饰 -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-500/15 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl"></div>
     </div>
 
-    <div class="w-full max-w-md bg-slate-800/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl p-8 shadow-2xl relative z-10">
+    <!-- 右上角主题切换 -->
+    <div class="fixed top-4 right-4 z-20">
+        <div class="relative">
+            <button onclick="toggleThemeDropdown()" class="p-2 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-all flex items-center gap-1.5 text-xs">
+                <i id="theme-active-icon" class="ri-computer-line text-sm"></i>
+                <span id="theme-active-text" class="font-medium">系统</span>
+                <i class="ri-arrow-down-s-line text-xs"></i>
+            </button>
+            <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-32 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl py-1 z-30 text-xs">
+                <button onclick="setTheme('system')" class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200">
+                    <span class="flex items-center gap-2"><i class="ri-computer-line"></i> 跟随系统</span>
+                    <i id="check-system" class="ri-check-line text-indigo-500 hidden"></i>
+                </button>
+                <button onclick="setTheme('light')" class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200">
+                    <span class="flex items-center gap-2"><i class="ri-sun-line text-amber-500"></i> 浅色模式</span>
+                    <i id="check-light" class="ri-check-line text-indigo-500 hidden"></i>
+                </button>
+                <button onclick="setTheme('dark')" class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200">
+                    <span class="flex items-center gap-2"><i class="ri-moon-line text-indigo-400"></i> 深色模式</span>
+                    <i id="check-dark" class="ri-check-line text-indigo-500 hidden"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录卡片 -->
+    <div class="w-full max-w-md bg-white/90 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200 dark:border-slate-700/60 rounded-2xl p-8 shadow-2xl relative z-10 transition-colors">
         <div class="text-center mb-8">
             <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/30 mb-4 text-3xl">
                 🐖
             </div>
-            <h1 class="text-2xl font-bold tracking-tight text-white">Pig Checkin</h1>
-            <p class="text-sm text-slate-400 mt-1">现代化全自动化多站点签到管理系统</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Pig Checkin</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">现代化全自动化多站点签到管理系统</p>
         </div>
 
         {% if error %}
-        <div class="mb-6 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm flex items-center gap-2">
+        <div class="mb-6 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 dark:text-rose-400 text-sm flex items-center gap-2">
             <i class="ri-error-warning-line text-lg"></i>
             <span>{{ error }}</span>
         </div>
@@ -31,24 +72,24 @@
 
         <form method="post" action="/login" class="space-y-5">
             <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">用户名</label>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">用户名</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                         <i class="ri-user-3-line"></i>
                     </span>
                     <input type="text" name="username" required autofocus placeholder="默认: admin"
-                           class="w-full bg-slate-900/60 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                           class="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                 </div>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">管理密码</label>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">管理密码</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                         <i class="ri-lock-2-line"></i>
                     </span>
                     <input type="password" name="password" required placeholder="默认: admin123"
-                           class="w-full bg-slate-900/60 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                           class="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                 </div>
             </div>
 
@@ -59,5 +100,69 @@
             </button>
         </form>
     </div>
+
+    <!-- 主题脚本 -->
+    <script>
+        function applyTheme(theme) {
+            const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+
+            const icon = document.getElementById('theme-active-icon');
+            const text = document.getElementById('theme-active-text');
+            if (icon && text) {
+                if (theme === 'system') {
+                    icon.className = 'ri-computer-line text-sm';
+                    text.textContent = '系统';
+                } else if (theme === 'light') {
+                    icon.className = 'ri-sun-line text-sm text-amber-500';
+                    text.textContent = '浅色';
+                } else {
+                    icon.className = 'ri-moon-line text-sm text-indigo-400';
+                    text.textContent = '深色';
+                }
+            }
+
+            ['system', 'light', 'dark'].forEach(t => {
+                const el = document.getElementById(`check-${t}`);
+                if (el) {
+                    if (t === theme) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                }
+            });
+        }
+
+        function setTheme(theme) {
+            localStorage.setItem('theme', theme);
+            applyTheme(theme);
+            const menu = document.getElementById('theme-dropdown-menu');
+            if (menu) menu.classList.add('hidden');
+        }
+
+        function toggleThemeDropdown() {
+            const menu = document.getElementById('theme-dropdown-menu');
+            if (menu) menu.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('theme-dropdown-menu');
+            const container = menu?.parentElement;
+            if (menu && !menu.classList.contains('hidden') && container && !container.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if ((localStorage.getItem('theme') || 'system') === 'system') {
+                applyTheme('system');
+            }
+        });
+
+        // 初始化指示状态
+        applyTheme(localStorage.getItem('theme') || 'system');
+    </script>
 </body>
 </html>

@@ -4,48 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>控制台 - Pig Checkin 自动签到系统</title>
+    <script>
+        // 初始主题检测 (防白屏闪烁 / FOUC)
+        (function() {
+            const saved = localStorage.getItem('theme') || 'system';
+            const isDark = saved === 'dark' || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <style>
         /* 自定义滚动条样式 */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
-        ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.6); border-radius: 9999px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.8); }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
     </style>
 </head>
-<body class="min-h-screen bg-slate-900 text-slate-100 selection:bg-indigo-500 selection:text-white flex flex-col antialiased">
+<body class="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 selection:bg-indigo-500 selection:text-white flex flex-col antialiased transition-colors duration-200">
     <!-- 背景流光装饰 -->
     <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl"></div>
-        <div class="absolute top-1/3 -left-40 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-40 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl"></div>
+        <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/3 -left-40 w-96 h-96 bg-purple-500/10 dark:bg-purple-600/15 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-40 right-1/4 w-96 h-96 bg-cyan-500/10 dark:bg-cyan-600/10 rounded-full blur-3xl"></div>
     </div>
 
     <!-- 顶部导航栏 -->
-    <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800">
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20 text-white">
                     🐖
                 </div>
                 <div>
-                    <span class="text-base sm:text-lg font-bold text-white tracking-tight">Pig Checkin</span>
-                    <span class="hidden sm:inline-block ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">v1.0</span>
+                    <span class="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">Pig Checkin</span>
+                    <span class="hidden sm:inline-block ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">v1.0</span>
                 </div>
             </div>
 
-            <!-- 右侧管理操作 -->
+            <!-- 右侧管理操作与主题切换 -->
             <div class="flex items-center gap-2 sm:gap-3">
-                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
-                    <i class="ri-shield-user-line text-indigo-400 text-sm"></i>
+                <!-- 主题切换下拉菜单 -->
+                <div class="relative">
+                    <button onclick="toggleThemeDropdown()" class="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition-all flex items-center gap-1.5 text-xs">
+                        <i id="theme-active-icon" class="ri-computer-line text-sm"></i>
+                        <span id="theme-active-text" class="hidden sm:inline font-medium">系统</span>
+                        <i class="ri-arrow-down-s-line text-xs"></i>
+                    </button>
+                    <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-32 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl py-1 z-50 text-xs">
+                        <button onclick="setTheme('system')" class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200">
+                            <span class="flex items-center gap-2"><i class="ri-computer-line"></i> 跟随系统</span>
+                            <i id="check-system" class="ri-check-line text-indigo-500 hidden"></i>
+                        </button>
+                        <button onclick="setTheme('light')" class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200">
+                            <span class="flex items-center gap-2"><i class="ri-sun-line text-amber-500"></i> 浅色模式</span>
+                            <i id="check-light" class="ri-check-line text-indigo-500 hidden"></i>
+                        </button>
+                        <button onclick="setTheme('dark')" class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200">
+                            <span class="flex items-center gap-2"><i class="ri-moon-line text-indigo-400"></i> 深色模式</span>
+                            <i id="check-dark" class="ri-check-line text-indigo-500 hidden"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 管理员徽章 -->
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
+                    <i class="ri-shield-user-line text-indigo-500 dark:text-indigo-400 text-sm"></i>
                     <span>{{ current_user }}</span>
                 </div>
-                <button onclick="openModal('changeAccountModal')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-xs text-slate-300 hover:text-white transition-all">
+
+                <button onclick="openModal('changeAccountModal')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 transition-all">
                     <i class="ri-settings-4-line text-slate-400"></i>
                     <span class="hidden sm:inline">账号设置</span>
                 </button>
-                <a href="/logout" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs text-rose-300 hover:text-rose-200 transition-all">
+                <a href="/logout" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-300 transition-all">
                     <i class="ri-logout-box-r-line"></i>
                     <span class="hidden sm:inline">退出</span>
                 </a>
@@ -57,24 +96,24 @@
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <!-- 提示通知横幅 -->
         {% if pwd_ok %}
-        <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-300 text-sm flex items-center justify-between shadow-lg shadow-emerald-950/20">
+        <div class="p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl text-emerald-800 dark:text-emerald-300 text-sm flex items-center justify-between shadow-sm">
             <div class="flex items-center gap-2.5">
-                <i class="ri-checkbox-circle-fill text-lg text-emerald-400"></i>
+                <i class="ri-checkbox-circle-fill text-lg text-emerald-500 dark:text-emerald-400"></i>
                 <span>{{ pwd_ok }}</span>
             </div>
-            <button onclick="this.parentElement.remove()" class="text-emerald-400/70 hover:text-emerald-300 p-1">
+            <button onclick="this.parentElement.remove()" class="text-emerald-600 dark:text-emerald-400/70 hover:opacity-100 p-1">
                 <i class="ri-close-line text-lg"></i>
             </button>
         </div>
         {% endif %}
 
         {% if pwd_err %}
-        <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm flex items-center justify-between shadow-lg shadow-rose-950/20">
+        <div class="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-2xl text-rose-800 dark:text-rose-300 text-sm flex items-center justify-between shadow-sm">
             <div class="flex items-center gap-2.5">
-                <i class="ri-error-warning-fill text-lg text-rose-400"></i>
+                <i class="ri-error-warning-fill text-lg text-rose-500 dark:text-rose-400"></i>
                 <span>{{ pwd_err }}</span>
             </div>
-            <button onclick="this.parentElement.remove()" class="text-rose-400/70 hover:text-rose-300 p-1">
+            <button onclick="this.parentElement.remove()" class="text-rose-600 dark:text-rose-400/70 hover:opacity-100 p-1">
                 <i class="ri-close-line text-lg"></i>
             </button>
         </div>
@@ -82,61 +121,61 @@
 
         <!-- 概览指标卡片组 -->
         <section class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
-                <div class="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl shrink-0">
+            <div class="bg-white/90 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-sm dark:shadow-none transition-colors">
+                <div class="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl shrink-0">
                     <i class="ri-global-line"></i>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-400">监控站点</div>
-                    <div class="text-xl sm:text-2xl font-bold text-white mt-0.5">{{ sites | length }} <span class="text-xs font-normal text-slate-500">个</span></div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">监控站点</div>
+                    <div class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{{ sites | length }} <span class="text-xs font-normal text-slate-400">个</span></div>
                 </div>
             </div>
 
-            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
-                <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+            <div class="bg-white/90 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-sm dark:shadow-none transition-colors">
+                <div class="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl shrink-0">
                     <i class="ri-play-circle-line"></i>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-400">运行活跃</div>
-                    <div class="text-xl sm:text-2xl font-bold text-emerald-400 mt-0.5">{{ sites | selectattr('enabled') | list | length }} <span class="text-xs font-normal text-slate-500">启用</span></div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">运行活跃</div>
+                    <div class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{{ sites | selectattr('enabled') | list | length }} <span class="text-xs font-normal text-slate-400">启用</span></div>
                 </div>
             </div>
 
-            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
-                <div class="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-xl shrink-0">
+            <div class="bg-white/90 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-sm dark:shadow-none transition-colors">
+                <div class="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xl shrink-0">
                     <i class="ri-time-line"></i>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-400">调度策略</div>
-                    <div class="text-sm sm:text-base font-semibold text-white mt-0.5">随机 + 固定</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">调度策略</div>
+                    <div class="text-sm sm:text-base font-semibold text-slate-900 dark:text-white mt-0.5">随机 + 固定</div>
                 </div>
             </div>
 
-            <div class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4">
-                <div class="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center text-xl shrink-0">
+            <div class="bg-white/90 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-sm dark:shadow-none transition-colors">
+                <div class="w-11 h-11 rounded-xl bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl shrink-0">
                     <i class="ri-shield-check-line"></i>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-400">自动化防盾</div>
-                    <div class="text-sm sm:text-base font-semibold text-purple-300 mt-0.5">无痕 Playwright</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">自动化防盾</div>
+                    <div class="text-sm sm:text-base font-semibold text-purple-600 dark:text-purple-300 mt-0.5">无痕 Playwright</div>
                 </div>
             </div>
         </section>
 
         <!-- 站点列表区域 -->
-        <section class="bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden">
+        <section class="bg-white/90 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/60 rounded-2xl shadow-sm dark:shadow-xl overflow-hidden transition-colors">
             <!-- 头部操作栏 -->
-            <div class="p-4 sm:p-5 border-b border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <div class="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
-                    <h2 class="text-base sm:text-lg font-bold text-white">站点配置与定时任务</h2>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">站点配置与定时任务</h2>
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap">
-                    <a href="/run-all" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-600/25 transition-all">
+                    <a href="/run-all" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-medium shadow-md shadow-emerald-600/20 transition-all">
                         <i class="ri-play-fill text-base"></i>
                         <span>立即全部签到</span>
                     </a>
-                    <button onclick="openAddSiteModal()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs sm:text-sm font-medium shadow-lg shadow-indigo-500/25 transition-all">
+                    <button onclick="openAddSiteModal()" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs sm:text-sm font-medium shadow-md shadow-indigo-500/20 transition-all">
                         <i class="ri-add-line text-base"></i>
                         <span>添加新网站</span>
                     </button>
@@ -145,8 +184,8 @@
 
             <!-- 桌面端表格视图 (md 及以上显示) -->
             <div class="hidden md:block overflow-x-auto">
-                <table class="w-full text-left text-sm text-slate-300">
-                    <thead class="bg-slate-900/50 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60">
+                <table class="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+                    <thead class="bg-slate-100/70 dark:bg-slate-900/50 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-700/60">
                         <tr>
                             <th class="py-3.5 px-4">站点 / 域名</th>
                             <th class="py-3.5 px-4">认证方式</th>
@@ -157,76 +196,76 @@
                             <th class="py-3.5 px-4 text-right">操作</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700/40">
+                    <tbody class="divide-y divide-slate-200/70 dark:divide-slate-700/40">
                         {% for site in sites %}
-                        <tr class="hover:bg-slate-700/30 transition-colors">
+                        <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                             <td class="py-3.5 px-4">
-                                <div class="font-medium text-white">{{ site.name }}</div>
+                                <div class="font-medium text-slate-900 dark:text-white">{{ site.name }}</div>
                                 <div class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                                     <span>{{ site.domain or "无地址" }}</span>
                                     {% if site.domain %}
-                                    <a href="{{ site.domain }}" target="_blank" class="hover:text-indigo-400"><i class="ri-external-link-line"></i></a>
+                                    <a href="{{ site.domain }}" target="_blank" class="hover:text-indigo-500"><i class="ri-external-link-line"></i></a>
                                     {% endif %}
                                 </div>
                             </td>
                             <td class="py-3.5 px-4">
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-700/70 text-slate-300 border border-slate-600/50">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
                                     <i class="ri-key-2-line mr-1 text-slate-400"></i>
                                     {{ "Cookies" if site.auth_type == 'cookie' else "账号密码" }}
                                 </span>
                             </td>
                             <td class="py-3.5 px-4">
                                 {% if site.schedule_type == 'fixed' %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">
                                     <i class="ri-alarm-line mr-1"></i>固定 {{ site.schedule_time }}
                                 </span>
                                 {% else %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
                                     <i class="ri-shuffle-line mr-1"></i>每日随机
                                 </span>
                                 {% endif %}
                             </td>
                             <td class="py-3.5 px-4">
-                                <div class="text-xs font-mono {{ 'text-slate-500' if not site.enabled else 'text-indigo-400' }}">
+                                <div class="text-xs font-mono {{ 'text-slate-400' if not site.enabled else 'text-indigo-600 dark:text-indigo-400 font-semibold' }}">
                                     {{ site.next_run_display }}
                                 </div>
                             </td>
                             <td class="py-3.5 px-4">
                                 {% if "成功" in site.last_status %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-xs truncate" title="{{ site.last_status }}">
                                     <i class="ri-checkbox-circle-line mr-1"></i>{{ site.last_status }}
                                 </span>
                                 {% elif "失败" in site.last_status or "失效" in site.last_status %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-xs truncate" title="{{ site.last_status }}">
                                     <i class="ri-close-circle-line mr-1"></i>{{ site.last_status }}
                                 </span>
                                 {% else %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-700 text-slate-400 border border-slate-600/50">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-600/50">
                                     {{ site.last_status }}
                                 </span>
                                 {% endif %}
                             </td>
                             <td class="py-3.5 px-4">
-                                <a href="/toggle-site/{{ site.id }}" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25' if site.enabled else 'bg-slate-700/50 text-slate-400 border border-slate-600/40 hover:bg-slate-700' }}">
+                                <a href="/toggle-site/{{ site.id }}" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' if site.enabled else 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700' }}">
                                     {{ "已启用" if site.enabled else "已停用" }}
                                 </a>
                             </td>
                             <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                                <a href="/run-site/{{ site.id }}" title="执行签到" class="p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all inline-flex items-center">
+                                <a href="/run-site/{{ site.id }}" title="执行签到" class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center">
                                     <i class="ri-play-line text-sm"></i>
                                 </a>
-                                <button onclick="openEditModal({{ site.id }})" title="编辑配置" class="p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition-all inline-flex items-center">
+                                <button onclick="openEditModal({{ site.id }})" title="编辑配置" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-all inline-flex items-center">
                                     <i class="ri-edit-line text-sm"></i>
                                 </button>
-                                <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" title="删除站点" class="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-all inline-flex items-center">
+                                <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" title="删除站点" class="p-2 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 transition-all inline-flex items-center">
                                     <i class="ri-delete-bin-line text-sm"></i>
                                 </a>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="py-12 text-center text-slate-500">
-                                <i class="ri-inbox-line text-4xl mb-2 block text-slate-600"></i>
+                            <td colspan="7" class="py-12 text-center text-slate-400">
+                                <i class="ri-inbox-line text-4xl mb-2 block text-slate-300 dark:text-slate-600"></i>
                                 暂无站点配置，请点击右上角「添加新网站」
                             </td>
                         </tr>
@@ -235,15 +274,15 @@
                 </table>
             </div>
 
-            <!-- 移动端卡片视图 (md 以下屏幕显示，卡片流式布局) -->
-            <div class="block md:hidden divide-y divide-slate-700/60">
+            <!-- 移动端卡片视图 (md 以下屏幕显示) -->
+            <div class="block md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60">
                 {% for site in sites %}
-                <div class="p-4 space-y-3 hover:bg-slate-700/20 transition-colors">
+                <div class="p-4 space-y-3 hover:bg-slate-50/80 dark:hover:bg-slate-700/20 transition-colors">
                     <div class="flex items-start justify-between gap-2">
                         <div>
-                            <div class="font-bold text-white text-base flex items-center gap-1.5">
+                            <div class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-1.5">
                                 <span>{{ site.name }}</span>
-                                <a href="/toggle-site/{{ site.id }}" class="text-[11px] px-2 py-0.5 rounded-full font-medium {{ 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' if site.enabled else 'bg-slate-700 text-slate-400' }}">
+                                <a href="/toggle-site/{{ site.id }}" class="text-[11px] px-2 py-0.5 rounded-full font-medium {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' if site.enabled else 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }}">
                                     {{ "运行中" if site.enabled else "已停用" }}
                                 </a>
                             </div>
@@ -252,13 +291,13 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-1">
-                            <a href="/run-site/{{ site.id }}" class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 active:scale-95 transition-transform" title="签到">
+                            <a href="/run-site/{{ site.id }}" class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform" title="签到">
                                 <i class="ri-play-fill text-sm"></i>
                             </a>
-                            <button onclick="openEditModal({{ site.id }})" class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 active:scale-95 transition-transform" title="编辑">
+                            <button onclick="openEditModal({{ site.id }})" class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 active:scale-95 transition-transform" title="编辑">
                                 <i class="ri-edit-line text-sm"></i>
                             </button>
-                            <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" class="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 active:scale-95 transition-transform" title="删除">
+                            <a href="/delete-site/{{ site.id }}" onclick="return confirm('确定彻底删除该站点吗？');" class="p-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 active:scale-95 transition-transform" title="删除">
                                 <i class="ri-delete-bin-line text-sm"></i>
                             </a>
                         </div>
@@ -266,36 +305,36 @@
 
                     <!-- 属性标签 -->
                     <div class="flex flex-wrap gap-2 text-xs">
-                        <span class="px-2 py-0.5 rounded-lg bg-slate-700/60 text-slate-300 border border-slate-600/40">
+                        <span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600/40">
                             {{ "Cookies" if site.auth_type == 'cookie' else "账号密码" }}
                         </span>
                         {% if site.schedule_type == 'fixed' %}
-                        <span class="px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                        <span class="px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">
                             固定 {{ site.schedule_time }}
                         </span>
                         {% else %}
-                        <span class="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <span class="px-2 py-0.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
                             每日随机
                         </span>
                         {% endif %}
                     </div>
 
                     <!-- 执行状态与下次时间 -->
-                    <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs space-y-1">
-                        <div class="flex justify-between items-center text-slate-400">
+                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-1">
+                        <div class="flex justify-between items-center text-slate-500 dark:text-slate-400">
                             <span>下次执行</span>
-                            <span class="font-mono {{ 'text-slate-500' if not site.enabled else 'text-indigo-400' }}">{{ site.next_run_display }}</span>
+                            <span class="font-mono {{ 'text-slate-400' if not site.enabled else 'text-indigo-600 dark:text-indigo-400 font-medium' }}">{{ site.next_run_display }}</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-slate-400">最近状态</span>
-                            <span class="truncate max-w-[180px] {{ 'text-emerald-400' if '成功' in site.last_status else ('text-rose-400' if '失败' in site.last_status else 'text-slate-300') }}">
+                            <span class="text-slate-500 dark:text-slate-400">最近状态</span>
+                            <span class="truncate max-w-[180px] {{ 'text-emerald-600 dark:text-emerald-400' if '成功' in site.last_status else ('text-rose-600 dark:text-rose-400' if '失败' in site.last_status else 'text-slate-600 dark:text-slate-300') }}">
                                 {{ site.last_status }}
                             </span>
                         </div>
                     </div>
                 </div>
                 {% else %}
-                <div class="p-8 text-center text-slate-500 text-sm">
+                <div class="p-8 text-center text-slate-400 text-sm">
                     暂无站点配置，请点击顶部按钮添加
                 </div>
                 {% endfor %}
@@ -303,14 +342,14 @@
         </section>
 
         <!-- 最近执行日志区域 -->
-        <section class="bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden">
-            <div class="p-4 sm:p-5 border-b border-slate-700/60 flex items-center justify-between">
+        <section class="bg-white/90 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/60 rounded-2xl shadow-sm dark:shadow-xl overflow-hidden transition-colors">
+            <div class="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <div class="w-2.5 h-2.5 rounded-full bg-cyan-500"></div>
-                    <h2 class="text-base sm:text-lg font-bold text-white">最近签到日志</h2>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">最新 {{ logs | length }} 条</span>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">最近签到日志</h2>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">最新 {{ logs | length }} 条</span>
                 </div>
-                <a href="/clear-logs" onclick="return confirm('确定清空所有历史签到日志吗？');" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-600/50 transition-all">
+                <a href="/clear-logs" onclick="return confirm('确定清空所有历史签到日志吗？');" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200 dark:border-slate-600/50 transition-all">
                     <i class="ri-delete-bin-2-line"></i>
                     <span>清空日志</span>
                 </a>
@@ -318,8 +357,8 @@
 
             <!-- 桌面端日志表格 -->
             <div class="hidden md:block overflow-x-auto max-h-[380px] overflow-y-auto">
-                <table class="w-full text-left text-sm text-slate-300">
-                    <thead class="bg-slate-900/50 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60 sticky top-0 backdrop-blur-md">
+                <table class="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+                    <thead class="bg-slate-100/70 dark:bg-slate-900/50 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-700/60 sticky top-0 backdrop-blur-md">
                         <tr>
                             <th class="py-3 px-4 w-44">时间</th>
                             <th class="py-3 px-4 w-36">站点</th>
@@ -327,27 +366,27 @@
                             <th class="py-3 px-4">执行详情</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700/40 text-xs font-mono">
+                    <tbody class="divide-y divide-slate-200/70 dark:divide-slate-700/40 text-xs font-mono">
                         {% for log in logs %}
-                        <tr class="hover:bg-slate-700/30 transition-colors">
+                        <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                             <td class="py-2.5 px-4 text-slate-400 whitespace-nowrap">{{ log.created_at }}</td>
-                            <td class="py-2.5 px-4 font-sans font-medium text-white">{{ log.site_name }}</td>
+                            <td class="py-2.5 px-4 font-sans font-medium text-slate-900 dark:text-white">{{ log.site_name }}</td>
                             <td class="py-2.5 px-4 font-sans">
                                 {% if log.status == "成功" %}
-                                <span class="inline-flex items-center text-emerald-400 font-medium">
+                                <span class="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
                                     <i class="ri-check-line mr-1"></i>成功
                                 </span>
                                 {% else %}
-                                <span class="inline-flex items-center text-rose-400 font-medium">
+                                <span class="inline-flex items-center text-rose-600 dark:text-rose-400 font-medium">
                                     <i class="ri-close-line mr-1"></i>失败
                                 </span>
                                 {% endif %}
                             </td>
-                            <td class="py-2.5 px-4 font-sans text-slate-300 break-all">{{ log.message }}</td>
+                            <td class="py-2.5 px-4 font-sans text-slate-600 dark:text-slate-300 break-all">{{ log.message }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="py-8 text-center text-slate-500 font-sans">暂无历史日志</td>
+                            <td colspan="4" class="py-8 text-center text-slate-400 font-sans">暂无历史日志</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -355,62 +394,62 @@
             </div>
 
             <!-- 移动端日志卡片流 -->
-            <div class="block md:hidden divide-y divide-slate-700/60 max-h-[380px] overflow-y-auto">
+            <div class="block md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60 max-h-[380px] overflow-y-auto">
                 {% for log in logs %}
                 <div class="p-3.5 space-y-1.5 text-xs">
                     <div class="flex items-center justify-between">
-                        <span class="font-bold text-white">{{ log.site_name }}</span>
+                        <span class="font-bold text-slate-900 dark:text-white">{{ log.site_name }}</span>
                         {% if log.status == "成功" %}
-                        <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium">✓ 成功</span>
+                        <span class="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-[11px] font-medium">✓ 成功</span>
                         {% else %}
-                        <span class="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[11px] font-medium">✗ 失败</span>
+                        <span class="px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 text-[11px] font-medium">✗ 失败</span>
                         {% endif %}
                     </div>
-                    <div class="text-slate-300 text-xs leading-relaxed break-all">
+                    <div class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed break-all">
                         {{ log.message }}
                     </div>
-                    <div class="text-slate-500 font-mono text-[11px]">
+                    <div class="text-slate-400 font-mono text-[11px]">
                         {{ log.created_at }}
                     </div>
                 </div>
                 {% else %}
-                <div class="p-6 text-center text-slate-500 text-sm">暂无日志</div>
+                <div class="p-6 text-center text-slate-400 text-sm">暂无日志</div>
                 {% endfor %}
             </div>
         </section>
     </main>
 
     <!-- 页脚 -->
-    <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+    <footer class="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 transition-colors">
         Pig Checkin · 极简高效现代化多站点签到服务
     </footer>
 
     <!-- ================= 模态弹窗区域 ================= -->
 
     <!-- 添加站点 Modal -->
-    <div id="addSiteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div class="p-5 border-b border-slate-700 flex items-center justify-between">
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="ri-add-circle-line text-indigo-400 text-lg"></i>
+    <div id="addSiteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="ri-add-circle-line text-indigo-500 dark:text-indigo-400 text-lg"></i>
                     <span>添加签到网站</span>
                 </h3>
-                <button onclick="closeModal('addSiteModal')" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <button onclick="closeModal('addSiteModal')" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg">
                     <i class="ri-close-line text-xl"></i>
                 </button>
             </div>
             
             <form method="post" action="/add-site" class="overflow-y-auto p-5 space-y-4 text-sm flex-1">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点名称</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点名称</label>
                     <input type="text" name="name" required placeholder="例如: 国语视界"
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点模板</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点模板</label>
                     <select name="site_type" id="add_site_type" onchange="updateTemplateUI('add', true)"
-                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                         {% for key, tpl in site_templates.items() %}
                         <option value="{{ key }}">{{ tpl.name }}</option>
                         {% endfor %}
@@ -418,68 +457,68 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点地址 (Domain)</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点地址 (Domain)</label>
                     <input type="text" name="domain" id="add_domain" required value="https://cnlang.org" placeholder="包含协议，如 https://cnlang.org"
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">定时策略</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">定时策略</label>
                         <select name="schedule_type" id="add_schedule_type" onchange="toggleScheduleFields('add')"
-                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                             <option value="random" selected>每日随机时间 (推荐)</option>
                             <option value="fixed">每日固定时间</option>
                         </select>
                     </div>
                     <div id="add_schedule_time_box" class="hidden">
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定时间</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">固定时间</label>
                         <input type="time" name="schedule_time" value="09:00"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试次数</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">重试次数</label>
                         <input type="number" name="max_retries" value="3" min="0" max="10"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试间隔 (秒)</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">重试间隔 (秒)</label>
                         <input type="number" name="retry_interval" value="60" min="1" max="3600"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定认证方式</label>
-                    <div id="add_auth_display" class="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-400 text-xs">
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">固定认证方式</label>
+                    <div id="add_auth_display" class="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-500 dark:text-slate-400 text-xs">
                         Cookies 认证
                     </div>
                 </div>
 
                 <div id="add_cookie_field">
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Cookie 字符串</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Cookie 字符串</label>
                     <textarea name="cookies" rows="3" placeholder="请从浏览器开发者工具中复制粘贴 Cookie 字符串"
-                              class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
+                              class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
                 </div>
 
                 <div id="add_cred_fields" class="hidden grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">账号 / 用户名</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">账号 / 用户名</label>
                         <input type="text" name="username" placeholder="站点账号"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">密码</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">密码</label>
                         <input type="password" name="password" placeholder="站点密码"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-700 flex justify-end gap-2.5">
-                    <button type="button" onclick="closeModal('addSiteModal')" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium">取消</button>
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
+                    <button type="button" onclick="closeModal('addSiteModal')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium">取消</button>
                     <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存站点</button>
                 </div>
             </form>
@@ -487,14 +526,14 @@
     </div>
 
     <!-- 编辑站点 Modal -->
-    <div id="editSiteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div class="p-5 border-b border-slate-700 flex items-center justify-between">
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="ri-edit-circle-line text-indigo-400 text-lg"></i>
+    <div id="editSiteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="ri-edit-circle-line text-indigo-500 dark:text-indigo-400 text-lg"></i>
                     <span>编辑网站配置</span>
                 </h3>
-                <button onclick="closeModal('editSiteModal')" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <button onclick="closeModal('editSiteModal')" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg">
                     <i class="ri-close-line text-xl"></i>
                 </button>
             </div>
@@ -503,15 +542,15 @@
                 <input type="hidden" name="id" id="edit_id">
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点名称</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点名称</label>
                     <input type="text" name="name" id="edit_name" required
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点模板</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点模板</label>
                     <select name="site_type" id="edit_site_type" onchange="updateTemplateUI('edit', true)"
-                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                         {% for key, tpl in site_templates.items() %}
                         <option value="{{ key }}">{{ tpl.name }}</option>
                         {% endfor %}
@@ -519,77 +558,77 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">站点地址 (Domain)</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">站点地址 (Domain)</label>
                     <input type="text" name="domain" id="edit_domain" required
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">定时策略</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">定时策略</label>
                         <select name="schedule_type" id="edit_schedule_type" onchange="toggleScheduleFields('edit')"
-                                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                             <option value="random">每日随机时间 (推荐)</option>
                             <option value="fixed">每日固定时间</option>
                         </select>
                     </div>
                     <div id="edit_schedule_time_box">
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定时间</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">固定时间</label>
                         <input type="time" name="schedule_time" id="edit_schedule_time"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试次数</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">重试次数</label>
                         <input type="number" name="max_retries" id="edit_max_retries" min="0" max="10"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">重试间隔 (秒)</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">重试间隔 (秒)</label>
                         <input type="number" name="retry_interval" id="edit_retry_interval" min="1" max="3600"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">启用状态</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">启用状态</label>
                     <select name="enabled" id="edit_enabled"
-                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                         <option value="1">启用 (正常执行定时签到)</option>
                         <option value="0">禁用 (暂停自动签到)</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">固定认证方式</label>
-                    <div id="edit_auth_display" class="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-400 text-xs">
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">固定认证方式</label>
+                    <div id="edit_auth_display" class="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-500 dark:text-slate-400 text-xs">
                         Cookies 认证
                     </div>
                 </div>
 
                 <div id="edit_cookie_field">
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Cookie 字符串</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Cookie 字符串</label>
                     <textarea name="cookies" id="edit_cookies" rows="3"
-                              class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
+                              class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
                 </div>
 
                 <div id="edit_cred_fields" class="hidden grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">账号 / 用户名</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">账号 / 用户名</label>
                         <input type="text" name="username" id="edit_username"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">密码</label>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">密码</label>
                         <input type="password" name="password" id="edit_password"
-                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-700 flex justify-end gap-2.5">
-                    <button type="button" onclick="closeModal('editSiteModal')" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium">取消</button>
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
+                    <button type="button" onclick="closeModal('editSiteModal')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium">取消</button>
                     <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存修改</button>
                 </div>
             </form>
@@ -597,45 +636,45 @@
     </div>
 
     <!-- 账号设置 Modal -->
-    <div id="changeAccountModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div class="p-5 border-b border-slate-700 flex items-center justify-between">
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="ri-user-settings-line text-indigo-400 text-lg"></i>
+    <div id="changeAccountModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="ri-user-settings-line text-indigo-500 dark:text-indigo-400 text-lg"></i>
                     <span>管理员账号设置</span>
                 </h3>
-                <button onclick="closeModal('changeAccountModal')" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <button onclick="closeModal('changeAccountModal')" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg">
                     <i class="ri-close-line text-xl"></i>
                 </button>
             </div>
             
             <form method="post" action="/change-account" onsubmit="return validateAccountForm(this);" class="p-5 space-y-4 text-sm">
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">用户名</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">用户名</label>
                     <input type="text" name="new_username" value="{{ current_user }}" required
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">原密码 <span class="text-rose-400">*</span></label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">原密码 <span class="text-rose-500 dark:text-rose-400">*</span></label>
                     <input type="password" name="old_password" required placeholder="验证当前密码"
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">新密码 (可选)</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">新密码 (可选)</label>
                     <input type="password" name="new_password" id="acc_new_pwd" placeholder="留空则保持密码不变"
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">确认新密码</label>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">确认新密码</label>
                     <input type="password" name="confirm_password" id="acc_confirm_pwd" placeholder="再次输入新密码"
-                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500">
+                           class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
-                <div class="pt-3 border-t border-slate-700 flex justify-end gap-2.5">
-                    <button type="button" onclick="closeModal('changeAccountModal')" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium">取消</button>
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
+                    <button type="button" onclick="closeModal('changeAccountModal')" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium">取消</button>
                     <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-medium shadow-md shadow-indigo-500/20">保存设置</button>
                 </div>
             </form>
@@ -647,6 +686,71 @@
         const templatesMeta = {{ site_templates | tojson }};
         const allSites = {{ sites | tojson }};
 
+        // ========== 主题系统控制 ==========
+        function applyTheme(theme) {
+            const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+
+            const icon = document.getElementById('theme-active-icon');
+            const text = document.getElementById('theme-active-text');
+            if (icon && text) {
+                if (theme === 'system') {
+                    icon.className = 'ri-computer-line text-sm';
+                    text.textContent = '系统';
+                } else if (theme === 'light') {
+                    icon.className = 'ri-sun-line text-sm text-amber-500';
+                    text.textContent = '浅色';
+                } else {
+                    icon.className = 'ri-moon-line text-sm text-indigo-400';
+                    text.textContent = '深色';
+                }
+            }
+
+            ['system', 'light', 'dark'].forEach(t => {
+                const el = document.getElementById(`check-${t}`);
+                if (el) {
+                    if (t === theme) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                }
+            });
+        }
+
+        function setTheme(theme) {
+            localStorage.setItem('theme', theme);
+            applyTheme(theme);
+            const menu = document.getElementById('theme-dropdown-menu');
+            if (menu) menu.classList.add('hidden');
+        }
+
+        function toggleThemeDropdown() {
+            const menu = document.getElementById('theme-dropdown-menu');
+            if (menu) menu.classList.toggle('hidden');
+        }
+
+        // 点击页面其他区域关闭下拉菜单
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('theme-dropdown-menu');
+            const container = menu?.parentElement;
+            if (menu && !menu.classList.contains('hidden') && container && !container.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        // 监听系统主题变化事件
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if ((localStorage.getItem('theme') || 'system') === 'system') {
+                applyTheme('system');
+            }
+        });
+
+        // 初始化指示状态
+        applyTheme(localStorage.getItem('theme') || 'system');
+
+        // ========== 模态弹窗系统 ==========
         function openModal(id) {
             const modal = document.getElementById(id);
             if (modal) {
