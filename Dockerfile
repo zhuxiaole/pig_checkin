@@ -28,6 +28,7 @@ RUN uv sync --frozen --no-dev
 # 配置运行时环境变量
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
+    TZ=Asia/Shanghai \
     PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     PIG_RELOAD=false

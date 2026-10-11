@@ -48,6 +48,7 @@ docker run -d \
   --name pig-checkin \
   -p 8000:8000 \
   -v $(pwd)/data:/app/data \
+  -e TZ="Asia/Shanghai" \
   -e SECRET_KEY="your-custom-strong-secret-key-123456" \
   --restart unless-stopped \
   ghcr.io/<github-username>/pig_checkin:latest
@@ -65,8 +66,8 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - SECRET_KEY=your-custom-strong-secret-key-123456
       - TZ=Asia/Shanghai
+      - SECRET_KEY=your-custom-strong-secret-key-123456
 ```
 
 启动后访问：[http://127.0.0.1:8000](http://127.0.0.1:8000)
@@ -74,6 +75,18 @@ services:
 - **默认账号**：`admin`
 - **默认密码**：`admin123`
 *(登录后可在右上角「账号设置」中修改用户名与密码)*
+
+### 4. Docker 环境变量说明
+
+镜像底层已预置 `tzdata` 时区数据库与完整 Python 运行环境，支持以下环境变量灵活定制：
+
+| 环境变量名 | 默认值 | 必填/建议 | 功能说明 |
+| :--- | :--- | :---: | :--- |
+| **`TZ`** | `Asia/Shanghai` | **推荐配置** | 容器系统时区。依赖预置的 `tzdata`，确保签到日志时间戳、每日定时触发时刻与您所在地区时间精准一致（例如 `Asia/Shanghai`、`UTC`、`America/New_York`）。 |
+| **`SECRET_KEY`** | *(内置默认密钥)* | **强烈建议修改** | 站点凭据（Cookies、密码）对称加密根密钥（Fernet / AES-128-CBC + HMAC-SHA256）。生产与公网部署务必修改为高强度随机字符串。 |
+| **`PIG_RELOAD`** | `false` | 可选 | Uvicorn 服务热重载开关。生产容器环境保持 `false`；本地调试代码若需热加载可设为 `true`。 |
+| **`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`** | `/usr/bin/chromium` | 容器预置 | 系统内置 Chromium 路径，用于绕过反爬验证。通常无需手动修改。 |
+| **`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`** | `1` | 容器预置 | 禁止在容器运行时重复下载庞大的外置浏览器。通常无需修改。 |
 
 ---
 
