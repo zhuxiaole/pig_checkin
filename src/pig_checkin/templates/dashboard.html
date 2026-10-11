@@ -165,8 +165,8 @@
                             <th class="py-3.5 px-4">站点 / 域名</th>
                             <th class="py-3.5 px-4">认证方式</th>
                             <th class="py-3.5 px-4">调度策略</th>
-                            <th class="py-3.5 px-4">上次执行</th>
-                            <th class="py-3.5 px-4">下次执行</th>
+                            <th class="py-3.5 px-4 w-44 min-w-[175px] whitespace-nowrap">上次执行</th>
+                            <th class="py-3.5 px-4 w-48 min-w-[190px] whitespace-nowrap">下次执行</th>
                             <th class="py-3.5 px-4">最新状态</th>
                             <th class="py-3.5 px-4">开关</th>
                             <th class="py-3.5 px-4 text-right">操作</th>
@@ -201,12 +201,12 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td class="py-3.5 px-4">
+                            <td class="py-3.5 px-4 w-44 min-w-[175px] whitespace-nowrap">
                                 <div class="text-xs font-mono {{ 'text-slate-400 dark:text-slate-500' if not site.last_run else 'text-slate-600 dark:text-slate-300' }}">
                                     {{ site.last_run or "未执行" }}
                                 </div>
                             </td>
-                            <td class="py-3.5 px-4">
+                            <td class="py-3.5 px-4 w-48 min-w-[190px] whitespace-nowrap">
                                 <div class="text-xs font-mono {{ 'text-slate-400' if not site.enabled else 'text-indigo-600 dark:text-indigo-400 font-semibold' }}">
                                     {{ site.next_run_display }}
                                 </div>
@@ -802,12 +802,12 @@
                 <td class="py-3.5 px-4">
                     ${scheduleBadge}
                 </td>
-                <td class="py-3.5 px-4">
+                <td class="py-3.5 px-4 w-44 min-w-[175px] whitespace-nowrap">
                     <div class="text-xs font-mono ${!site.last_run ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}">
                         ${escapeHtml(site.last_run_display || site.last_run || "未执行")}
                     </div>
                 </td>
-                <td class="py-3.5 px-4">
+                <td class="py-3.5 px-4 w-48 min-w-[190px] whitespace-nowrap">
                     <div class="text-xs font-mono ${!site.enabled ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400 font-semibold'}">
                         ${escapeHtml(site.next_run_display || "待计算")}
                     </div>
