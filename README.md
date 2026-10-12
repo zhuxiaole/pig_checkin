@@ -132,6 +132,8 @@ services:
 | **ACG 字幕论坛** | `https://bbs.acgrip.com` | `acgrip` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
 | **星运阁 PT** | `https://pt.xingyungept.org` | `xingyunge` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **NovaHD PT** | `https://pt.novahd.top` | `novahd` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **SSD 论坛** | `https://ssdforum.org` | `ssdforum` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
+| **YYeTs 人人影视** | `https://yysub.cc` | `yysub` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 |
 
 *(后续每新增一个网站将在 [SUPPORTED_SITES.md](SUPPORTED_SITES.md) 中持续更新维护)*
 

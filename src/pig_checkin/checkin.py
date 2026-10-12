@@ -311,6 +311,102 @@ def checkin_acgrip(site_dict: dict) -> Tuple[bool, str]:
         site_label="ACG字幕论坛"
     )
 
+def checkin_ssdforum(site_dict: dict) -> Tuple[bool, str]:
+    return checkin_discuz_dsu_paulsign(
+        site_dict,
+        default_domain="https://ssdforum.org",
+        sign_path="/plugin.php?id=dsu_paulsign:sign",
+        site_label="SSD论坛"
+    )
+
+def checkin_yysub(site_dict: dict) -> Tuple[bool, str]:
+    domain = format_domain(site_dict.get("domain"), default="https://yysub.cc")
+    username = (site_dict.get("username") or "").strip()
+    password = (site_dict.get("password") or "").strip()
+    cookie_str = (site_dict.get("cookies") or "").strip()
+
+    if not username and not cookie_str:
+        return False, "未配置账号/密码或 Cookies 凭据"
+
+    session = requests.Session()
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Referer": f"{domain}/user/login",
+        "Origin": domain,
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+    }
+    session.headers.update(headers)
+
+    if cookie_str:
+        session.cookies.update(parse_cookies_str(cookie_str))
+
+    site_name = site_dict.get("name", "yysub")
+
+    if username and password:
+        login_url = f"{domain}/User/Login/ajaxLogin"
+        login_data = {
+            "account": username,
+            "email": username,
+            "password": password,
+            "remember": "1",
+        }
+        logger.info("[%s] 发起 POST 用户登录: %s (账号: %s)", site_name, login_url, username)
+        try:
+            res_login = session.post(login_url, data=login_data, timeout=REQUEST_TIMEOUT)
+            try:
+                login_json = res_login.json()
+            except Exception:
+                login_json = {}
+            if login_json and login_json.get("status") in (0, "0", 4001, "4001"):
+                err_msg = login_json.get("info") or "账号或密码错误"
+                logger.error("[%s] 登录失败: %s", site_name, err_msg)
+                return False, f"登录失败: {err_msg}"
+        except requests.exceptions.Timeout:
+            logger.error("[%s] 登录请求超时 (超过 %d 秒)", site_name, REQUEST_TIMEOUT)
+            return False, f"登录请求超时 (超过 {REQUEST_TIMEOUT} 秒)"
+        except Exception as e:
+            logger.warning("[%s] 登录请求异常: %s", site_name, e)
+
+    info_url = f"{domain}/user/login/getCurUserTopInfo"
+    logger.info("[%s] 访问用户信息接口: %s", site_name, info_url)
+    try:
+        res_info = session.get(info_url, timeout=REQUEST_TIMEOUT)
+        try:
+            info_json = res_info.json()
+        except Exception:
+            info_json = {}
+
+        status = info_json.get("status")
+        if status in (4001, "4001"):
+            return False, "未登录或登录会话已失效 (status: 4001)"
+
+        data = info_json.get("data") if isinstance(info_json.get("data"), dict) else {}
+        usercount = data.get("usercount") if isinstance(data.get("usercount"), dict) else {}
+        userinfo = data.get("userinfo") if isinstance(data.get("userinfo"), dict) else {}
+
+        cont_login = usercount.get("cont_login")
+        point = userinfo.get("point")
+        nickname = userinfo.get("nickname") or username or "用户"
+
+        if cont_login is not None or point is not None:
+            msg = f"登录成功，用户 [{nickname}] 连续登录: {cont_login if cont_login is not None else '未知'} 天，人人钻: {point if point is not None else '未知'}"
+            logger.info("[%s] %s", site_name, msg)
+            return True, msg
+        elif status in (1, 200, "1", "200") or "uid" in str(data):
+            msg = f"登录成功 (返回状态: {status})"
+            logger.info("[%s] %s", site_name, msg)
+            return True, msg
+        else:
+            msg = info_json.get("info") or f"未知状态码: {status}"
+            return False, f"获取用户信息失败: {msg}"
+    except requests.exceptions.Timeout:
+        logger.error("[%s] 请求用户信息接口超时", site_name)
+        return False, f"请求用户信息超时 (超过 {REQUEST_TIMEOUT} 秒)"
+    except Exception as e:
+        logger.error("[%s] 请求用户信息接口异常: %s", site_name, e)
+        return False, f"请求用户信息接口异常: {e}"
+
 def checkin_nexusphp(
     site_dict: dict,
     default_domain: str = "https://audiences.me",
@@ -444,6 +540,10 @@ def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
         return checkin_xingyunge(site_dict)
     elif site_type == "novahd":
         return checkin_novahd(site_dict)
+    elif site_type == "ssdforum":
+        return checkin_ssdforum(site_dict)
+    elif site_type == "yysub":
+        return checkin_yysub(site_dict)
     return False, f"不支持的站点类型: {site_type}"
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
