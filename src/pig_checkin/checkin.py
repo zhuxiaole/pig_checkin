@@ -413,6 +413,14 @@ def checkin_xingyunge(site_dict: dict) -> Tuple[bool, str]:
         site_label="星运阁"
     )
 
+def checkin_novahd(site_dict: dict) -> Tuple[bool, str]:
+    return checkin_nexusphp(
+        site_dict,
+        default_domain="https://pt.novahd.top",
+        sign_path="/attendance.php",
+        site_label="NovaHD"
+    )
+
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     from pig_checkin.crypto import decrypt_text
     site_dict = dict(site_dict)
@@ -434,6 +442,8 @@ def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
         return checkin_acgrip(site_dict)
     elif site_type == "xingyunge":
         return checkin_xingyunge(site_dict)
+    elif site_type == "novahd":
+        return checkin_novahd(site_dict)
     return False, f"不支持的站点类型: {site_type}"
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:

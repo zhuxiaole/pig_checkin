@@ -131,6 +131,7 @@ services:
 | **影迷乐园** | `https://www.ymlyhd.com` | `ymlyhd` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
 | **ACG 字幕论坛** | `https://bbs.acgrip.com` | `acgrip` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
 | **星运阁 PT** | `https://pt.xingyungept.org` | `xingyunge` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **NovaHD PT** | `https://pt.novahd.top` | `novahd` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 
 *(后续每新增一个网站将在 [SUPPORTED_SITES.md](SUPPORTED_SITES.md) 中持续更新维护)*
 
