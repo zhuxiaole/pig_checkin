@@ -70,20 +70,24 @@ def solve_with_zendriver(url: str, cookies: dict = None) -> Tuple[bool, str, dic
                 await browser.cookies.set_all(cookie_params)
                 page = await browser.get(url)
 
-            for _ in range(max(1, BROWSER_TIMEOUT // 2)):
-                await asyncio.sleep(2)
+            for _ in range(max(1, BROWSER_TIMEOUT // 3)):
                 content = await page.get_content()
                 if "attendance-card--done" in content or "今天已经签到" in content:
                     break
-                if is_cloudflare_challenge(content):
+                if is_cloudflare_challenge(content) or "attendance-card--verify" in content:
                     try:
-                        await page.verify_cf(timeout=3)
+                        await page.verify_cf(click_delay=2, timeout=8)
+                        await asyncio.sleep(1)
                     except Exception:
-                        pass
-                elif "attendance-card--verify" not in content:
+                        await asyncio.sleep(2)
+                else:
                     break
             else:
                 content = await page.get_content()
+
+            if is_cloudflare_challenge(content) or "attendance-card--verify" in content:
+                logger.error("[zendriver] 超时未通过 Cloudflare / 人机验证")
+                return False, "未能通过 Cloudflare / 人机验证", {}
 
             all_cookies = await browser.cookies.get_all()
             new_cookies = {c.name: c.value for c in all_cookies}
