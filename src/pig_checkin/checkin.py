@@ -367,9 +367,9 @@ def checkin_nexusphp(
     user_name = user_match.group(1).strip() if user_match else "NexusPT用户"
 
     # 提取 audiences 特色的签到卡片或顶部状态
-    # 1. 顶部已获得天数/奖励 (如 title="(签到已得22)")
-    attended_match = re.search(r'title=[\'"]\(签到已得(\d+)\)[\'"]', res_text)
-    attended_days = attended_match.group(1) if attended_match else ""
+    # 1. 顶部已获得奖励 (如 title="(签到已得24)")
+    attended_match = re.search(r'title=[\'"]\(签到已得(\d+)\)[\'"]', res_text) or re.search(r'已签到.*?<span>\+(\d+)</span>', res_text)
+    attended_bonus = attended_match.group(1) if attended_match else ""
 
     # 2. 签到卡片提示 (如 "您今天已经签到过了，请勿重复刷新。")
     card_desc_match = re.search(r'class=[\'"]attendance-card__desc[\'"]>(.*?)</p>', res_text)
@@ -377,7 +377,7 @@ def checkin_nexusphp(
 
     # 3. 判定签到状态
     if "attendance-card--done" in res_text or "今天已经签到" in res_text or "今日已签到" in res_text or "已经签到过了" in res_text:
-        info = f"今日已签到 (连续签到 {attended_days} 天)" if attended_days else (card_desc or "今日已签到")
+        info = f"今日已签到 (获得 {attended_bonus} 粒爆米花)" if attended_bonus else (card_desc or "今日已签到")
         logger.info("[%s] 用户 [%s] %s", site_name, user_name, info)
         return True, f"用户 [{user_name}] {info}"
 
