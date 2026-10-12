@@ -70,12 +70,13 @@ def solve_with_nodriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict
 
         exe = find_browser_executable()
         logger.info("[nodriver] 启动无头浏览器: %s (超时限制: %d 秒)", exe or "系统默认Chrome", BROWSER_TIMEOUT)
-        browser = await uc.start(
-            browser_executable_path=exe,
-            headless=True,
-            sandbox=False
-        )
+        browser = None
         try:
+            browser = await uc.start(
+                browser_executable_path=exe,
+                headless=True,
+                sandbox=False
+            )
             parsed = urlparse(url)
             domain = parsed.netloc or "audiences.me"
             cookie_domain = domain if domain.startswith(".") else f".{domain}"
@@ -104,11 +105,17 @@ def solve_with_nodriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict
             logger.info("[nodriver] 页面加载完毕，已获取新会话状态及 %d 个 Cookies", len(new_cookies))
             return True, content, new_cookies
         finally:
-            try:
-                browser.stop()
-                await asyncio.sleep(0.1)
-            except Exception:
-                pass
+            if browser is not None:
+                try:
+                    browser.stop()
+                except Exception:
+                    pass
+                try:
+                    from nodriver.core import util as _uc_util
+                    _uc_util.get_registered_instances().discard(browser)
+                except Exception:
+                    pass
+                await asyncio.sleep(0.3)
 
     try:
         import warnings
