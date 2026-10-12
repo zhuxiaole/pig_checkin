@@ -1118,18 +1118,20 @@
             const originalHtml = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-sm"></i>`;
+            const pollTimer = setInterval(refreshDashboard, 2000);
             try {
                 const res = await fetch(`/run-site/${siteId}`, {
                     headers: { 'Accept': 'application/json' }
                 });
                 const data = await res.json();
                 showToast(data.message || (data.ok ? '签到执行完成' : '签到执行失败'), data.ok ? 'success' : 'error');
-                await refreshDashboard();
             } catch (err) {
                 showToast('网络请求异常: ' + err.message, 'error');
             } finally {
+                clearInterval(pollTimer);
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
+                await refreshDashboard();
             }
         }
 
@@ -1138,18 +1140,20 @@
             const originalHtml = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-base"></i><span>执行中...</span>`;
+            const pollTimer = setInterval(refreshDashboard, 2000);
             try {
                 const res = await fetch('/run-all', {
                     headers: { 'Accept': 'application/json' }
                 });
                 const data = await res.json();
                 showToast(data.message || '全部签到执行完毕', data.ok ? 'success' : 'error');
-                await refreshDashboard();
             } catch (err) {
                 showToast('网络请求异常: ' + err.message, 'error');
             } finally {
+                clearInterval(pollTimer);
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
+                await refreshDashboard();
             }
         }
 
@@ -1668,6 +1672,13 @@
         // 初始化站点列表与日志列表分页渲染
         renderSitesList();
         renderLogsList();
+
+        // 页面前台可见时，每 5 秒自动同步一次最新签到状态与实时日志
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                refreshDashboard();
+            }
+        }, 5000);
     </script>
 </body>
 </html>
