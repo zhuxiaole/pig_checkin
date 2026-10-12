@@ -5,7 +5,7 @@ WORKDIR /app
 # 1. 系统基础依赖与运行时支持：
 # - tzdata: 支持 TZ 环境变量自定义时区
 # - ca-certificates: HTTPS 证书链校验
-# - chromium: nodriver 原生无头浏览器
+# - chromium: zendriver 原生无头浏览器
 # - font-noto-cjk: 网页渲染与验证码中文字体支持
 RUN apk add --no-cache \
     tzdata \

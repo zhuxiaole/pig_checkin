@@ -34,6 +34,15 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncio-atexit"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/d3/dd2974be3f67c7ec96e0d6ab454429d0372cb7c7bffa3d0ac67a483cb801/asyncio-atexit-1.0.1.tar.gz", hash = "sha256:1d0c71544b8ee2c484d322844ee72c0875dde6f250c0ed5b6993592ab9f7d436", size = 4373, upload-time = "2022-04-26T08:54:16.998Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/10/d6abaefa57a52646651fd0383c056280b0853c0106229ece6bb38cd14463/asyncio_atexit-1.0.1-py3-none-any.whl", hash = "sha256:d93d5f7d5633a534abd521ce2896ed0fbe8de170bb1e65ec871d1c20eac9d376", size = 3752, upload-time = "2022-04-26T08:54:15.726Z" },
+]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -293,6 +302,15 @@ wheels = [
 ]
 
 [[package]]
+name = "emoji"
+version = "2.16.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/34/01/a25a9c13e2f8945d06b219e08e88a5dd8a504ad1a79f872f25d6814f498c/emoji-2.16.0.tar.gz", hash = "sha256:ff9e9b1c48389ef78ed1787e7693c555e84e6bb9bac16be1fd65e1616dbf80c8", size = 617905, upload-time = "2026-09-16T19:47:57.051Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/8a/75e3177f374877b19dd3112820b071836ad1100f9f58424630b4783519bc/emoji-2.16.0-py3-none-any.whl", hash = "sha256:c4230d80640def9071599ff56b1b5950fe13a2a94c0da98c5deab12431b24330", size = 610912, upload-time = "2026-09-16T19:47:55.507Z" },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.143.0"
 source = { registry = "https://pypi.org/simple" }
@@ -308,6 +326,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/0b/d7/6a8753ab6c1d432dc
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/f4/27e386913417ad32aae42bba48b0c0cce40e9ff2fba1a871ca2702c37324/fastapi-0.143.0-py3-none-any.whl", hash = "sha256:3e9395fd35276425b61b516a31fdd7c77fe2af83e41b4da22e30696fb1304c5d", size = 144665, upload-time = "2026-10-08T12:29:44.853Z" },
 ]
+
+[[package]]
+name = "grapheme"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/e7/bbaab0d2a33e07c8278910c1d0d8d4f3781293dfbc70b5c38197159046bf/grapheme-0.6.0.tar.gz", hash = "sha256:44c2b9f21bbe77cfb05835fec230bd435954275267fea1858013b102f8603cca", size = 207306, upload-time = "2020-03-07T17:13:55.492Z" }
 
 [[package]]
 name = "h11"
@@ -496,20 +520,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nodriver"
-version = "0.50.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "deprecated" },
-    { name = "mss" },
-    { name = "websockets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1f/0c/c25415f26b17d0c7f4e1816c2906cc9708a4b27b92762fef9591575f742b/nodriver-0.50.6.tar.gz", hash = "sha256:ea3918af54c1417f1a4bca12a023c8d7dd75673486494190c90022ad36625f3b", size = 356448, upload-time = "2026-10-08T15:04:38.907Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/74/8485793881af62afa1647d0c5d348c786fdf5b3102fc85467df194c30780/nodriver-0.50.6-py3-none-any.whl", hash = "sha256:cdedcb2f8a5d2bbe2014139d7c84cd16d693f2bb510e3dd5370ec080e12821c6", size = 381757, upload-time = "2026-10-08T15:04:35.437Z" },
-]
-
-[[package]]
 name = "opentelemetry-api"
 version = "1.45.1"
 source = { registry = "https://pypi.org/simple" }
@@ -531,10 +541,10 @@ dependencies = [
     { name = "fastapi" },
     { name = "itsdangerous" },
     { name = "jinja2" },
-    { name = "nodriver" },
     { name = "python-multipart" },
     { name = "requests" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "zendriver" },
 ]
 
 [package.metadata]
@@ -544,10 +554,10 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.143.0" },
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "nodriver", specifier = ">=0.50.6" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
+    { name = "zendriver", specifier = ">=0.17.1" },
 ]
 
 [[package]]
@@ -990,4 +1000,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/1d/374cec175b6087e1067a780374d81d74ca966e1e5e39e666402eaee19a65/wrapt-2.5.0-cp315-cp315t-win_amd64.whl", hash = "sha256:1d4da5f0e9a719471502b0db80d5c97503aeca796b7aeb9ab8f47403b2be76e6", size = 109671, upload-time = "2026-09-27T01:41:35.553Z" },
     { url = "https://files.pythonhosted.org/packages/c7/93/fc9e477a1771bec52d7677eee5e8404afe662a47efe1859405a18fff206c/wrapt-2.5.0-cp315-cp315t-win_arm64.whl", hash = "sha256:78b7bdaa8b27b7f7607c66bdb6ab15c1dcbd9e9a1556a253a347dad511f615d1", size = 105969, upload-time = "2026-09-27T01:41:36.973Z" },
     { url = "https://files.pythonhosted.org/packages/87/7d/5ed859fad4b5eddd598a846150aaab2703730ed4886c5c5e03b0df0cfdd5/wrapt-2.5.0-py3-none-any.whl", hash = "sha256:107eea1a511e98a3a5033b0c2cb403fbb37f05dee6ac1fb85c0460d311ec278c", size = 81586, upload-time = "2026-09-27T01:41:55.479Z" },
+]
+
+[[package]]
+name = "zendriver"
+version = "0.17.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asyncio-atexit" },
+    { name = "deprecated" },
+    { name = "emoji" },
+    { name = "grapheme" },
+    { name = "mss" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8c/d5/257ecf353843fde1839cc72aa927a6c98e924cb89368f3026cf22be66235/zendriver-0.17.1.tar.gz", hash = "sha256:b9d5f79eea2dd116ec91badd5efb8193606e8c6a80635b963a2d5ac085ef186b", size = 476718, upload-time = "2026-10-02T02:07:16.599Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/df/c037faf5ebad4410dcb343cce96af99695a54ca03ed9d1d8b64d4de90c75/zendriver-0.17.1-py3-none-any.whl", hash = "sha256:d857a36aee9df719f9f381d42e5589a5101e19569a2e77a9f2813fc08a10db3a", size = 381387, upload-time = "2026-10-02T02:07:15.196Z" },
 ]

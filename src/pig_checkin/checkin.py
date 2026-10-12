@@ -57,22 +57,22 @@ def find_browser_executable() -> str:
         if p and os.path.exists(p):
             return p
     try:
-        import nodriver as uc
-        return uc.core.config.find_chrome_executable()
+        import zendriver as zd
+        return zd.core.config.find_executable()
     except Exception:
         return None
 
-def solve_with_nodriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict]:
+def solve_with_zendriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict]:
     import asyncio
     async def _async_solve():
-        import nodriver as uc
-        import nodriver.cdp.network as network
+        import zendriver as zd
+        import zendriver.cdp.network as network
 
         exe = find_browser_executable()
-        logger.info("[nodriver] 启动无头浏览器: %s (超时限制: %d 秒)", exe or "系统默认Chrome", BROWSER_TIMEOUT)
+        logger.info("[zendriver] 启动无头浏览器: %s (超时限制: %d 秒)", exe or "系统默认Chrome", BROWSER_TIMEOUT)
         browser = None
         try:
-            browser = await uc.start(
+            browser = await zd.start(
                 browser_executable_path=exe,
                 headless=True,
                 sandbox=False
@@ -95,26 +95,24 @@ def solve_with_nodriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict
                 content = await page.get_content()
                 if "attendance-card--done" in content or "今天已经签到" in content:
                     break
-                if not is_cloudflare_challenge(content) and "attendance-card--verify" not in content:
+                if is_cloudflare_challenge(content):
+                    try:
+                        await page.verify_cf(timeout=3)
+                    except Exception:
+                        pass
+                elif "attendance-card--verify" not in content:
                     break
             else:
                 content = await page.get_content()
 
             all_cookies = await browser.cookies.get_all()
             new_cookies = {c.name: c.value for c in all_cookies}
-            logger.info("[nodriver] 页面加载完毕，已获取新会话状态及 %d 个 Cookies", len(new_cookies))
+            logger.info("[zendriver] 页面加载完毕，已获取新会话状态及 %d 个 Cookies", len(new_cookies))
             return True, content, new_cookies
         finally:
             if browser is not None:
                 try:
-                    browser.stop()
-                except Exception:
-                    pass
-                try:
-                    # 避免 nodriver 全局注册表强引用导致 Browser 及 CDP 缓冲内存泄漏
-                    # 参考: https://kingjem.github.io/2026/08/07/nodriver-%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E6%8E%92%E6%9F%A5-%E5%85%A8%E5%B1%80%E6%B3%A8%E5%86%8C%E8%A1%A8/
-                    from nodriver.core import util as _uc_util
-                    _uc_util.get_registered_instances().discard(browser)
+                    await browser.stop()
                 except Exception:
                     pass
                 await asyncio.sleep(0.3)
@@ -125,8 +123,8 @@ def solve_with_nodriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict
             warnings.simplefilter("ignore")
             return asyncio.run(_async_solve())
     except Exception as e:
-        logger.error("[nodriver] 无头浏览器执行失败或超时: %s", e)
-        return False, f"nodriver 执行失败: {e}", {}
+        logger.error("[zendriver] 无头浏览器执行失败或超时: %s", e)
+        return False, f"zendriver 执行失败: {e}", {}
 
 def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
     domain = (domain or "").strip()
@@ -184,7 +182,7 @@ def checkin_discuz_dsu_paulsign(
 
     if is_cloudflare_challenge(res_text, res.status_code):
         logger.warning("[%s] 检测到 Cloudflare 防护拦截 (HTTP %d)，启动无头浏览器处理...", site_label, res.status_code)
-        ok, content, new_cookies = solve_with_nodriver(sign_page_url, cookies)
+        ok, content, new_cookies = solve_with_zendriver(sign_page_url, cookies)
         if not ok:
             logger.error("[%s] 无头浏览器绕过 Cloudflare 失败: %s", site_label, content)
             return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
@@ -452,7 +450,7 @@ def checkin_nexusphp(
 
     if is_cloudflare_challenge(res.text, res.status_code) or "attendance-card--verify" in res.text:
         logger.warning("[%s] 检测到 Cloudflare / 人机验证拦截 (HTTP %d)，启动无头浏览器处理...", site_name, res.status_code)
-        ok, content, new_cookies = solve_with_nodriver(attendance_url, cookies)
+        ok, content, new_cookies = solve_with_zendriver(attendance_url, cookies)
         if not ok:
             logger.error("[%s] 无头浏览器绕过失败: %s", site_name, content)
             return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
