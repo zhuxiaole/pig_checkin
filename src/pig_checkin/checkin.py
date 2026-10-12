@@ -147,16 +147,21 @@ def checkin_discuz_dsu_paulsign(
     )
     user_name = user_match.group(1).strip() if user_match else site_dict.get("name", "用户")
 
-    if (
-        "今日已签" in res_text or
-        "您今天已经签到过了" in res_text or
-        "您今日已经签到" in res_text or
-        "已经签到过了" in res_text
-    ):
-        logger.info("[%s] 用户 [%s] 今日已完成签到，无需重复提交", site_label, user_name)
-        return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
-
     soup = BeautifulSoup(res_text, "html.parser")
+    has_sign_form = (soup.find("input", {"name": "qdxq"}) is not None) or (soup.find("form", {"name": "qiandao"}) is not None)
+
+    # 只有当签到表单不存在时，才判定为今日已签到（严禁使用“今日已签”裸字，否则会误命中侧边栏的“xxx人今日已签到”全站统计数据）
+    if not has_sign_form:
+        already_signed = (
+            "您今天已经签到过了" in res_text or
+            "已经签到过了" in res_text or
+            "您今日已经签到" in res_text or
+            "您累计已签到" in res_text
+        )
+        if already_signed:
+            logger.info("[%s] 用户 [%s] 今日已完成签到 (未检测到待提交表单)，无需重复签到", site_label, user_name)
+            return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
+
     formhash_input = soup.find("input", {"name": "formhash"})
     if formhash_input and formhash_input.get("value"):
         formhash = formhash_input["value"]
