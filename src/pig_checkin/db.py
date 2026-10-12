@@ -65,7 +65,7 @@ def init_db():
             site_name TEXT,
             status TEXT NOT NULL,
             message TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE SET NULL
         );
         """)

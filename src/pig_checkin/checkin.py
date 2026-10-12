@@ -412,8 +412,8 @@ def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
                         (now_str, next_run_str, site_id)
                     )
                     conn.execute(
-                        "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, '成功', ?)",
-                        (site_id, site_name, full_msg)
+                        "INSERT INTO logs (site_id, site_name, status, message, created_at) VALUES (?, ?, '成功', ?, ?)",
+                        (site_id, site_name, full_msg, now_str)
                     )
                     conn.commit()
             return True, full_msg
@@ -429,8 +429,8 @@ def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
                     conn.execute("UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?", (retry_status, now_str, site_id))
                 log_msg = f"第 {attempt + 1} 次尝试未成功: {msg} (等待 {retry_interval} 秒后重试)"
                 conn.execute(
-                    "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, '失败', ?)",
-                    (site_id, site_name, log_msg)
+                    "INSERT INTO logs (site_id, site_name, status, message, created_at) VALUES (?, ?, '失败', ?, ?)",
+                    (site_id, site_name, log_msg, now_str)
                 )
             else:
                 final_status = "签到失败"
@@ -438,8 +438,8 @@ def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
                     conn.execute("UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?", (final_status, now_str, site_id))
                 log_msg = f"尝试 {max_retries + 1} 次均失败，最终错误: {msg}"
                 conn.execute(
-                    "INSERT INTO logs (site_id, site_name, status, message) VALUES (?, ?, '失败', ?)",
-                    (site_id, site_name, log_msg)
+                    "INSERT INTO logs (site_id, site_name, status, message, created_at) VALUES (?, ?, '失败', ?, ?)",
+                    (site_id, site_name, log_msg, now_str)
                 )
             conn.commit()
 
