@@ -58,5 +58,4 @@ SITE_TEMPLATES = {
 }
 
 def get_template_auth_type(site_type: str) -> str:
-    template = SITE_TEMPLATES.get(site_type, SITE_TEMPLATES["cnlang"])
-    return template["auth_type"]
+    return SITE_TEMPLATES.get(site_type, {}).get("auth_type", "cookie")

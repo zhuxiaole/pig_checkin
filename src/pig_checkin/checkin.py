@@ -24,15 +24,7 @@ REQUEST_TIMEOUT = int(os.environ.get("PIG_REQUEST_TIMEOUT", 30))
 BROWSER_TIMEOUT = int(os.environ.get("PIG_BROWSER_TIMEOUT", 35))
 
 def parse_cookies_str(cookie_str: str) -> dict:
-    cookies = {}
-    if not cookie_str:
-        return cookies
-    for item in cookie_str.split(";"):
-        item = item.strip()
-        if "=" in item:
-            k, v = item.split("=", 1)
-            cookies[k.strip()] = v.strip()
-    return cookies
+    return {k.strip(): v.strip() for item in (cookie_str or "").split(";") if "=" in item for k, v in [item.split("=", 1)]}
 
 def is_cloudflare_challenge(text: str, status_code: int = 200) -> bool:
     if status_code in (403, 503):
@@ -41,24 +33,12 @@ def is_cloudflare_challenge(text: str, status_code: int = 200) -> bool:
     return any(sig in text for sig in signals)
 
 def find_browser_executable() -> str:
-    candidates = [
-        os.environ.get("PIG_BROWSER_PATH"),
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
-        "/usr/bin/google-chrome",
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-    ]
-    for p in candidates:
-        if p and os.path.exists(p):
-            return p
+    env_path = os.environ.get("PIG_BROWSER_PATH")
+    if env_path and os.path.exists(env_path):
+        return env_path
     try:
         import zendriver as zd
-        return zd.core.config.find_executable()
+        return str(zd.core.config.find_executable())
     except Exception:
         return None
 
@@ -294,38 +274,6 @@ def checkin_discuz_dsu_paulsign(
         logger.error("[%s] 提交签到请求失败: %s", site_label, e)
         return False, f"签到请求提交失败: {e}"
 
-def checkin_cnlang(site_dict: dict) -> Tuple[bool, str]:
-    return checkin_discuz_dsu_paulsign(
-        site_dict,
-        default_domain="https://cnlang.org",
-        sign_path="/dsu_paulsign-sign.html?mobile=no",
-        site_label="国语视界"
-    )
-
-def checkin_ymlyhd(site_dict: dict) -> Tuple[bool, str]:
-    return checkin_discuz_dsu_paulsign(
-        site_dict,
-        default_domain="https://www.ymlyhd.com",
-        sign_path="/plugin.php?id=dsu_paulsign:sign",
-        site_label="影迷乐园"
-    )
-
-def checkin_acgrip(site_dict: dict) -> Tuple[bool, str]:
-    return checkin_discuz_dsu_paulsign(
-        site_dict,
-        default_domain="https://bbs.acgrip.com",
-        sign_path="/dsu_paulsign-sign.html",
-        site_label="ACG字幕论坛"
-    )
-
-def checkin_ssdforum(site_dict: dict) -> Tuple[bool, str]:
-    return checkin_discuz_dsu_paulsign(
-        site_dict,
-        default_domain="https://ssdforum.org",
-        sign_path="/plugin.php?id=dsu_paulsign:sign",
-        site_label="SSD论坛"
-    )
-
 def checkin_yysub(site_dict: dict) -> Tuple[bool, str]:
     domain = format_domain(site_dict.get("domain"), default="https://yysub.cc")
     username = (site_dict.get("username") or "").strip()
@@ -500,58 +448,30 @@ def checkin_nexusphp(
     logger.warning("[%s] 未能匹配到明确的签到成功特征 (页面标题: %s)", site_name, title_text)
     return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
 
-def checkin_audiences(site_dict: dict) -> Tuple[bool, str]:
-    return checkin_nexusphp(
-        site_dict,
-        default_domain="https://audiences.me",
-        sign_path="/attendance.php",
-        site_label="audiences"
-    )
-
-def checkin_xingyunge(site_dict: dict) -> Tuple[bool, str]:
-    return checkin_nexusphp(
-        site_dict,
-        default_domain="https://pt.xingyungept.org",
-        sign_path="/attendance.php",
-        site_label="星运阁"
-    )
-
-def checkin_novahd(site_dict: dict) -> Tuple[bool, str]:
-    return checkin_nexusphp(
-        site_dict,
-        default_domain="https://pt.novahd.top",
-        sign_path="/attendance.php",
-        site_label="NovaHD"
-    )
+SITE_HANDLERS = {
+    "cnlang": (checkin_discuz_dsu_paulsign, {"default_domain": "https://cnlang.org", "sign_path": "/dsu_paulsign-sign.html?mobile=no", "site_label": "国语视界"}),
+    "ymlyhd": (checkin_discuz_dsu_paulsign, {"default_domain": "https://www.ymlyhd.com", "sign_path": "/plugin.php?id=dsu_paulsign:sign", "site_label": "影迷乐园"}),
+    "acgrip": (checkin_discuz_dsu_paulsign, {"default_domain": "https://bbs.acgrip.com", "sign_path": "/dsu_paulsign-sign.html", "site_label": "ACG字幕论坛"}),
+    "ssdforum": (checkin_discuz_dsu_paulsign, {"default_domain": "https://ssdforum.org", "sign_path": "/plugin.php?id=dsu_paulsign:sign", "site_label": "SSD论坛"}),
+    "audiences": (checkin_nexusphp, {"default_domain": "https://audiences.me", "sign_path": "/attendance.php", "site_label": "audiences"}),
+    "xingyunge": (checkin_nexusphp, {"default_domain": "https://pt.xingyungept.org", "sign_path": "/attendance.php", "site_label": "星运阁"}),
+    "novahd": (checkin_nexusphp, {"default_domain": "https://pt.novahd.top", "sign_path": "/attendance.php", "site_label": "NovaHD"}),
+    "yysub": (checkin_yysub, {}),
+}
 
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     from pig_checkin.crypto import decrypt_text
     site_dict = dict(site_dict)
-    if site_dict.get("cookies"):
-        site_dict["cookies"] = decrypt_text(site_dict["cookies"])
-    if site_dict.get("username"):
-        site_dict["username"] = decrypt_text(site_dict["username"])
-    if site_dict.get("password"):
-        site_dict["password"] = decrypt_text(site_dict["password"])
+    for field in ("cookies", "username", "password"):
+        if site_dict.get(field):
+            site_dict[field] = decrypt_text(site_dict[field])
 
     site_type = site_dict.get("site_type", "cnlang")
-    if site_type == "cnlang":
-        return checkin_cnlang(site_dict)
-    elif site_type == "audiences":
-        return checkin_audiences(site_dict)
-    elif site_type == "ymlyhd":
-        return checkin_ymlyhd(site_dict)
-    elif site_type == "acgrip":
-        return checkin_acgrip(site_dict)
-    elif site_type == "xingyunge":
-        return checkin_xingyunge(site_dict)
-    elif site_type == "novahd":
-        return checkin_novahd(site_dict)
-    elif site_type == "ssdforum":
-        return checkin_ssdforum(site_dict)
-    elif site_type == "yysub":
-        return checkin_yysub(site_dict)
-    return False, f"不支持的站点类型: {site_type}"
+    handler = SITE_HANDLERS.get(site_type)
+    if not handler:
+        return False, f"不支持的站点类型: {site_type}"
+    func, kwargs = handler
+    return func(site_dict, **kwargs)
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
     from pig_checkin.db import get_db

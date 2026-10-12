@@ -10,9 +10,6 @@ DB_DIR = Path.cwd() / "data"
 DB_PATH = DB_DIR / "checkin.db"
 
 def get_db():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not DB_PATH.exists() and OLD_DB_PATH.exists():
-        shutil.copy2(OLD_DB_PATH, DB_PATH)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
@@ -30,6 +27,9 @@ def verify_password(stored: str, password: str) -> bool:
     return hmac.compare_digest(expected, computed)
 
 def init_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not DB_PATH.exists() and OLD_DB_PATH.exists():
+        shutil.copy2(OLD_DB_PATH, DB_PATH)
     with get_db() as conn:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS users (

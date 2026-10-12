@@ -14,24 +14,11 @@ from pig_checkin.templates_config import SITE_TEMPLATES, get_template_auth_type
 app = FastAPI(title="Pig Checkin Service")
 app.add_middleware(SessionMiddleware, secret_key="pig-checkin-super-secret-key-lazy-is-best")
 
-def get_app_version() -> str:
-    try:
-        import importlib.metadata
-        return importlib.metadata.version("pig-checkin")
-    except Exception:
-        pass
-    try:
-        import tomllib
-        from pathlib import Path
-        pyproject_file = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
-        if pyproject_file.exists():
-            with open(pyproject_file, "rb") as f:
-                return tomllib.load(f).get("project", {}).get("version", "0.1.0")
-    except Exception:
-        pass
-    return "0.1.0"
-
-APP_VERSION = get_app_version()
+try:
+    import importlib.metadata
+    APP_VERSION = importlib.metadata.version("pig-checkin")
+except Exception:
+    APP_VERSION = "0.2.4"
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
@@ -145,15 +132,6 @@ def change_account(
     if is_api_request(request):
         return JSONResponse({"ok": True, "message": "账号信息修改成功", "new_username": new_username})
     return RedirectResponse(url="/?pwd_ok=账号信息修改成功", status_code=303)
-
-@app.post("/change-password")
-def change_password(
-    request: Request,
-    old_password: str = Form(...),
-    new_password: str = Form(...),
-    user: str = Depends(get_current_user)
-):
-    return change_account(request, new_username=user, old_password=old_password, new_password=new_password, user=user)
 
 @app.get("/api/dashboard-data")
 def api_dashboard_data(user: str = Depends(get_current_user)):

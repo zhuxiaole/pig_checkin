@@ -14,8 +14,7 @@ executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="checkin_worker"
 _running_site_ids = set()
 _lock = threading.Lock()
 
-def compute_initial_next_run(schedule_type: str, schedule_time: str) -> str:
-    """创建网站时计算下一次执行时间"""
+def compute_next_run(schedule_type: str, schedule_time: str, next_day: bool = False) -> str:
     now = datetime.datetime.now()
     if schedule_type == "fixed":
         try:
@@ -23,39 +22,23 @@ def compute_initial_next_run(schedule_type: str, schedule_time: str) -> str:
         except Exception:
             h, m = 9, 0
         target = now.replace(hour=h, minute=m, second=0, microsecond=0)
-        if target <= now:
+        if next_day or target <= now:
             target += datetime.timedelta(days=1)
         return target.strftime("%Y-%m-%d %H:%M:%S")
 
-    cur_total_sec = now.hour * 3600 + now.minute * 60 + now.second
-    day_end_sec = 23 * 3600 + 59 * 60
-    if day_end_sec - cur_total_sec > 120:
-        rand_sec = random.randint(cur_total_sec + 60, day_end_sec)
-        target = now.replace(hour=rand_sec // 3600, minute=(rand_sec % 3600) // 60, second=rand_sec % 60, microsecond=0)
+    cur_sec = now.hour * 3600 + now.minute * 60 + now.second
+    day_end = 23 * 3600 + 59 * 60
+    if not next_day and day_end - cur_sec > 120:
+        sec = random.randint(cur_sec + 60, day_end)
+        target = now.replace(hour=sec // 3600, minute=(sec % 3600) // 60, second=sec % 60, microsecond=0)
     else:
-        tomorrow = now + datetime.timedelta(days=1)
-        rand_h = random.randint(8, 21)
-        rand_m = random.randint(0, 59)
-        rand_s = random.randint(0, 59)
-        target = tomorrow.replace(hour=rand_h, minute=rand_m, second=rand_s, microsecond=0)
+        target = (now + datetime.timedelta(days=1)).replace(
+            hour=random.randint(8, 21), minute=random.randint(0, 59), second=random.randint(0, 59), microsecond=0
+        )
     return target.strftime("%Y-%m-%d %H:%M:%S")
 
-def compute_next_day_run(schedule_type: str, schedule_time: str) -> str:
-    """任务执行成功后计算下一次（明天的）执行时间"""
-    now = datetime.datetime.now()
-    tomorrow = now + datetime.timedelta(days=1)
-    if schedule_type == "fixed":
-        try:
-            h, m = map(int, (schedule_time or "09:00").split(":"))
-        except Exception:
-            h, m = 9, 0
-        target = tomorrow.replace(hour=h, minute=m, second=0, microsecond=0)
-    else:
-        rand_h = random.randint(8, 21)
-        rand_m = random.randint(0, 59)
-        rand_s = random.randint(0, 59)
-        target = tomorrow.replace(hour=rand_h, minute=rand_m, second=rand_s, microsecond=0)
-    return target.strftime("%Y-%m-%d %H:%M:%S")
+compute_initial_next_run = lambda st, tm: compute_next_run(st, tm, next_day=False)
+compute_next_day_run = lambda st, tm: compute_next_run(st, tm, next_day=True)
 
 def run_site_checkin(site_id: int):
     try:
