@@ -290,8 +290,8 @@ def checkin_nexusphp(
         logger.error("[%s] 访问签到页网络失败: %s", site_name, e)
         return False, f"网络请求失败: {e}"
 
-    if is_cloudflare_challenge(res.text, res.status_code):
-        logger.warning("[%s] 检测到 Cloudflare 拦截 (HTTP %d)，启动无头浏览器处理...", site_name, res.status_code)
+    if is_cloudflare_challenge(res.text, res.status_code) or "attendance-card--verify" in res.text:
+        logger.warning("[%s] 检测到 Cloudflare / 人机验证拦截 (HTTP %d)，启动无头浏览器处理...", site_name, res.status_code)
         ok, content, new_cookies = solve_with_invisible_playwright(attendance_url, cookies)
         if not ok:
             logger.error("[%s] 无头浏览器绕过失败: %s", site_name, content)
@@ -326,8 +326,12 @@ def checkin_nexusphp(
         logger.info("[%s] 用户 [%s] %s", site_name, user_name, info)
         return True, f"用户 [{user_name}] {info}"
 
-    if "签到成功" in res_text or "获得" in res_text:
-        award_match = re.search(r'这是您的第.*?次签到.*?已获得.*?魔力值', res_text) or re.search(r'获得.*?爆米花', res_text)
+    if "attendance-card--verify" in res_text:
+        logger.warning("[%s] 签到页面需完成 Turnstile 人机验证", site_name)
+        return False, "需完成人机验证 (Turnstile)，未完成签到"
+
+    if "签到成功" in res_text:
+        award_match = re.search(r'这是您的第.*?次签到.*?已获得.*?魔力值', res_text)
         award_info = award_match.group(0) if award_match else "签到成功"
         logger.info("[%s] 用户 [%s] 签到成功: %s", site_name, user_name, award_info)
         return True, f"用户 [{user_name}] {award_info}"
