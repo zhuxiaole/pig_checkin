@@ -22,7 +22,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     TZ=Asia/Shanghai \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PIG_RELOAD=false
+    PIG_RELOAD=false \
+    PIG_BROWSER_PATH=/usr/bin/chromium
 
 # 4. 复制依赖声明文件，最大化利用 Docker 镜像层缓存
 COPY pyproject.toml uv.lock README.md ./
