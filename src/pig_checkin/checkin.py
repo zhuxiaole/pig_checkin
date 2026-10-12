@@ -111,6 +111,8 @@ def solve_with_nodriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict
                 except Exception:
                     pass
                 try:
+                    # 避免 nodriver 全局注册表强引用导致 Browser 及 CDP 缓冲内存泄漏
+                    # 参考: https://kingjem.github.io/2026/08/07/nodriver-%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E6%8E%92%E6%9F%A5-%E5%85%A8%E5%B1%80%E6%B3%A8%E5%86%8C%E8%A1%A8/
                     from nodriver.core import util as _uc_util
                     _uc_util.get_registered_instances().discard(browser)
                 except Exception:
