@@ -5,26 +5,13 @@ WORKDIR /app
 # 1. 系统基础依赖与运行时支持：
 # - tzdata: 支持 TZ 环境变量自定义时区
 # - ca-certificates: HTTPS 证书链校验
-# - gcompat / libstdc++ / gtk+3.0 / nss: 提供无痕浏览器无头运行所需的基础共享库
-# - font-noto: 网页渲染与验证码中文字体支持
+# - chromium: nodriver 原生无头浏览器
+# - font-noto-cjk: 网页渲染与验证码中文字体支持
 RUN apk add --no-cache \
     tzdata \
     ca-certificates \
-    gcompat \
-    libstdc++ \
-    gtk+3.0 \
-    nss \
-    nspr \
-    libx11 \
-    libxcomposite \
-    libxdamage \
-    libxext \
-    libxfixes \
-    libxrandr \
-    mesa-gl \
-    alsa-lib \
-    dbus-libs \
-    font-noto
+    chromium \
+    font-noto-cjk
 
 # 2. 引入官方 uv 包管理工具
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv

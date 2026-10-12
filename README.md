@@ -1,6 +1,6 @@
 # Pig Checkin 自动签到 Web 服务
 
-基于 Python + FastAPI 构建的多站点自动签到服务，支持 Web 后台管理、多种定时调度策略、失败自动重试、以及通过 `invisible_playwright` 无头浏览器绕过 Cloudflare 等机器人反爬验证。
+基于 Python + FastAPI 构建的多站点自动签到服务，支持 Web 后台管理、多种定时调度策略、失败自动重试、以及通过 `nodriver` 原生无头浏览器绕过 Cloudflare 等机器人反爬验证。
 
 ---
 
@@ -8,7 +8,7 @@
 
 - 🌐 **Web 可视化管理**：内置登录鉴权与会话管理，支持查看签到状态、配置站点、实时手动触发与查看历史日志。
 - 🛡️ **反爬与安全防护**：
-  - 遇到 Cloudflare 质询时自动唤起 `invisible_playwright` 绕过检测并更新 Cookies。
+  - 遇到 Cloudflare 质询时自动唤起 `nodriver` 绕过检测并更新 Cookies。
   - 用户密码采用 Salted SHA-256 + 恒定时间防时序攻击比对安全存储。
 - ⏱️ **灵活定时调度**：
   - 支持**每日随机时间**（默认）与**每日固定时间**。

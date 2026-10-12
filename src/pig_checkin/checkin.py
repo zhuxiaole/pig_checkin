@@ -8,8 +8,6 @@ from bs4 import BeautifulSoup
 from typing import Tuple
 from urllib.parse import urlparse
 
-os.environ.setdefault("INVISIBLE_PLAYWRIGHT_CACHE_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".cache", "inv_pw")))
-
 logger = logging.getLogger("pig_checkin")
 if not logger.handlers:
     handler = logging.StreamHandler()
@@ -22,8 +20,8 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 # 单次网络请求超时时间 (秒，支持 PIG_REQUEST_TIMEOUT 环境变量覆盖，默认 30 秒)
 REQUEST_TIMEOUT = int(os.environ.get("PIG_REQUEST_TIMEOUT", 30))
-# 无痕浏览器页面加载超时 (毫秒，支持 PIG_PLAYWRIGHT_TIMEOUT 覆盖，默认 35000 毫秒)
-PLAYWRIGHT_TIMEOUT = int(os.environ.get("PIG_PLAYWRIGHT_TIMEOUT", 35000))
+# 无痕浏览器页面加载超时 (秒，支持 PIG_BROWSER_TIMEOUT 覆盖，默认 35 秒)
+BROWSER_TIMEOUT = int(os.environ.get("PIG_BROWSER_TIMEOUT", 35))
 
 def parse_cookies_str(cookie_str: str) -> dict:
     cookies = {}
@@ -42,27 +40,84 @@ def is_cloudflare_challenge(text: str, status_code: int = 200) -> bool:
     signals = ["cf-turnstile-wrapper", "cf-turnstile-response", "<title>Just a moment...</title>", "<title>Checking your browser...</title>"]
     return any(sig in text for sig in signals)
 
-def solve_with_invisible_playwright(url: str, cookies: dict = None) -> Tuple[bool, str, dict]:
+def find_browser_executable() -> str:
+    candidates = [
+        os.environ.get("PIG_BROWSER_PATH"),
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+    ]
+    for p in candidates:
+        if p and os.path.exists(p):
+            return p
     try:
-        from invisible_playwright import InvisiblePlaywright
-        logger.info("[Playwright] 启动无痕浏览器访问页面: %s (超时限制: %d 秒)", url, PLAYWRIGHT_TIMEOUT // 1000)
-        with InvisiblePlaywright(headless=True) as pw:
-            page = pw.new_page()
+        import nodriver as uc
+        return uc.core.config.find_chrome_executable()
+    except Exception:
+        return None
+
+def solve_with_nodriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict]:
+    import asyncio
+    async def _async_solve():
+        import nodriver as uc
+        import nodriver.cdp.network as network
+
+        exe = find_browser_executable()
+        logger.info("[nodriver] 启动无头浏览器: %s (超时限制: %d 秒)", exe or "系统默认Chrome", BROWSER_TIMEOUT)
+        browser = await uc.start(
+            browser_executable_path=exe,
+            headless=True,
+            sandbox=False
+        )
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc or "audiences.me"
+            cookie_domain = domain if domain.startswith(".") else f".{domain}"
+
+            page = await browser.get(url)
             if cookies:
-                pw_cookies = [{"name": k, "value": v, "url": url} for k, v in cookies.items()]
-                try:
-                    page.context.add_cookies(pw_cookies)
-                except Exception:
-                    pass
-            page.goto(url, wait_until="networkidle", timeout=PLAYWRIGHT_TIMEOUT)
-            page.wait_for_timeout(3000)
-            content = page.content()
-            new_cookies = {c["name"]: c["value"] for c in page.context.cookies()}
-            logger.info("[Playwright] 页面渲染完毕，已获取新会话状态及 %d 个 Cookies", len(new_cookies))
+                cookie_params = [
+                    network.CookieParam(name=k, value=v, domain=cookie_domain, path="/")
+                    for k, v in cookies.items()
+                ]
+                await browser.cookies.set_all(cookie_params)
+                page = await browser.get(url)
+
+            for _ in range(max(1, BROWSER_TIMEOUT // 2)):
+                await asyncio.sleep(2)
+                content = await page.get_content()
+                if "attendance-card--done" in content or "今天已经签到" in content:
+                    break
+                if not is_cloudflare_challenge(content) and "attendance-card--verify" not in content:
+                    break
+            else:
+                content = await page.get_content()
+
+            all_cookies = await browser.cookies.get_all()
+            new_cookies = {c.name: c.value for c in all_cookies}
+            logger.info("[nodriver] 页面加载完毕，已获取新会话状态及 %d 个 Cookies", len(new_cookies))
             return True, content, new_cookies
+        finally:
+            try:
+                browser.stop()
+                await asyncio.sleep(0.1)
+            except Exception:
+                pass
+
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return asyncio.run(_async_solve())
     except Exception as e:
-        logger.error("[Playwright] 无头浏览器执行失败或超时: %s", e)
-        return False, f"invisible_playwright 执行失败: {e}", {}
+        logger.error("[nodriver] 无头浏览器执行失败或超时: %s", e)
+        return False, f"nodriver 执行失败: {e}", {}
 
 def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
     domain = (domain or "").strip()
@@ -120,7 +175,7 @@ def checkin_discuz_dsu_paulsign(
 
     if is_cloudflare_challenge(res_text, res.status_code):
         logger.warning("[%s] 检测到 Cloudflare 防护拦截 (HTTP %d)，启动无头浏览器处理...", site_label, res.status_code)
-        ok, content, new_cookies = solve_with_invisible_playwright(sign_page_url, cookies)
+        ok, content, new_cookies = solve_with_nodriver(sign_page_url, cookies)
         if not ok:
             logger.error("[%s] 无头浏览器绕过 Cloudflare 失败: %s", site_label, content)
             return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
@@ -292,7 +347,7 @@ def checkin_nexusphp(
 
     if is_cloudflare_challenge(res.text, res.status_code) or "attendance-card--verify" in res.text:
         logger.warning("[%s] 检测到 Cloudflare / 人机验证拦截 (HTTP %d)，启动无头浏览器处理...", site_name, res.status_code)
-        ok, content, new_cookies = solve_with_invisible_playwright(attendance_url, cookies)
+        ok, content, new_cookies = solve_with_nodriver(attendance_url, cookies)
         if not ok:
             logger.error("[%s] 无头浏览器绕过失败: %s", site_name, content)
             return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
