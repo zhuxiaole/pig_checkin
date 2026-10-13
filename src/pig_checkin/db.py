@@ -69,15 +69,20 @@ def init_db():
             FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE SET NULL
         );
 
-        -- 本地导入的站点模板（覆盖内置目录中的同名 key）
-        -- 注意：表名不能用 templates，历史遗留表占用该名字且结构不同
-        CREATE TABLE IF NOT EXISTS template_library (
+        -- 被停用的模板 key：模板库来自代码，这里只记录用户不想在后台看到的模板
+        CREATE TABLE IF NOT EXISTS disabled_templates (
             key TEXT PRIMARY KEY,
-            json TEXT NOT NULL,
-            source TEXT DEFAULT 'imported',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
+
+        # 清理早期「远程模板库导入」方案遗留的空表（有数据则保留，交由用户处理）
+        for legacy in ("template_library",):
+            row = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (legacy,)
+            ).fetchone()
+            if row and conn.execute(f"SELECT COUNT(*) FROM {legacy}").fetchone()[0] == 0:
+                conn.execute(f"DROP TABLE {legacy}")
 
         # 增量字段迁移 (兼容旧表结构)
         existing_cols = [row[1] for row in conn.execute("PRAGMA table_info(sites)").fetchall()]

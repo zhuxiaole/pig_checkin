@@ -1,5 +1,4 @@
 import os
-import json
 import datetime
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -152,12 +151,18 @@ def dashboard(request: Request):
         return RedirectResponse(url="/login", status_code=303)
     
     sites, logs = get_dashboard_state()
+    # 下拉框只列已启用模板，但已存在站点用到的模板必须保留，否则旧站点无法编辑
+    all_tpl = tpl_lib.all_templates()
+    selectable = tpl_lib.enabled_templates()
+    for site_type in {s["site_type"] for s in sites}:
+        if site_type in all_tpl:
+            selectable[site_type] = all_tpl[site_type]
     return templates.TemplateResponse(request, "dashboard.html", {
         "current_user": user,
         "app_version": APP_VERSION,
         "sites": sites,
         "logs": logs,
-        "site_templates": tpl_lib.all_templates(),
+        "site_templates": selectable,
         "pwd_err": request.query_params.get("pwd_err"),
         "pwd_ok": request.query_params.get("pwd_ok")
     })
@@ -335,8 +340,8 @@ def clear_logs(request: Request, user: str = Depends(get_current_user)):
 
 # ------------------------------------------------------------------ 模板库
 
-def _template_summary(tpl: dict, source: str = "") -> dict:
-    summary = {
+def _template_summary(tpl: dict) -> dict:
+    return {
         "key": tpl["key"],
         "name": tpl["name"],
         "flow": tpl["flow"],
@@ -345,67 +350,23 @@ def _template_summary(tpl: dict, source: str = "") -> dict:
         "auth_label": tpl.get("auth_label", ""),
         "cookie_placeholder": tpl.get("cookie_placeholder", ""),
     }
-    if source:
-        summary["source"] = source
-    return summary
 
 @app.get("/api/template-library")
 def api_template_library(user: str = Depends(get_current_user)):
-    ok, result = tpl_lib.fetch_registry()
-    merged = tpl_lib.all_templates()
-    imported = tpl_lib.local_raw_templates()
-
-    installed = [
-        _template_summary(tpl, "imported" if key in imported else "builtin")
-        for key, tpl in sorted(merged.items())
-    ]
-    available = [
-        {**_template_summary(raw), "installed": raw["key"] in merged}
-        for raw in result["templates"]
-    ]
+    all_tpl = tpl_lib.all_templates()
+    enabled = tpl_lib.enabled_templates()
     return {
         "ok": True,
-        "registry_url": result["url"],
-        "registry_ok": ok,
-        "registry_error": result["error"],
-        "registry_invalid": result["errors"],
-        "available": available,
-        "installed": installed,
+        "all": [
+            {**_template_summary(tpl), "enabled": key in enabled}
+            for key, tpl in sorted(all_tpl.items(), key=lambda kv: kv[1]["name"])
+        ],
+        "enabled": [_template_summary(tpl) for key, tpl in sorted(enabled.items(), key=lambda kv: kv[1]["name"])],
     }
 
-@app.post("/api/template-library/import")
-def api_template_import(keys: str = Form(...), user: str = Depends(get_current_user)):
-    try:
-        wanted = json.loads(keys)
-        if not isinstance(wanted, list) or not all(isinstance(k, str) for k in wanted):
-            raise ValueError
-    except Exception:
-        return JSONResponse({"ok": False, "message": "keys 需为 JSON 字符串数组"}, status_code=400)
-    if not wanted:
-        return JSONResponse({"ok": False, "message": "未选择任何模板"}, status_code=400)
-
-    ok, result = tpl_lib.fetch_registry()
-    if not ok:
-        return JSONResponse({"ok": False, "message": f"拉取模板库失败: {result['error']}"}, status_code=502)
-
-    by_key = {t["key"]: t for t in result["templates"]}
-    saved, missing = 0, []
-    for key in wanted:
-        raw = by_key.get(key)
-        if not raw:
-            missing.append(key)
-            continue
-        tpl_lib.save_template(raw)
-        saved += 1
-
-    message = f"已导入 {saved} 个模板"
-    if missing:
-        message += f"；未在模板库中找到: {', '.join(missing)}"
-    return JSONResponse({"ok": saved > 0, "message": message, "saved": saved})
-
-@app.post("/api/template-library/delete")
-def api_template_delete(key: str = Form(...), user: str = Depends(get_current_user)):
-    if not tpl_lib.delete_template(key):
-        return JSONResponse({"ok": False, "message": f"未找到已导入的模板 [{key}]"}, status_code=404)
-    fallback = "，已回退使用内置模板" if tpl_lib.get_template(key) else ""
-    return JSONResponse({"ok": True, "message": f"已移除导入的模板 [{key}]{fallback}"})
+@app.post("/api/template-library/toggle")
+def api_template_toggle(key: str = Form(...), enabled: int = Form(...), user: str = Depends(get_current_user)):
+    if not tpl_lib.set_template_enabled(key, bool(enabled)):
+        return JSONResponse({"ok": False, "message": f"模板库中不存在 [{key}]"}, status_code=404)
+    state = "启用" if enabled else "停用"
+    return JSONResponse({"ok": True, "message": f"已{state}模板 [{tpl_lib.get_template(key)['name']}]"})

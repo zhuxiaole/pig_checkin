@@ -1,39 +1,34 @@
-"""站点模板：内置目录 + 远程模板库 + 本地导入库。
+"""站点模板库。
 
-一个模板就是一份 JSON，声明某站点在所属协议（flow）下的**差异点**：
-签到路径、请求参数、以及判定签到状态的关键字与正则。
-协议本身（步骤顺序、请求方法）由 checkin.py 的三种实现固定，模板只覆盖可变量。
+全部模板来自随程序发布的 site_templates.yaml；代码只保留协议实现
+（discuz / nexusphp / yysub），模板描述站点之间的差异：签到路径、请求参数、
+以及判定签到状态的关键字与正则。
 
-模板来源优先级：本地导入库 > 内置目录（同 key 时导入的覆盖内置）。
+「启用/停用」只决定后台「添加/编辑网站」下拉框里可选哪些模板，
+不影响已存在站点的签到执行。
 """
 import copy
-import json
-import os
 import re
 import logging
 from pathlib import Path
-from urllib.parse import urlparse
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
-import requests
+import yaml
 
 logger = logging.getLogger("pig_checkin")
 
-BUILTIN_PATH = Path(__file__).resolve().parent / "site_templates.json"
+CATALOG_PATH = Path(__file__).resolve().parent / "site_templates.yaml"
 SCHEMA_VERSION = 1
-MAX_DOC_BYTES = 1024 * 1024      # 远程模板库体积上限，防超大响应
-MAX_PATTERN_LEN = 500            # 正则长度上限，压缩 ReDoS 空间
+MAX_PATTERN_LEN = 500      # 正则长度上限，压缩 ReDoS 空间
 MAX_TEXT_LEN = 300
 KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_]{0,31}$")
-REGISTRY_TIMEOUT = int(os.environ.get("PIG_REQUEST_TIMEOUT", 30))
-DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/zhuxiaole/pig_checkin/main/src/pig_checkin/site_templates.json"
 
 # 元字段：UI 展示与站点保存使用，不参与协议实现
-META_FIELDS = ("key", "name", "flow", "auth_type", "auth_label", "default_domain", "cookie_placeholder", "label")
+META_FIELDS = ("key", "name", "flow", "auth_type", "auth_label", "default_domain", "cookie_placeholder")
 
 # 以下 *_DEFAULTS 是各协议的默认参数，模板只写需要覆盖的字段。
-# 约定：*_patterns 为按顺序尝试的正则数组，取首个命中；*_keywords 为子串包含判定。
-# 值里的 {site} / {username} / {password} 为运行期占位符。
+# 约定：*_patterns 为按顺序尝试的正则数组（取首个命中，无捕获组时取整体匹配）；
+#      *_keywords 为子串包含判定；值里的 {site} / {username} / {password} 为运行期占位符。
 
 DISCUZ_DEFAULTS = {
     "sign_path": "/plugin.php?id=dsu_paulsign:sign",
@@ -158,9 +153,9 @@ def _check_flow_fields(flow: str, raw: dict) -> List[str]:
 
 
 def validate_template(raw) -> List[str]:
-    """返回错误列表，空列表表示模板合法。远程模板库内容不可信，必须校验。"""
+    """返回错误列表，空列表表示模板合法。"""
     if not isinstance(raw, dict):
-        return ["模板需为 JSON 对象"]
+        return ["模板需为键值对象"]
 
     errors: List[str] = []
     key = raw.get("key")
@@ -174,7 +169,7 @@ def validate_template(raw) -> List[str]:
     if raw.get("auth_type") not in ("cookie", "password"):
         errors.append("auth_type 需为 cookie 或 password")
 
-    for field in ("name", "label", "auth_label", "cookie_placeholder"):
+    for field in ("name", "auth_label", "cookie_placeholder"):
         value = raw.get(field, "")
         if not isinstance(value, str) or (field != "cookie_placeholder" and not value.strip()):
             errors.append(f"{field} 不能为空")
@@ -182,7 +177,7 @@ def validate_template(raw) -> List[str]:
             errors.append(f"{field} 超过 {MAX_TEXT_LEN} 字符")
 
     domain = raw.get("default_domain", "")
-    if not isinstance(domain, str) or not domain.startswith(("http://", "https://")) or not urlparse(domain).netloc:
+    if not isinstance(domain, str) or not domain.startswith(("http://", "https://")) or not domain.split("//", 1)[1]:
         errors.append("default_domain 需为含协议的完整域名，如 https://example.com")
 
     if flow != "yysub":
@@ -190,8 +185,7 @@ def validate_template(raw) -> List[str]:
         if not isinstance(sign_path, str) or not sign_path.startswith("/"):
             errors.append("sign_path 需以 / 开头的站内路径")
 
-    allowed = set(META_FIELDS) | set(FLOW_DEFAULTS[flow])
-    unknown = sorted(set(raw) - allowed)
+    unknown = sorted(set(raw) - set(META_FIELDS) - set(FLOW_DEFAULTS[flow]))
     if unknown:
         errors.append(f"存在未知字段：{', '.join(unknown)}")
 
@@ -206,18 +200,18 @@ def resolve_template(raw: dict) -> dict:
     return out
 
 
-# ---------------------------------------------------------------- 目录解析
+# ---------------------------------------------------------------- 模板库
 
 def parse_catalog(text: str) -> Tuple[List[dict], List[str]]:
     """解析模板库文档，返回 (合法模板列表, 错误说明列表)。"""
-    doc = json.loads(text)
+    doc = yaml.safe_load(text)
     if not isinstance(doc, dict):
-        raise ValueError("模板库根节点需为 JSON 对象")
+        raise ValueError("模板库根节点需为键值对象")
     if doc.get("schema") != SCHEMA_VERSION:
         raise ValueError(f"模板库 schema 需为 {SCHEMA_VERSION}，实际为 {doc.get('schema')!r}")
     items = doc.get("templates")
     if not isinstance(items, list):
-        raise ValueError("模板库缺少 templates 数组")
+        raise ValueError("模板库缺少 templates 列表")
 
     valid, errors = [], []
     for raw in items:
@@ -229,72 +223,56 @@ def parse_catalog(text: str) -> Tuple[List[dict], List[str]]:
     return valid, errors
 
 
-_builtin_cache: List[dict] | None = None
+_catalog_cache: List[dict] | None = None
 
 
 def builtin_catalog() -> List[dict]:
-    global _builtin_cache
-    if _builtin_cache is None:
+    global _catalog_cache
+    if _catalog_cache is None:
         try:
-            templates, errors = parse_catalog(BUILTIN_PATH.read_text(encoding="utf-8"))
+            templates, errors = parse_catalog(CATALOG_PATH.read_text(encoding="utf-8"))
         except Exception as e:
-            logger.error("[模板] 内置模板库解析失败: %s", e)
+            logger.error("[模板] 模板库解析失败: %s", e)
             templates, errors = [], []
         for err in errors:
-            logger.warning("[模板] 内置模板已跳过 %s", err)
-        _builtin_cache = templates
-    return _builtin_cache
-
-
-# ---------------------------------------------------------------- 本地导入库
-
-def local_raw_templates() -> Dict[str, dict]:
-    from pig_checkin.db import get_db
-    with get_db() as conn:
-        rows = conn.execute("SELECT key, json FROM template_library").fetchall()
-    out = {}
-    for row in rows:
-        try:
-            raw = json.loads(row["json"])
-        except Exception as e:
-            logger.warning("[模板] 本地模板 %s 解析失败已忽略: %s", row["key"], e)
-            continue
-        errs = validate_template(raw)
-        if errs:
-            logger.warning("[模板] 本地模板 %s 校验失败已忽略: %s", row["key"], "; ".join(errs))
-            continue
-        out[row["key"]] = raw
-    return out
-
-
-def save_template(raw: dict, source: str = "imported") -> None:
-    from pig_checkin.db import get_db
-    with get_db() as conn:
-        conn.execute(
-            "INSERT INTO template_library (key, json, source) VALUES (?, ?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET json = excluded.json, source = excluded.source",
-            (raw["key"], json.dumps(raw, ensure_ascii=False), source),
-        )
-        conn.commit()
-
-
-def delete_template(key: str) -> bool:
-    from pig_checkin.db import get_db
-    with get_db() as conn:
-        cur = conn.execute("DELETE FROM template_library WHERE key = ?", (key,))
-        conn.commit()
-        return cur.rowcount > 0
+            logger.warning("[模板] 已跳过不合法模板 %s", err)
+        _catalog_cache = templates
+    return _catalog_cache
 
 
 def all_templates() -> Dict[str, dict]:
-    """内置目录 + 本地导入库合并后的全部可用模板（已解析默认值）。"""
-    out = {t["key"]: resolve_template(t) for t in builtin_catalog()}
-    for key, raw in local_raw_templates().items():
-        out[key] = resolve_template(raw)
-    return out
+    """全部模板（已合并协议默认值）。"""
+    return {raw["key"]: resolve_template(raw) for raw in builtin_catalog()}
+
+
+def disabled_keys() -> Set[str]:
+    from pig_checkin.db import get_db
+    with get_db() as conn:
+        return {row[0] for row in conn.execute("SELECT key FROM disabled_templates").fetchall()}
+
+
+def enabled_templates() -> Dict[str, dict]:
+    """后台「添加/编辑网站」可选用的模板。"""
+    disabled = disabled_keys()
+    return {key: tpl for key, tpl in all_templates().items() if key not in disabled}
+
+
+def set_template_enabled(key: str, enabled: bool) -> bool:
+    """启用/停用模板，返回 False 表示 key 不在模板库中。"""
+    if key not in all_templates():
+        return False
+    from pig_checkin.db import get_db
+    with get_db() as conn:
+        if enabled:
+            conn.execute("DELETE FROM disabled_templates WHERE key = ?", (key,))
+        else:
+            conn.execute("INSERT OR IGNORE INTO disabled_templates (key) VALUES (?)", (key,))
+        conn.commit()
+    return True
 
 
 def get_template(key: str) -> dict | None:
+    """按 key 取模板（与启用状态无关，保证已存在站点照常签到）。"""
     if not key:
         return None
     return all_templates().get(key)
@@ -303,30 +281,3 @@ def get_template(key: str) -> dict | None:
 def get_template_auth_type(site_type: str) -> str:
     tpl = get_template(site_type)
     return tpl["auth_type"] if tpl else "cookie"
-
-
-# ---------------------------------------------------------------- 远程模板库
-
-def registry_url() -> str:
-    return (os.environ.get("PIG_TEMPLATE_REGISTRY_URL") or "").strip() or DEFAULT_REGISTRY_URL
-
-
-def fetch_registry(url: str | None = None) -> Tuple[bool, dict]:
-    """拉取远程模板库文档。返回 (是否成功, 结果)。不抛异常，失败信息放 error 字段。"""
-    target = (url or registry_url()).strip()
-    result = {"url": target, "templates": [], "errors": [], "error": ""}
-    if not target.startswith(("http://", "https://")):
-        result["error"] = "模板库地址需以 http:// 或 https:// 开头"
-        return False, result
-    try:
-        res = requests.get(target, timeout=REGISTRY_TIMEOUT)
-        res.raise_for_status()
-        if len(res.content) > MAX_DOC_BYTES:
-            raise ValueError(f"模板库文件超过 {MAX_DOC_BYTES} 字节上限")
-        templates, errors = parse_catalog(res.content.decode("utf-8"))
-        result["templates"] = templates
-        result["errors"] = errors
-        return True, result
-    except Exception as e:
-        result["error"] = str(e)
-        return False, result

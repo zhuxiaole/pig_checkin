@@ -152,7 +152,7 @@ def _dig(obj, path: str):
 
 
 def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
-    site_label = tpl["label"]
+    site_label = tpl["name"]
     domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
     cookies = parse_cookies_str(site_dict.get("cookies", ""))
     
@@ -287,7 +287,7 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
     if cookie_str:
         session.cookies.update(parse_cookies_str(cookie_str))
 
-    site_name = site_dict.get("name", tpl["label"])
+    site_name = site_dict.get("name", tpl["name"])
 
     if username and password:
         login_url = f"{domain}{tpl['login_path']}"
@@ -352,7 +352,7 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         return False, f"请求用户信息接口异常: {e}"
 
 def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
-    site_label = tpl["label"]
+    site_label = tpl["name"]
     domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
     cookies = parse_cookies_str(site_dict.get("cookies", ""))
     

@@ -1,0 +1,82 @@
+# 站点模板库：每个站点在此声明一次，后台下拉框与签到逻辑都从这里读取。
+#
+# flow 可选值（对应 checkin.FLOWS 中的协议实现）：
+#   discuz   - Discuz! 论坛 dsu_paulsign 插件签到
+#   nexusphp - NexusPHP PT 站 attendance.php 签到
+#   yysub    - yysub.cc 原生 JSON API 登录签到
+#
+# 只写需要覆盖协议默认值的字段，未写的自动取 templates.py 中 *_DEFAULTS 的值。
+# 各协议可覆盖的字段、请求参数位置与成功判定见 SUPPORTED_SITES.md。
+schema: 1
+version: "2026-10-13"
+templates:
+  - key: cnlang
+    name: 国语视界
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://cnlang.org
+    cookie_placeholder: 请粘贴浏览器登录 cnlang.org 后的完整 Cookie 字符串
+    sign_path: /dsu_paulsign-sign.html?mobile=no
+
+  - key: audiences
+    name: 观众 PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://audiences.me
+    cookie_placeholder: 请粘贴登录 audiences.me 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
+  - key: ymlyhd
+    name: 影迷乐园
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://www.ymlyhd.com
+    cookie_placeholder: 请粘贴登录 ymlyhd.com 后的完整 Cookie 字符串
+    sign_path: /plugin.php?id=dsu_paulsign:sign
+
+  - key: acgrip
+    name: ACG字幕论坛
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://bbs.acgrip.com
+    cookie_placeholder: 请粘贴登录 bbs.acgrip.com 后的完整 Cookie 字符串
+    sign_path: /dsu_paulsign-sign.html
+
+  - key: xingyunge
+    name: 星运阁 PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://pt.xingyungept.org
+    cookie_placeholder: 请粘贴登录 pt.xingyungept.org 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
+  - key: novahd
+    name: NovaHD PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://pt.novahd.top
+    cookie_placeholder: 请粘贴登录 pt.novahd.top 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
+  - key: ssdforum
+    name: SSD论坛
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://ssdforum.org
+    cookie_placeholder: 请粘贴登录 ssdforum.org 后的完整 Cookie 字符串
+    sign_path: /plugin.php?id=dsu_paulsign:sign
+
+  - key: yysub
+    name: YYeTs字幕组
+    flow: yysub
+    auth_type: password
+    auth_label: 账号 & 密码认证
+    default_domain: https://yysub.cc
+    cookie_placeholder: （可选）若有需要可填写 Cookie

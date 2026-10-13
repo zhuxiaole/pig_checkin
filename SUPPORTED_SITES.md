@@ -21,32 +21,29 @@
 
 ## 站点模板配置
 
-站点配置已抽成独立 JSON 模板，代码只保留协议实现（`discuz` / `nexusphp` / `yysub`）。
+站点配置全部抽成 YAML 模板（`src/pig_checkin/site_templates.yaml`），代码只保留协议实现（`discuz` / `nexusphp` / `yysub`）。
+模板随程序发布，**不依赖任何远程服务**。
 
-### 模板来源与优先级
+### 启用与停用
 
-| 来源 | 位置 | 说明 |
-| :--- | :--- | :--- |
-| **内置模板库** | `src/pig_checkin/site_templates.json` | 随程序发布，开箱可用 |
-| **远程模板库** | 由 `PIG_TEMPLATE_REGISTRY_URL` 指定的地址 | 后台「模板库」按钮拉取，勾选导入 |
-| **本地导入库** | 数据库 `template_library` 表 | 导入后的模板，**同 key 时覆盖内置模板** |
+后台「模板库」按钮打开两列视图：左侧是模板库中的全部模板（可按名称或默认地址搜索），右侧是已启用模板。
+点击「启用 / 停用」即可调整。
 
-删除已导入的模板后会自动回退到内置模板。
+- 「添加网站」的模板下拉框只列出**已启用**的模板；
+- 停用**不会**影响已存在站点的签到执行，只是不再出现在新建站点的可选项中；
+- 已有站点正在使用的模板即使被停用，也仍会保留在编辑界面的下拉框里。
 
 ### 模板字段
 
-**元字段**（所有 flow 通用）：
-
 | 字段 | 必填 | 用途 |
 | :--- | :---: | :--- |
-| `key` | ✔ | 唯一标识（模板标识 / `site_type`），`^[a-z0-9][a-z0-9_]{0,31}$` |
-| `name` | ✔ | 后台下拉框显示的完整站点名 |
+| `key` | ✔ | 唯一标识（`site_type`），`^[a-z0-9][a-z0-9_]{0,31}$` |
+| `name` | ✔ | 站点名称，**只写名称，不要带网址**（如 `国语视界`） |
 | `flow` | ✔ | 协议实现：`discuz` / `nexusphp` / `yysub` |
 | `auth_type` | ✔ | `cookie` 或 `password` |
 | `auth_label` | ✔ | 认证方式中文标签（UI 展示） |
 | `default_domain` | ✔ | 默认域名，必须含 `http://` 或 `https://` |
 | `cookie_placeholder` | ✔ | Cookie 输入框占位提示 |
-| `label` | ✔ | 日志中的站点简称 |
 
 **协议字段**：只写需要覆盖的项，未写的自动取协议默认值（默认值见 `templates.py` 的 `*_DEFAULTS`）。
 约定 `*_patterns` 为按顺序尝试的正则数组（取首个命中，无捕获组时取整体匹配），`*_keywords` 为子串包含判定。
@@ -77,22 +74,17 @@
 `yysub` 常用覆盖项：`login_path`、`info_path`、`login_body`（值支持 `{username}` / `{password}` 占位）、
 `login_fail_status`、`unauth_status`、`success_fields`（`a.b.c` 路径）、`ok_status`。
 
-### 新增站点的两种方式
+### 新增站点
 
-1. **改配置文件**：在 `src/pig_checkin/site_templates.json` 的 `templates` 数组里加一项，字段同上。
-2. **走远程模板库**：把自己写的模板库（同一份 JSON 结构，`{"schema":1,"templates":[...]}`）发布到任意可 HTTP 访问的地址，
-   在后台「模板库」里拉取并导入。本地自测可临时设置 `PIG_TEMPLATE_REGISTRY_URL` 指向该地址。
-
-两种方式都**不需要**改 `checkin.py`，前提是站点能归入现有三种协议。
+在 `src/pig_checkin/site_templates.yaml` 的 `templates` 列表里加一项，填写上面的字段即可，**不需要**改 `checkin.py` —— 前提是站点能归入现有三种协议。
 
 ### 模板校验
 
-远程模板库内容不可信，导入前会逐项校验，不通过的直接跳过并在后台提示：
+模板库在程序启动时（首次读取）逐项校验，不通过的模板会被跳过并在日志中提示：
 
 - `key` 格式、`flow` / `auth_type` 取值、`default_domain` 必须含协议、非 `yysub` 必须有以 `/` 开头的 `sign_path`；
 - 未知字段一律拒绝（防拼写错误）；
-- 所有 `*_pattern` / `*_patterns` 必须能编译，且长度不超过 500 字符（压缩 ReDoS 空间）；
-- 模板库文档体积上限 1 MB。
+- 所有 `*_pattern` / `*_patterns` 必须能编译，且长度不超过 500 字符（压缩 ReDoS 空间）。
 
 ---
 

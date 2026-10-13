@@ -771,7 +771,7 @@
 
     <!-- 模板库模态弹窗 -->
     <div id="templateLibraryModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-2xl sm:max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
             <div class="px-6 sm:px-8 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 text-violet-600 dark:text-violet-400 flex items-center justify-center text-lg">
@@ -779,7 +779,7 @@
                     </div>
                     <div>
                         <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">站点模板库</h3>
-                        <p id="tpl_registry_url" class="text-xs text-slate-400 break-all">加载中…</p>
+                        <p class="text-xs text-slate-400">启用后的模板才会出现在「添加网站」的模板下拉框中</p>
                     </div>
                 </div>
                 <button onclick="closeModal('templateLibraryModal')" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg">
@@ -787,24 +787,36 @@
                 </button>
             </div>
 
-            <div class="overflow-y-auto px-6 sm:px-8 py-5 space-y-5 flex-1 text-sm">
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h4 class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">远程模板库可用模板</h4>
-                        <span id="tpl_registry_state" class="text-[11px] text-slate-400"></span>
+            <div class="overflow-y-auto px-6 sm:px-8 py-5 flex-1 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <!-- 左列：全部模板 -->
+                    <div class="flex flex-col min-h-0">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">全部模板 <span id="tpl_all_count" class="text-slate-400"></span></h4>
+                        </div>
+                        <div class="relative mb-2">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                                <i class="ri-search-line text-sm"></i>
+                            </span>
+                            <input type="text" id="tpl_lib_search" oninput="renderTemplateLibrary()" placeholder="按模板名称或默认地址搜索…"
+                                   class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div id="tpl_all_list" class="space-y-2 md:max-h-[46vh] md:overflow-y-auto pr-0.5"></div>
                     </div>
-                    <div id="tpl_available_list" class="space-y-2"></div>
-                </div>
 
-                <div>
-                    <h4 class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-2">当前已启用模板</h4>
-                    <div id="tpl_installed_list" class="space-y-2"></div>
+                    <!-- 右列：已启用模板 -->
+                    <div class="flex flex-col min-h-0">
+                        <h4 class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-2 mt-2 md:mt-6">
+                            已启用模板 <span id="tpl_enabled_count" class="text-slate-400"></span>
+                        </h4>
+                        <div id="tpl_enabled_list" class="space-y-2 md:max-h-[46vh] md:overflow-y-auto pr-0.5"></div>
+                    </div>
                 </div>
             </div>
 
             <div class="px-6 sm:px-8 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/90 flex justify-between items-center gap-3 shrink-0">
                 <button type="button" onclick="loadTemplateLibrary()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">
-                    <i class="ri-refresh-line mr-1"></i>重新拉取
+                    <i class="ri-refresh-line mr-1"></i>重新加载
                 </button>
                 <button type="button" onclick="closeModal('templateLibraryModal')" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">关闭</button>
             </div>
@@ -863,63 +875,76 @@
         }
 
         // ---------------- 模板库 ----------------
+        let tplLibAll = [];
+        let tplLibEnabled = [];
+
         async function openTemplateLibrary() {
             openModal('templateLibraryModal');
+            document.getElementById('tpl_lib_search').value = '';
             await loadTemplateLibrary();
         }
 
         async function loadTemplateLibrary() {
-            const available = document.getElementById('tpl_available_list');
-            const installed = document.getElementById('tpl_installed_list');
-            available.innerHTML = '<div class="text-slate-400 text-xs py-3">正在从远程模板库拉取…</div>';
-            installed.innerHTML = '';
+            document.getElementById('tpl_all_list').innerHTML = '<div class="text-slate-400 text-xs py-3">加载中…</div>';
+            document.getElementById('tpl_enabled_list').innerHTML = '';
             try {
                 const res = await fetch('/api/template-library');
                 const data = await res.json();
-                if (!data.ok) throw new Error(data.message || '拉取失败');
-
-                document.getElementById('tpl_registry_url').textContent = data.registry_url || '';
-                const state = document.getElementById('tpl_registry_state');
-                if (data.registry_ok) {
-                    const invalid = (data.registry_invalid || []).length;
-                    state.textContent = `共 ${data.available.length} 个可用` + (invalid ? `，${invalid} 个无效已跳过` : '');
-                    state.className = 'text-[11px] text-emerald-500';
-                } else {
-                    state.textContent = `拉取失败: ${data.registry_error}`;
-                    state.className = 'text-[11px] text-rose-500';
-                }
-
-                if (!data.available.length) {
-                    available.innerHTML = '<div class="text-slate-400 text-xs py-3">远程模板库暂无可导入的模板</div>';
-                } else {
-                    available.innerHTML = data.available.map(t => `
-                        <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
-                            <div class="min-w-0">
-                                <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
-                                <div class="text-[11px] text-slate-400 truncate">${escapeHtml(t.key)} · ${escapeHtml(t.flow)} · ${escapeHtml(t.default_domain)}</div>
-                            </div>
-                            ${t.installed
-                                ? '<span class="shrink-0 text-[11px] text-emerald-500 font-medium px-2.5 py-1">已启用</span>'
-                                : `<button onclick="importTemplate('${escapeHtml(t.key)}')" class="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">导入</button>`}
-                        </div>`).join('');
-                }
-
-                installed.innerHTML = data.installed.map(t => `
-                    <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <div class="min-w-0">
-                            <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
-                            <div class="text-[11px] text-slate-400 truncate">${escapeHtml(t.key)} · ${escapeHtml(t.flow)} · ${t.source === 'imported' ? '远程导入' : '内置'}</div>
-                        </div>
-                        ${t.source === 'imported'
-                            ? `<button onclick="deleteTemplate('${escapeHtml(t.key)}')" class="shrink-0 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-colors">移除</button>`
-                            : '<span class="shrink-0 text-[11px] text-slate-400 px-2.5 py-1">内置</span>'}
-                    </div>`).join('') || '<div class="text-slate-400 text-xs py-3">暂无模板</div>';
-
-                // 同步刷新「添加/编辑网站」下拉框，导入后无需刷新页面
-                templatesMeta = Object.fromEntries(data.installed.map(t => [t.key, t]));
-                filterTemplates('add', document.getElementById('add_site_type').value);
+                if (!data.ok) throw new Error(data.message || '加载失败');
+                tplLibAll = data.all || [];
+                tplLibEnabled = data.enabled || [];
+                renderTemplateLibrary();
+                syncTemplateMeta();
             } catch (e) {
-                available.innerHTML = `<div class="text-rose-500 text-xs py-3">${escapeHtml(e.message)}</div>`;
+                document.getElementById('tpl_all_list').innerHTML = `<div class="text-rose-500 text-xs py-3">${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        function renderTemplateLibrary() {
+            const query = (document.getElementById('tpl_lib_search').value || '').toLowerCase().trim();
+            const allList = document.getElementById('tpl_all_list');
+            const enabledList = document.getElementById('tpl_enabled_list');
+
+            const matched = tplLibAll.filter(t =>
+                !query
+                || (t.name || '').toLowerCase().includes(query)
+                || (t.default_domain || '').toLowerCase().includes(query)
+            );
+
+            document.getElementById('tpl_all_count').textContent = `(${matched.length}/${tplLibAll.length})`;
+            document.getElementById('tpl_enabled_count').textContent = `(${tplLibEnabled.length})`;
+
+            allList.innerHTML = matched.map(t => `
+                <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
+                    <div class="min-w-0">
+                        <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
+                        <div class="text-[11px] text-slate-400 truncate">${escapeHtml(t.default_domain)} · ${escapeHtml(t.flow)}</div>
+                    </div>
+                    ${t.enabled
+                        ? `<button onclick="toggleTemplate('${escapeHtml(t.key)}', 0)" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors">停用</button>`
+                        : `<button onclick="toggleTemplate('${escapeHtml(t.key)}', 1)" class="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">启用</button>`}
+                </div>`).join('') || '<div class="text-slate-400 text-xs py-3">没有匹配的模板</div>';
+
+            enabledList.innerHTML = tplLibEnabled.map(t => `
+                <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
+                    <div class="min-w-0">
+                        <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
+                        <div class="text-[11px] text-slate-400 truncate">${escapeHtml(t.default_domain)} · ${escapeHtml(t.flow)}</div>
+                    </div>
+                    <button onclick="toggleTemplate('${escapeHtml(t.key)}', 0)" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors">停用</button>
+                </div>`).join('') || '<div class="text-slate-400 text-xs py-3">尚未启用任何模板，添加网站前请先启用</div>';
+        }
+
+        // 让「添加/编辑网站」下拉框与左侧启用状态保持一致
+        function syncTemplateMeta() {
+            const merged = Object.fromEntries(tplLibEnabled.map(t => [t.key, t]));
+            // 保留已存在站点正在使用的模板，避免旧站点在下拉框里凭空消失
+            for (const [key, tpl] of Object.entries(templatesMeta)) {
+                if (!merged[key] && allSites.some(s => s.site_type === key)) merged[key] = tpl;
+            }
+            templatesMeta = merged;
+            if (document.getElementById('add_site_type')) {
+                filterTemplates('add', document.getElementById('add_site_type').value);
             }
         }
 
@@ -932,23 +957,13 @@
             return res.json();
         }
 
-        async function importTemplate(key) {
+        async function toggleTemplate(key, enabled) {
             try {
-                const data = await postTemplateAction('/api/template-library/import', { keys: JSON.stringify([key]) });
+                const data = await postTemplateAction('/api/template-library/toggle', { key, enabled });
                 showToast(data.message || '操作完成', data.ok ? 'success' : 'error');
                 if (data.ok) await loadTemplateLibrary();
             } catch (e) {
-                showToast(`导入失败: ${e.message}`, 'error');
-            }
-        }
-
-        async function deleteTemplate(key) {
-            try {
-                const data = await postTemplateAction('/api/template-library/delete', { key });
-                showToast(data.message || '操作完成', data.ok ? 'success' : 'error');
-                if (data.ok) await loadTemplateLibrary();
-            } catch (e) {
-                showToast(`移除失败: ${e.message}`, 'error');
+                showToast(`操作失败: ${e.message}`, 'error');
             }
         }
 
