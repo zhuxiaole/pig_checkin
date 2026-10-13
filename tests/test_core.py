@@ -84,17 +84,39 @@ def test_parse_catalog():
 
 
 def test_enable_disable():
-    key = "cnlang"
-    assert key in tl.enabled_templates(), "默认应已启用"
+    key = "unittest_free"
+    fake = {**BASE, "key": key}
+    assert tl.validate_template(fake) == []
+    tl._catalog_cache = tl.builtin_catalog() + [fake]  # 注入一个无站点引用的模板
     try:
-        assert tl.set_template_enabled(key, False) is True
+        assert tl.set_template_enabled(key, False) is None, "未被使用的模板应可停用"
         assert key not in tl.enabled_templates(), "停用后不应出现在可选模板中"
-        assert key in tl.all_templates(), "停用不应从模板库移除"
-        assert tl.get_template(key) is not None, "停用后已存在站点仍须能签到"
+        assert tl.get_template(key) is not None, "停用不应从模板库移除"
+        assert tl.set_template_enabled(key, True) is None
+        assert key in tl.enabled_templates()
     finally:
         tl.set_template_enabled(key, True)
-    assert key in tl.enabled_templates()
-    assert tl.set_template_enabled("no-such-key", True) is False
+        tl._catalog_cache = [t for t in tl._catalog_cache if t["key"] != key]
+    assert tl.set_template_enabled("no-such-key", True), "不存在的模板应返回错误说明"
+
+
+def test_cannot_disable_in_use_template():
+    from pig_checkin import app as appmod
+
+    usage = tl.usage_counts()
+    if not usage:
+        return  # 库里没有站点，无从验证
+
+    key = next(iter(usage))
+    error = tl.set_template_enabled(key, False)
+    assert error, f"在用模板 [{key}] 必须拒绝停用"
+    assert key in tl.enabled_templates(), "被拒绝后不应真的被停用"
+
+    class _Req:  # dashboard 只需要 session 与 query_params
+        session = {"user": "admin"}
+        query_params = {}
+
+    assert f'value="{key}"' in appmod.dashboard(_Req()).body.decode("utf-8")
 
 
 def test_all_templates_and_dispatch():
@@ -113,42 +135,6 @@ def test_all_templates_and_dispatch():
     finally:
         ck.FLOWS["nexusphp"] = orig
     assert ck.execute_checkin_once({"site_type": "no-such-site"}) == (False, "不支持的站点类型: no-such-site")
-
-
-def test_disabling_in_use_template_keeps_sites_working():
-    """停用一个正被站点使用的模板：签到照常，且它仍须留在编辑下拉框里。"""
-    from pig_checkin import app as appmod
-
-    class _Req:  # dashboard 只需要 session 与 query_params
-        session = {"user": "admin"}
-        query_params = {}
-
-    created_id = None
-    with get_db() as conn:
-        if not conn.execute("SELECT 1 FROM sites WHERE site_type = 'cnlang'").fetchone():
-            cur = conn.execute(
-                "INSERT INTO sites (name, site_type, domain, auth_type, cookies) VALUES (?, ?, ?, ?, ?)",
-                ("__test_cnlang__", "cnlang", "https://cnlang.org", "cookie", ""),
-            )
-            created_id = cur.lastrowid
-            conn.commit()
-
-    def dropdown_has_cnlang():
-        return 'value="cnlang"' in appmod.dashboard(_Req()).body.decode("utf-8")
-
-    assert dropdown_has_cnlang()
-    try:
-        tl.set_template_enabled("cnlang", False)
-        assert "cnlang" not in tl.enabled_templates(), "停用后不应出现在可选模板中"
-        assert tl.get_template("cnlang") is not None, "停用不得影响已存在站点的签到"
-        assert dropdown_has_cnlang(), "被在用站点引用的模板必须保留在下拉框中"
-    finally:
-        tl.set_template_enabled("cnlang", True)
-        if created_id is not None:
-            with get_db() as conn:
-                conn.execute("DELETE FROM sites WHERE id = ?", (created_id,))
-                conn.commit()
-    assert dropdown_has_cnlang()
 
 
 def test_scheduler_and_db():

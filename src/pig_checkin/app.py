@@ -355,18 +355,23 @@ def _template_summary(tpl: dict) -> dict:
 def api_template_library(user: str = Depends(get_current_user)):
     all_tpl = tpl_lib.all_templates()
     enabled = tpl_lib.enabled_templates()
+    usage = tpl_lib.usage_counts()
     return {
         "ok": True,
         "all": [
-            {**_template_summary(tpl), "enabled": key in enabled}
+            {**_template_summary(tpl), "enabled": key in enabled, "in_use": usage.get(key, 0)}
             for key, tpl in sorted(all_tpl.items(), key=lambda kv: kv[1]["name"])
         ],
-        "enabled": [_template_summary(tpl) for key, tpl in sorted(enabled.items(), key=lambda kv: kv[1]["name"])],
+        "enabled": [
+            {**_template_summary(tpl), "in_use": usage.get(key, 0)}
+            for key, tpl in sorted(enabled.items(), key=lambda kv: kv[1]["name"])
+        ],
     }
 
 @app.post("/api/template-library/toggle")
 def api_template_toggle(key: str = Form(...), enabled: int = Form(...), user: str = Depends(get_current_user)):
-    if not tpl_lib.set_template_enabled(key, bool(enabled)):
-        return JSONResponse({"ok": False, "message": f"模板库中不存在 [{key}]"}, status_code=404)
+    error = tpl_lib.set_template_enabled(key, bool(enabled))
+    if error:
+        return JSONResponse({"ok": False, "message": error}, status_code=400)
     state = "启用" if enabled else "停用"
     return JSONResponse({"ok": True, "message": f"已{state}模板 [{tpl_lib.get_template(key)['name']}]"})

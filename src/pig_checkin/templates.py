@@ -251,16 +251,33 @@ def disabled_keys() -> Set[str]:
         return {row[0] for row in conn.execute("SELECT key FROM disabled_templates").fetchall()}
 
 
+def usage_counts() -> Dict[str, int]:
+    """各模板当前被多少个站点引用。"""
+    from pig_checkin.db import get_db
+    with get_db() as conn:
+        return {row[0]: row[1] for row in conn.execute("SELECT site_type, COUNT(*) FROM sites GROUP BY site_type")}
+
+
 def enabled_templates() -> Dict[str, dict]:
     """后台「添加/编辑网站」可选用的模板。"""
     disabled = disabled_keys()
     return {key: tpl for key, tpl in all_templates().items() if key not in disabled}
 
 
-def set_template_enabled(key: str, enabled: bool) -> bool:
-    """启用/停用模板，返回 False 表示 key 不在模板库中。"""
-    if key not in all_templates():
-        return False
+def set_template_enabled(key: str, enabled: bool) -> str | None:
+    """启用/停用模板。返回 None 表示成功，否则返回失败原因。
+
+    正被站点使用的模板不允许停用：停用后它仍会出现在编辑下拉框里（否则旧站点无法保存），
+    但新建列表却看不到，容易让人误以为停用没生效。
+    """
+    tpl = get_template(key)
+    if not tpl:
+        return f"模板库中不存在 [{key}]"
+    if not enabled:
+        used = usage_counts().get(key, 0)
+        if used:
+            return f"模板 [{tpl['name']}] 正被 {used} 个站点使用，无法停用；请先删除这些站点或改用其它模板"
+
     from pig_checkin.db import get_db
     with get_db() as conn:
         if enabled:
@@ -268,7 +285,7 @@ def set_template_enabled(key: str, enabled: bool) -> bool:
         else:
             conn.execute("INSERT OR IGNORE INTO disabled_templates (key) VALUES (?)", (key,))
         conn.commit()
-    return True
+    return None
 
 
 def get_template(key: str) -> dict | None:
