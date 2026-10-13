@@ -892,7 +892,7 @@
             await loadTemplateLibrary(true);
         }
 
-        async function loadTemplateLibrary(showLoading = false) {
+        async function loadTemplateLibrary(showLoading = false, animate = false) {
             // 切换启用状态时静默刷新：不清空列表，避免内容闪一下
             if (showLoading) {
                 document.getElementById('tpl_all_list').innerHTML = '<div class="text-slate-400 text-xs py-3">加载中…</div>';
@@ -904,7 +904,7 @@
                 if (!data.ok) throw new Error(data.message || '加载失败');
                 tplLibAll = data.all || [];
                 tplLibEnabled = data.enabled || [];
-                renderTemplateLibrary();
+                await renderTemplateLibrary(animate);
                 syncTemplateMeta();
             } catch (e) {
                 document.getElementById('tpl_all_list').innerHTML = `<div class="text-rose-500 text-xs py-3">${escapeHtml(e.message)}</div>`;
@@ -917,7 +917,41 @@
                 || (tpl.default_domain || '').toLowerCase().includes(query);
         }
 
-        function renderTemplateLibrary() {
+        // ---------------- 模板增删动画 ----------------
+        // 刻意用 WAAPI 而非 CSS 类：列表是 innerHTML 整体重排的，只有拿到"哪些行是新出现的/
+        // 哪些行即将消失"才能在正确的时机播。曲线取自 Emil Kowalski 的强 ease-out。
+        const TPL_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+        const TPL_ANIM_MS = 180;
+
+        function tplMotionFrames(enter) {
+            // 减少动效时只保留透明度，去掉位移与缩放
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return enter
+                    ? [{ opacity: 0 }, { opacity: 1 }]
+                    : [{ opacity: 1 }, { opacity: 0 }];
+            }
+            return enter
+                ? [{ opacity: 0, transform: 'scale(0.97)' }, { opacity: 1, transform: 'none' }]
+                : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.97)' }];
+        }
+
+        async function tplAnimateExit(elements) {
+            if (!elements.length) return;
+            await Promise.all(elements.map(el => el.animate(tplMotionFrames(false), {
+                duration: TPL_ANIM_MS,
+                easing: TPL_EASE_OUT,
+                fill: 'forwards',
+            }).finished.catch(() => {})));
+        }
+
+        function tplAnimateEnter(elements) {
+            elements.forEach(el => el.animate(tplMotionFrames(true), {
+                duration: TPL_ANIM_MS,
+                easing: TPL_EASE_OUT,
+            }));
+        }
+
+        async function renderTemplateLibrary(animate = false) {
             const query = (document.getElementById('tpl_lib_search').value || '').toLowerCase().trim();
             const enabledQuery = (document.getElementById('tpl_enabled_search').value || '').toLowerCase().trim();
             const allList = document.getElementById('tpl_all_list');
@@ -929,8 +963,17 @@
             document.getElementById('tpl_all_count').textContent = `(${matched.length}/${tplLibAll.length})`;
             document.getElementById('tpl_enabled_count').textContent = `(${enabledMatched.length}/${tplLibEnabled.length})`;
 
+            // 先让右列即将消失的行淡出，再重排；搜索这类高频输入不播动画
+            if (animate) {
+                const nextKeys = new Set(enabledMatched.map(t => t.key));
+                await tplAnimateExit([...enabledList.children].filter(el => el.dataset.key && !nextKeys.has(el.dataset.key)));
+            }
+            const prevKeys = animate
+                ? new Set([...enabledList.children].map(el => el.dataset.key).filter(Boolean))
+                : new Set();
+
             allList.innerHTML = matched.map(t => `
-                <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
+                <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
                         <div class="text-[11px] text-slate-400 truncate">${escapeHtml(t.default_domain)} · ${escapeHtml(t.flow)}</div>
@@ -943,7 +986,7 @@
                 </div>`).join('') || '<div class="text-slate-400 text-xs py-3">没有匹配的模板</div>';
 
             enabledList.innerHTML = enabledMatched.map(t => `
-                <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
+                <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
                         <div class="text-[11px] text-slate-400 truncate">${escapeHtml(t.default_domain)} · ${escapeHtml(t.flow)}</div>
@@ -954,6 +997,10 @@
                 </div>`).join('') || (enabledQuery
                     ? '<div class="text-slate-400 text-xs py-3">没有匹配的模板</div>'
                     : '<div class="text-slate-400 text-xs py-3">尚未启用任何模板，添加网站前请先启用</div>');
+
+            if (animate) {
+                tplAnimateEnter([...enabledList.children].filter(el => el.dataset.key && !prevKeys.has(el.dataset.key)));
+            }
         }
 
         // 让「添加/编辑网站」下拉框与左侧启用状态保持一致
@@ -982,7 +1029,7 @@
             try {
                 const data = await postTemplateAction('/api/template-library/toggle', { key, enabled });
                 showToast(data.message || '操作完成', data.ok ? 'success' : 'error');
-                if (data.ok) await loadTemplateLibrary();
+                if (data.ok) await loadTemplateLibrary(false, true);
             } catch (e) {
                 showToast(`操作失败: ${e.message}`, 'error');
             }
