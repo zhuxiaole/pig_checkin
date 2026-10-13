@@ -118,12 +118,10 @@ def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
         domain = "https://" + domain
     return domain.rstrip("/")
 
-def checkin_discuz_dsu_paulsign(
-    site_dict: dict,
-    default_domain: str,
-    sign_path: str = "/plugin.php?id=dsu_paulsign:sign",
-    site_label: str = "论坛"
-) -> Tuple[bool, str]:
+def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
+    default_domain = tpl["default_domain"]
+    sign_path = tpl["sign_path"]
+    site_label = tpl["label"]
     domain = format_domain(site_dict.get("domain"), default=default_domain)
     cookie_str = site_dict.get("cookies", "")
     cookies = parse_cookies_str(cookie_str)
@@ -278,8 +276,8 @@ def checkin_discuz_dsu_paulsign(
         logger.error("[%s] 提交签到请求失败: %s", site_label, e)
         return False, f"签到请求提交失败: {e}"
 
-def checkin_yysub(site_dict: dict) -> Tuple[bool, str]:
-    domain = format_domain(site_dict.get("domain"), default="https://yysub.cc")
+def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
+    domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
     username = (site_dict.get("username") or "").strip()
     password = (site_dict.get("password") or "").strip()
     cookie_str = (site_dict.get("cookies") or "").strip()
@@ -300,7 +298,7 @@ def checkin_yysub(site_dict: dict) -> Tuple[bool, str]:
     if cookie_str:
         session.cookies.update(parse_cookies_str(cookie_str))
 
-    site_name = site_dict.get("name", "yysub")
+    site_name = site_dict.get("name", tpl["label"])
 
     if username and password:
         login_url = f"{domain}/User/Login/ajaxLogin"
@@ -366,12 +364,10 @@ def checkin_yysub(site_dict: dict) -> Tuple[bool, str]:
         logger.error("[%s] 请求用户信息接口异常: %s", site_name, e)
         return False, f"请求用户信息接口异常: {e}"
 
-def checkin_nexusphp(
-    site_dict: dict,
-    default_domain: str = "https://audiences.me",
-    sign_path: str = "/attendance.php",
-    site_label: str = "NexusPHP"
-) -> Tuple[bool, str]:
+def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
+    default_domain = tpl["default_domain"]
+    sign_path = tpl["sign_path"]
+    site_label = tpl["label"]
     domain = format_domain(site_dict.get("domain"), default=default_domain)
     cookie_str = site_dict.get("cookies", "")
     cookies = parse_cookies_str(cookie_str)
@@ -452,30 +448,27 @@ def checkin_nexusphp(
     logger.warning("[%s] 未能匹配到明确的签到成功特征 (页面标题: %s)", site_name, title_text)
     return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
 
-SITE_HANDLERS = {
-    "cnlang": (checkin_discuz_dsu_paulsign, {"default_domain": "https://cnlang.org", "sign_path": "/dsu_paulsign-sign.html?mobile=no", "site_label": "国语视界"}),
-    "ymlyhd": (checkin_discuz_dsu_paulsign, {"default_domain": "https://www.ymlyhd.com", "sign_path": "/plugin.php?id=dsu_paulsign:sign", "site_label": "影迷乐园"}),
-    "acgrip": (checkin_discuz_dsu_paulsign, {"default_domain": "https://bbs.acgrip.com", "sign_path": "/dsu_paulsign-sign.html", "site_label": "ACG字幕论坛"}),
-    "ssdforum": (checkin_discuz_dsu_paulsign, {"default_domain": "https://ssdforum.org", "sign_path": "/plugin.php?id=dsu_paulsign:sign", "site_label": "SSD论坛"}),
-    "audiences": (checkin_nexusphp, {"default_domain": "https://audiences.me", "sign_path": "/attendance.php", "site_label": "audiences"}),
-    "xingyunge": (checkin_nexusphp, {"default_domain": "https://pt.xingyungept.org", "sign_path": "/attendance.php", "site_label": "星运阁"}),
-    "novahd": (checkin_nexusphp, {"default_domain": "https://pt.novahd.top", "sign_path": "/attendance.php", "site_label": "NovaHD"}),
-    "yysub": (checkin_yysub, {}),
+# 协议实现注册表，站点通过 templates_config.SITE_TEMPLATES 中的 flow 字段选用
+FLOWS = {
+    "discuz": checkin_discuz_dsu_paulsign,
+    "nexusphp": checkin_nexusphp,
+    "yysub": checkin_yysub,
 }
 
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     from pig_checkin.crypto import decrypt_text
+    from pig_checkin.templates_config import SITE_TEMPLATES
     site_dict = dict(site_dict)
     for field in ("cookies", "username", "password"):
         if site_dict.get(field):
             site_dict[field] = decrypt_text(site_dict[field])
 
     site_type = site_dict.get("site_type", "cnlang")
-    handler = SITE_HANDLERS.get(site_type)
-    if not handler:
+    tpl = SITE_TEMPLATES.get(site_type)
+    func = FLOWS.get(tpl.get("flow")) if tpl else None
+    if not func:
         return False, f"不支持的站点类型: {site_type}"
-    func, kwargs = handler
-    return func(site_dict, **kwargs)
+    return func(site_dict, tpl)
 
 def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
     from pig_checkin.db import get_db
