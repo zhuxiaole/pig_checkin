@@ -20,6 +20,7 @@ wheels/
 *.sqlite3
 .cache/
 invisible_profile_*
+uc_*
 data/
 
 # IDE & OS
