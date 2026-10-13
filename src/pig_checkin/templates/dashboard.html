@@ -892,7 +892,7 @@
             await loadTemplateLibrary(true);
         }
 
-        async function loadTemplateLibrary(showLoading = false, animate = false) {
+        async function loadTemplateLibrary(showLoading = false, animate = false, changedKey = null) {
             // 切换启用状态时静默刷新：不清空列表，避免内容闪一下
             if (showLoading) {
                 document.getElementById('tpl_all_list').innerHTML = '<div class="text-slate-400 text-xs py-3">加载中…</div>';
@@ -904,7 +904,7 @@
                 if (!data.ok) throw new Error(data.message || '加载失败');
                 tplLibAll = data.all || [];
                 tplLibEnabled = data.enabled || [];
-                await renderTemplateLibrary(animate);
+                await renderTemplateLibrary(animate, changedKey);
                 syncTemplateMeta();
             } catch (e) {
                 document.getElementById('tpl_all_list').innerHTML = `<div class="text-rose-500 text-xs py-3">${escapeHtml(e.message)}</div>`;
@@ -953,7 +953,7 @@
             }));
         }
 
-        async function renderTemplateLibrary(animate = false) {
+        async function renderTemplateLibrary(animate = false, changedKey = null) {
             const query = (document.getElementById('tpl_lib_search').value || '').toLowerCase().trim();
             const enabledQuery = (document.getElementById('tpl_enabled_search').value || '').toLowerCase().trim();
             const allList = document.getElementById('tpl_all_list');
@@ -965,14 +965,15 @@
             document.getElementById('tpl_all_count').textContent = `(${matched.length}/${tplLibAll.length})`;
             document.getElementById('tpl_enabled_count').textContent = `(${enabledMatched.length}/${tplLibEnabled.length})`;
 
-            // 先让右列即将消失的行淡出，再重排；搜索这类高频输入不播动画
-            if (animate) {
-                const nextKeys = new Set(enabledMatched.map(t => t.key));
-                await tplAnimateExit([...enabledList.children].filter(el => el.dataset.key && !nextKeys.has(el.dataset.key)));
-            }
+            // 右列要消失的行先开始淡出，但不阻塞左列——否则两次 180ms 串起来会显得迟钝
+            const nextKeys = new Set(enabledMatched.map(t => t.key));
             const prevKeys = animate
                 ? new Set([...enabledList.children].map(el => el.dataset.key).filter(Boolean))
                 : new Set();
+            const exiting = animate
+                ? tplAnimateExit([...enabledList.children].filter(el => el.dataset.key && !nextKeys.has(el.dataset.key)))
+                : null;
+            if (exiting) exiting.catch(() => {});
 
             allList.innerHTML = matched.map(t => `
                 <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
@@ -982,10 +983,18 @@
                     </div>
                     ${t.enabled
                         ? (t.in_use
-                            ? `<span class="shrink-0 text-[11px] text-amber-500 px-2 py-1" title="已有 ${t.in_use} 个站点使用，无法停用">使用中 ${t.in_use}</span>`
-                            : `<button onclick="toggleTemplate('${escapeHtml(t.key)}', 0)" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors">停用</button>`)
-                        : `<button onclick="toggleTemplate('${escapeHtml(t.key)}', 1)" class="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">启用</button>`}
+                            ? `<span data-control class="shrink-0 text-[11px] text-amber-500 px-2 py-1" title="已有 ${t.in_use} 个站点使用，无法停用">使用中 ${t.in_use}</span>`
+                            : `<button data-control onclick="toggleTemplate('${escapeHtml(t.key)}', 0)" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors">停用</button>`)
+                        : `<button data-control onclick="toggleTemplate('${escapeHtml(t.key)}', 1)" class="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">启用</button>`}
                 </div>`).join('') || '<div class="text-slate-400 text-xs py-3">没有匹配的模板</div>';
+
+            // 左列按钮/徽标的状态切换也淡入，避免整块生硬跳变
+            if (animate && changedKey) {
+                const control = allList.querySelector(`[data-key="${CSS.escape(changedKey)}"] [data-control]`);
+                if (control) tplAnimateEnter([control]);
+            }
+
+            if (exiting) await exiting;
 
             enabledList.innerHTML = enabledMatched.map(t => `
                 <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
@@ -1031,7 +1040,7 @@
             try {
                 const data = await postTemplateAction('/api/template-library/toggle', { key, enabled });
                 showToast(data.message || '操作完成', data.ok ? 'success' : 'error');
-                if (data.ok) await loadTemplateLibrary(false, true);
+                if (data.ok) await loadTemplateLibrary(false, true, key);
             } catch (e) {
                 showToast(`操作失败: ${e.message}`, 'error');
             }
