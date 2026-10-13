@@ -979,7 +979,7 @@
                 <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
-                        <div class="text-[11px] text-slate-400 truncate"><a href="${escapeHtml(t.default_domain)}" target="_blank" rel="noopener noreferrer" title="打开 ${escapeHtml(t.default_domain)}" class="hover:text-indigo-500 hover:underline">${escapeHtml(t.default_domain)}</a> · ${escapeHtml(t.flow)}</div>
+                        <div class="text-[11px] text-slate-400 flex items-center gap-1"><span class="truncate min-w-0">${escapeHtml(t.default_domain)}</span><a href="${escapeHtml(t.default_domain)}" target="_blank" rel="noopener noreferrer" title="打开 ${escapeHtml(t.default_domain)}" class="shrink-0 hover:text-indigo-500"><i class="ri-external-link-line"></i></a><span class="shrink-0">· ${escapeHtml(t.flow)}</span></div>
                     </div>
                     ${t.enabled
                         ? (t.in_use
@@ -1000,7 +1000,7 @@
                 <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
-                        <div class="text-[11px] text-slate-400 truncate"><a href="${escapeHtml(t.default_domain)}" target="_blank" rel="noopener noreferrer" title="打开 ${escapeHtml(t.default_domain)}" class="hover:text-indigo-500 hover:underline">${escapeHtml(t.default_domain)}</a> · ${escapeHtml(t.flow)}</div>
+                        <div class="text-[11px] text-slate-400 flex items-center gap-1"><span class="truncate min-w-0">${escapeHtml(t.default_domain)}</span><a href="${escapeHtml(t.default_domain)}" target="_blank" rel="noopener noreferrer" title="打开 ${escapeHtml(t.default_domain)}" class="shrink-0 hover:text-indigo-500"><i class="ri-external-link-line"></i></a><span class="shrink-0">· ${escapeHtml(t.flow)}</span></div>
                     </div>
                     ${t.in_use
                         ? `<span class="shrink-0 text-[11px] text-amber-500 px-2 py-1" title="已有 ${t.in_use} 个站点使用，无法停用">使用中 ${t.in_use}</span>`
