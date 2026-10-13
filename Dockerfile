@@ -16,11 +16,9 @@ ENV UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-# 再复制源码并完成项目自身安装（editable，.pth 指向 /app/src）并清理开发测试残留
+# 再复制源码并完成项目自身安装（editable，.pth 指向 /app/src）
 COPY . .
-RUN uv sync --frozen --no-dev \
-    && find /app/.venv -type d -name "tests" -exec rm -rf {} + \
-    && find /app/.venv -type f -name "*.dist-info/RECORD" -delete
+RUN uv sync --frozen --no-dev
 
 # ---------- 运行阶段：只带运行时需要的东西 ----------
 FROM python:3.14-alpine
@@ -37,8 +35,7 @@ RUN apk add --no-cache \
     ca-certificates \
     chromium \
     font-wqy-zenhei \
-    && find /usr/lib/chromium/locales/ -type f ! -name 'en-US.pak' ! -name 'zh-CN.pak' -delete \
-    && rm -rf /usr/share/man /tmp/*
+    && find /usr/lib/chromium/locales/ -type f ! -name 'en-US.pak' ! -name 'zh-CN.pak' -delete
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
