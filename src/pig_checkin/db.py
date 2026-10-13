@@ -17,6 +17,10 @@ SCRYPT_MAXMEM = 64 * 1024 * 1024   # OpenSSL 默认上限只有 32MB，显式给
 
 # 密码格式与强度要求（服务端是唯一权威，前端只用 HTML 原生属性做粗筛）
 PASSWORD_MIN, PASSWORD_MAX = 8, 64
+# 只允许 ASCII 大小写字母、数字和常见符号；空格、中文、emoji 一律不接受
+PASSWORD_SYMBOLS = "!@#$%^&*()_+-=[]{}|;:'\",.<>/?~`\\"
+PASSWORD_CHARS = re.compile(rf"^[A-Za-z0-9{re.escape(PASSWORD_SYMBOLS)}]*$")
+PASSWORD_FIRST = re.compile(r"^[A-Za-z]")
 COMMON_PASSWORDS = {
     "12345678", "123456789", "1234567890", "password", "password1", "passw0rd",
     "admin123", "administrator", "qwerty123", "abc12345", "11111111", "88888888",
@@ -60,14 +64,22 @@ def needs_rehash(stored: str) -> bool:
     return bool(stored) and not stored.startswith("scrypt$")
 
 def password_error(password: str, username: str = "") -> str | None:
-    """校验密码格式与强度，返回错误说明；None 表示可用。"""
-    if not password or not password.strip():
+    """校验密码格式与强度，返回错误说明；None 表示可用。
+
+    规则：8-64 位；必须以字母开头；只允许大小写字母、数字和常见符号
+    （不接受空格、中文、emoji）；需同时含字母和数字；不在常见弱密码表内；不含用户名。
+    """
+    if not password:
         return "密码不能为空"
     if len(password) < PASSWORD_MIN:
         return f"密码至少 {PASSWORD_MIN} 位"
     if len(password) > PASSWORD_MAX:
         return f"密码最多 {PASSWORD_MAX} 位"
-    if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+    if not PASSWORD_CHARS.match(password):
+        return "密码只能包含大小写字母、数字和常见符号（不支持空格、中文、emoji）"
+    if not PASSWORD_FIRST.match(password):
+        return "密码必须以字母开头，不能以数字或符号开头"
+    if not re.search(r"[0-9]", password):
         return "密码需同时包含字母和数字"
     if password.lower() in COMMON_PASSWORDS:
         return "该密码过于常见，请更换"

@@ -250,23 +250,27 @@ def test_session_invalidated_when_user_vanished():
 def test_password_policy():
     from pig_checkin.db import password_error
 
-    ok = ["abcdefg1", "P@ssw0rd!", "我的密码abc123", "a" * 63 + "1"]
+    ok = ["Abcdefg1", "P@ssw0rd!", "aA1&b=c#d+e%f?g", "Zx9!@#$%^&*", "a" * 62 + "b1"]
     for pw in ok:
         assert password_error(pw, "zhuxiaole") is None, f"{pw!r} 应通过"
 
     bad = {
-        "": "空",
-        "abc1": "太短",
+        "Abcdefg": "只有 7 位",
+        "1abcdefgh": "以数字开头",
+        "!abcdefg1": "以符号开头",
+        "  Abcdefg1": "以空格开头",
+        "abc def1": "含空格",
+        "密码abc123": "含中文",
+        "a1😀😀😀😀😀😀": "含 emoji",
+        "ａｂｃｄｅｆｇ１": "全角字符",
         "abcdefgh": "无数字",
-        "12345678": "无字母且是常见弱密码",
         "admin123": "常见弱密码",
-        "password1": "常见弱密码",
-        "a" * 64 + "1": "超长",
-        "zhuxiaole1": "包含用户名",
+        "a" * 63 + "b1": "超长",
+        "zhuxiaole1": "含用户名",
+        "Abcdefg1。": "含全角句号",
     }
     for pw, why in bad.items():
         assert password_error(pw, "zhuxiaole"), f"{pw!r} 应被拒绝（{why}）"
-    assert password_error("   ", "u"), "纯空白应被拒绝"
 
 
 def test_password_hash_scrypt_and_legacy():
