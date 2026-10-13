@@ -809,6 +809,13 @@
                         <h4 class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-2 mt-2 md:mt-6">
                             已启用模板 <span id="tpl_enabled_count" class="text-slate-400"></span>
                         </h4>
+                        <div class="relative mb-2">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                                <i class="ri-search-line text-sm"></i>
+                            </span>
+                            <input type="text" id="tpl_enabled_search" oninput="renderTemplateLibrary()" placeholder="按模板名称或默认地址搜索…"
+                                   class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                        </div>
                         <div id="tpl_enabled_list" class="space-y-2 md:max-h-[46vh] md:overflow-y-auto pr-0.5"></div>
                     </div>
                 </div>
@@ -881,6 +888,7 @@
         async function openTemplateLibrary() {
             openModal('templateLibraryModal');
             document.getElementById('tpl_lib_search').value = '';
+            document.getElementById('tpl_enabled_search').value = '';
             await loadTemplateLibrary();
         }
 
@@ -900,19 +908,23 @@
             }
         }
 
+        function tplMatches(tpl, query) {
+            return !query
+                || (tpl.name || '').toLowerCase().includes(query)
+                || (tpl.default_domain || '').toLowerCase().includes(query);
+        }
+
         function renderTemplateLibrary() {
             const query = (document.getElementById('tpl_lib_search').value || '').toLowerCase().trim();
+            const enabledQuery = (document.getElementById('tpl_enabled_search').value || '').toLowerCase().trim();
             const allList = document.getElementById('tpl_all_list');
             const enabledList = document.getElementById('tpl_enabled_list');
 
-            const matched = tplLibAll.filter(t =>
-                !query
-                || (t.name || '').toLowerCase().includes(query)
-                || (t.default_domain || '').toLowerCase().includes(query)
-            );
+            const matched = tplLibAll.filter(t => tplMatches(t, query));
+            const enabledMatched = tplLibEnabled.filter(t => tplMatches(t, enabledQuery));
 
             document.getElementById('tpl_all_count').textContent = `(${matched.length}/${tplLibAll.length})`;
-            document.getElementById('tpl_enabled_count').textContent = `(${tplLibEnabled.length})`;
+            document.getElementById('tpl_enabled_count').textContent = `(${enabledMatched.length}/${tplLibEnabled.length})`;
 
             allList.innerHTML = matched.map(t => `
                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
@@ -927,7 +939,7 @@
                         : `<button onclick="toggleTemplate('${escapeHtml(t.key)}', 1)" class="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">启用</button>`}
                 </div>`).join('') || '<div class="text-slate-400 text-xs py-3">没有匹配的模板</div>';
 
-            enabledList.innerHTML = tplLibEnabled.map(t => `
+            enabledList.innerHTML = enabledMatched.map(t => `
                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
@@ -936,7 +948,9 @@
                     ${t.in_use
                         ? `<span class="shrink-0 text-[11px] text-amber-500 px-2 py-1" title="已有 ${t.in_use} 个站点使用，无法停用">使用中 ${t.in_use}</span>`
                         : `<button onclick="toggleTemplate('${escapeHtml(t.key)}', 0)" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors">停用</button>`}
-                </div>`).join('') || '<div class="text-slate-400 text-xs py-3">尚未启用任何模板，添加网站前请先启用</div>';
+                </div>`).join('') || (enabledQuery
+                    ? '<div class="text-slate-400 text-xs py-3">没有匹配的模板</div>'
+                    : '<div class="text-slate-400 text-xs py-3">尚未启用任何模板，添加网站前请先启用</div>');
         }
 
         // 让「添加/编辑网站」下拉框与左侧启用状态保持一致
