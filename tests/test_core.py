@@ -115,6 +115,42 @@ def test_all_templates_and_dispatch():
     assert ck.execute_checkin_once({"site_type": "no-such-site"}) == (False, "不支持的站点类型: no-such-site")
 
 
+def test_disabling_in_use_template_keeps_sites_working():
+    """停用一个正被站点使用的模板：签到照常，且它仍须留在编辑下拉框里。"""
+    from pig_checkin import app as appmod
+
+    class _Req:  # dashboard 只需要 session 与 query_params
+        session = {"user": "admin"}
+        query_params = {}
+
+    created_id = None
+    with get_db() as conn:
+        if not conn.execute("SELECT 1 FROM sites WHERE site_type = 'cnlang'").fetchone():
+            cur = conn.execute(
+                "INSERT INTO sites (name, site_type, domain, auth_type, cookies) VALUES (?, ?, ?, ?, ?)",
+                ("__test_cnlang__", "cnlang", "https://cnlang.org", "cookie", ""),
+            )
+            created_id = cur.lastrowid
+            conn.commit()
+
+    def dropdown_has_cnlang():
+        return 'value="cnlang"' in appmod.dashboard(_Req()).body.decode("utf-8")
+
+    assert dropdown_has_cnlang()
+    try:
+        tl.set_template_enabled("cnlang", False)
+        assert "cnlang" not in tl.enabled_templates(), "停用后不应出现在可选模板中"
+        assert tl.get_template("cnlang") is not None, "停用不得影响已存在站点的签到"
+        assert dropdown_has_cnlang(), "被在用站点引用的模板必须保留在下拉框中"
+    finally:
+        tl.set_template_enabled("cnlang", True)
+        if created_id is not None:
+            with get_db() as conn:
+                conn.execute("DELETE FROM sites WHERE id = ?", (created_id,))
+                conn.commit()
+    assert dropdown_has_cnlang()
+
+
 def test_scheduler_and_db():
     assert len(compute_initial_next_run("fixed", "12:00")) == 19
     assert len(compute_next_day_run("random", "09:00")) == 19
