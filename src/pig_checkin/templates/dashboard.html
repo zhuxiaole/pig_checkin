@@ -771,7 +771,7 @@
 
     <!-- 模板库模态弹窗 -->
     <div id="templateLibraryModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
             <div class="px-6 sm:px-8 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 text-violet-600 dark:text-violet-400 flex items-center justify-center text-lg">
@@ -787,8 +787,8 @@
                 </button>
             </div>
 
-            <div class="overflow-y-auto px-6 sm:px-8 py-5 flex-1 text-sm">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="overflow-y-auto px-6 sm:px-8 py-5 flex-1 min-h-0 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:h-full">
                     <!-- 左列：全部模板 -->
                     <div class="flex flex-col min-h-0">
                         <div class="flex items-center justify-between mb-2">
@@ -801,7 +801,7 @@
                             <input type="text" id="tpl_lib_search" oninput="renderTemplateLibrary()" placeholder="按模板名称或默认地址搜索…"
                                    class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
                         </div>
-                        <div id="tpl_all_list" class="space-y-2 md:max-h-[46vh] md:overflow-y-auto pr-0.5"></div>
+                        <div id="tpl_all_list" class="space-y-2 md:flex-1 md:min-h-0 md:overflow-y-auto pr-0.5"></div>
                     </div>
 
                     <!-- 右列：已启用模板 -->
@@ -816,7 +816,7 @@
                             <input type="text" id="tpl_enabled_search" oninput="renderTemplateLibrary()" placeholder="按模板名称或默认地址搜索…"
                                    class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
                         </div>
-                        <div id="tpl_enabled_list" class="space-y-2 md:max-h-[46vh] md:overflow-y-auto pr-0.5"></div>
+                        <div id="tpl_enabled_list" class="space-y-2 md:flex-1 md:min-h-0 md:overflow-y-auto pr-0.5"></div>
                     </div>
                 </div>
             </div>
