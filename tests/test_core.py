@@ -19,6 +19,20 @@ BASE = {
 }
 
 
+class _Req:  # dashboard 只需要 session 与 query_params
+    session = {"user": "admin"}
+    query_params = {}
+
+
+def _add_site_options() -> set[str]:
+    """解析「添加网站」弹窗里模板下拉框的可选 key。"""
+    from pig_checkin import app as appmod
+
+    html = appmod.dashboard(_Req()).body.decode("utf-8")
+    select = html.split('id="add_site_type"', 1)[1].split("</select>", 1)[0]
+    return {seg.split('"')[0] for seg in select.split('<option value="')[1:]}
+
+
 def test_00_initialize_db():
     init_db()
 
@@ -103,10 +117,7 @@ def test_enable_disable():
 
 def test_cannot_disable_in_use_template():
     """造一个引用某模板的临时站点，验证它拦住停用，并在结束后清理干净。"""
-    from pig_checkin import app as appmod
-
     key = "cnlang"
-    site_id = None
     with get_db() as conn:
         cur = conn.execute(
             "INSERT INTO sites (name, site_type, domain, auth_type, cookies) VALUES (?, ?, ?, ?, ?)",
@@ -120,12 +131,7 @@ def test_cannot_disable_in_use_template():
         error = tl.set_template_enabled(key, False)
         assert error, f"在用模板 [{key}] 必须拒绝停用"
         assert key in tl.enabled_templates(), "被拒绝后不应真的被停用"
-
-        class _Req:  # dashboard 只需要 session 与 query_params
-            session = {"user": "admin"}
-            query_params = {}
-
-        assert f'value="{key}"' in appmod.dashboard(_Req()).body.decode("utf-8")
+        assert key in _add_site_options(), "在用模板必须留在编辑下拉框里"
     finally:
         # 先删站点再停用，否则会被"在用不可停用"的守卫挡住（顺序反了会留下脏状态）
         with get_db() as conn:
@@ -136,19 +142,9 @@ def test_cannot_disable_in_use_template():
 
 def test_dropdown_only_lists_enabled_or_in_use():
     """默认不启用任何模板时，下拉框只保留已存在站点用到的模板。"""
-    from pig_checkin import app as appmod
-
-    class _Req:
-        session = {"user": "admin"}
-        query_params = {}
-
-    html = appmod.dashboard(_Req()).body.decode("utf-8")
-    select = html.split('id="add_site_type"', 1)[1].split("</select>", 1)[0]
-    options = [seg.split('"')[0] for seg in select.split("<option value=\"")[1:]]
-
     with get_db() as conn:
         in_use = {r[0] for r in conn.execute("SELECT DISTINCT site_type FROM sites").fetchall()}
-    assert set(options) == in_use | tl.enabled_keys()
+    assert _add_site_options() == in_use | tl.enabled_keys()
 
 
 def test_all_templates_and_dispatch():

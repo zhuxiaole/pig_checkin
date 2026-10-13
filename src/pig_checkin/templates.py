@@ -272,7 +272,7 @@ def set_template_enabled(key: str, enabled: bool) -> str | None:
     tpl = get_template(key)
     if not tpl:
         return f"模板库中不存在 [{key}]"
-    if not enabled and key in enabled_keys():
+    if not enabled:
         used = usage_counts().get(key, 0)
         if used:
             return f"模板 [{tpl['name']}] 正被 {used} 个站点使用，无法停用；请先删除这些站点或改用其它模板"

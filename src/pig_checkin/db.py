@@ -72,8 +72,7 @@ def init_db():
         -- 已启用的模板 key：模板库来自代码，这里只记录用户启用了哪些。
         -- 默认不启用任何模板，全新部署需自行在「模板库」里勾选。
         CREATE TABLE IF NOT EXISTS enabled_templates (
-            key TEXT PRIMARY KEY,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            key TEXT PRIMARY KEY
         );
         """)
 
