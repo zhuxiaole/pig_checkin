@@ -806,9 +806,9 @@
 
                     <!-- 右列：已启用模板 -->
                     <div class="flex flex-col min-h-0">
-                        <h4 class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-2 mt-2 md:mt-6">
-                            已启用模板 <span id="tpl_enabled_count" class="text-slate-400"></span>
-                        </h4>
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">已启用模板 <span id="tpl_enabled_count" class="text-slate-400"></span></h4>
+                        </div>
                         <div class="relative mb-2">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <i class="ri-search-line text-sm"></i>
@@ -822,7 +822,7 @@
             </div>
 
             <div class="px-6 sm:px-8 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/90 flex justify-between items-center gap-3 shrink-0">
-                <button type="button" onclick="loadTemplateLibrary()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">
+                <button type="button" onclick="loadTemplateLibrary(true)" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">
                     <i class="ri-refresh-line mr-1"></i>重新加载
                 </button>
                 <button type="button" onclick="closeModal('templateLibraryModal')" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">关闭</button>
@@ -889,12 +889,15 @@
             openModal('templateLibraryModal');
             document.getElementById('tpl_lib_search').value = '';
             document.getElementById('tpl_enabled_search').value = '';
-            await loadTemplateLibrary();
+            await loadTemplateLibrary(true);
         }
 
-        async function loadTemplateLibrary() {
-            document.getElementById('tpl_all_list').innerHTML = '<div class="text-slate-400 text-xs py-3">加载中…</div>';
-            document.getElementById('tpl_enabled_list').innerHTML = '';
+        async function loadTemplateLibrary(showLoading = false) {
+            // 切换启用状态时静默刷新：不清空列表，避免内容闪一下
+            if (showLoading) {
+                document.getElementById('tpl_all_list').innerHTML = '<div class="text-slate-400 text-xs py-3">加载中…</div>';
+                document.getElementById('tpl_enabled_list').innerHTML = '';
+            }
             try {
                 const res = await fetch('/api/template-library');
                 const data = await res.json();
