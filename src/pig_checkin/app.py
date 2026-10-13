@@ -1,4 +1,5 @@
 import os
+import datetime
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -48,6 +49,7 @@ def login_action(request: Request, username: str = Form(...), password: str = Fo
     return templates.TemplateResponse(request, "login.html", {"error": "用户名或密码错误"})
 
 def get_dashboard_state():
+    today = datetime.date.today().isoformat()
     with get_db() as conn:
         sites_cur = conn.execute("SELECT * FROM sites ORDER BY id ASC").fetchall()
         sites = [dict(s) for s in sites_cur]
@@ -59,6 +61,10 @@ def get_dashboard_state():
             else:
                 s["next_run_display"] = "待计算"
             s["last_run_display"] = str(s.get("last_run")) if s.get("last_run") else "未执行"
+
+            # 「最新状态」只认当天的结果：昨天签成功不代表今天签过了（last_run 形如 2026-10-13 09:00:00）
+            if s.get("last_run") and str(s["last_run"])[:10] != today:
+                s["last_status"] = "今日未执行"
 
             # 仅在前端下发是否已填写的状态标识，凭据脱敏置空，不在前端暴露真实明文或密文
             s["has_cookies"] = bool(s.get("cookies") and str(s["cookies"]).strip())

@@ -165,6 +165,40 @@ def test_all_templates_and_dispatch():
     assert ck.execute_checkin_once({"site_type": "no-such-site"}) == (False, "不支持的站点类型: no-such-site")
 
 
+def test_latest_status_only_counts_today():
+    """「最新状态」只显示当天的结果，昨天的成功不能冒充今天。"""
+    import datetime
+
+    from pig_checkin.app import get_dashboard_state
+
+    today = datetime.date.today()
+    rows = {
+        "昨天失败": ((today - datetime.timedelta(days=1)).strftime("%Y-%m-%d 09:00:00"), "签到失败"),
+        "今天成功": (today.strftime("%Y-%m-%d 09:00:00"), "签到成功"),
+        "从未执行": (None, "等待签到"),
+    }
+    ids = []
+    with get_db() as conn:
+        for name, (last_run, status) in rows.items():
+            cur = conn.execute(
+                "INSERT INTO sites (name, site_type, domain, auth_type, last_run, last_status) VALUES (?, ?, ?, ?, ?, ?)",
+                (f"__unittest_{name}__", "cnlang", "https://cnlang.org", "cookie", last_run, status),
+            )
+            ids.append(cur.lastrowid)
+        conn.commit()
+
+    try:
+        sites, _ = get_dashboard_state()
+        got = {s["name"]: s["last_status"] for s in sites if s["id"] in ids}
+        assert got["__unittest_昨天失败__"] == "今日未执行", "昨天跑的不能算今天的状态"
+        assert got["__unittest_今天成功__"] == "签到成功", "今天跑过的照常显示"
+        assert got["__unittest_从未执行__"] == "等待签到", "从没跑过保持原样"
+    finally:
+        with get_db() as conn:
+            conn.execute("DELETE FROM sites WHERE id IN (%s)" % ",".join("?" * len(ids)), ids)
+            conn.commit()
+
+
 def test_scheduler_and_db():
     assert len(compute_next_run("fixed", "12:00")) == 19
     assert len(compute_next_run("random", "09:00")) == 19
