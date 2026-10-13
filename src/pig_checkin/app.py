@@ -1,4 +1,5 @@
 import os
+import json
 import datetime
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -9,7 +10,7 @@ from pig_checkin.db import init_db, get_db, verify_password, hash_password
 from pig_checkin.crypto import encrypt_text, decrypt_text
 from pig_checkin.checkin import execute_checkin
 from pig_checkin.scheduler import start_scheduler, compute_initial_next_run, compute_next_day_run
-from pig_checkin.templates_config import SITE_TEMPLATES, get_template_auth_type
+from pig_checkin import templates as tpl_lib
 
 app = FastAPI(title="Pig Checkin Service")
 app.add_middleware(SessionMiddleware, secret_key="pig-checkin-super-secret-key-lazy-is-best")
@@ -156,7 +157,7 @@ def dashboard(request: Request):
         "app_version": APP_VERSION,
         "sites": sites,
         "logs": logs,
-        "site_templates": SITE_TEMPLATES,
+        "site_templates": tpl_lib.all_templates(),
         "pwd_err": request.query_params.get("pwd_err"),
         "pwd_ok": request.query_params.get("pwd_ok")
     })
@@ -176,7 +177,7 @@ def add_site(
     retry_interval: int = Form(60),
     user: str = Depends(get_current_user)
 ):
-    auth_type = get_template_auth_type(site_type)
+    auth_type = tpl_lib.get_template_auth_type(site_type)
     initial_next_run = compute_initial_next_run(schedule_type, schedule_time)
     enc_cookies = encrypt_text(cookies.strip())
     enc_username = encrypt_text(username.strip())
@@ -208,7 +209,7 @@ def edit_site(
     enabled: int = Form(1),
     user: str = Depends(get_current_user)
 ):
-    auth_type = get_template_auth_type(site_type)
+    auth_type = tpl_lib.get_template_auth_type(site_type)
     initial_next_run = compute_initial_next_run(schedule_type, schedule_time)
     
     with get_db() as conn:
@@ -331,3 +332,80 @@ def clear_logs(request: Request, user: str = Depends(get_current_user)):
     if is_api_request(request):
         return JSONResponse({"ok": True, "message": "签到日志已清空"})
     return RedirectResponse(url="/", status_code=303)
+
+# ------------------------------------------------------------------ 模板库
+
+def _template_summary(tpl: dict, source: str = "") -> dict:
+    summary = {
+        "key": tpl["key"],
+        "name": tpl["name"],
+        "flow": tpl["flow"],
+        "default_domain": tpl["default_domain"],
+        "auth_type": tpl.get("auth_type", "cookie"),
+        "auth_label": tpl.get("auth_label", ""),
+        "cookie_placeholder": tpl.get("cookie_placeholder", ""),
+    }
+    if source:
+        summary["source"] = source
+    return summary
+
+@app.get("/api/template-library")
+def api_template_library(user: str = Depends(get_current_user)):
+    ok, result = tpl_lib.fetch_registry()
+    merged = tpl_lib.all_templates()
+    imported = tpl_lib.local_raw_templates()
+
+    installed = [
+        _template_summary(tpl, "imported" if key in imported else "builtin")
+        for key, tpl in sorted(merged.items())
+    ]
+    available = [
+        {**_template_summary(raw), "installed": raw["key"] in merged}
+        for raw in result["templates"]
+    ]
+    return {
+        "ok": True,
+        "registry_url": result["url"],
+        "registry_ok": ok,
+        "registry_error": result["error"],
+        "registry_invalid": result["errors"],
+        "available": available,
+        "installed": installed,
+    }
+
+@app.post("/api/template-library/import")
+def api_template_import(keys: str = Form(...), user: str = Depends(get_current_user)):
+    try:
+        wanted = json.loads(keys)
+        if not isinstance(wanted, list) or not all(isinstance(k, str) for k in wanted):
+            raise ValueError
+    except Exception:
+        return JSONResponse({"ok": False, "message": "keys 需为 JSON 字符串数组"}, status_code=400)
+    if not wanted:
+        return JSONResponse({"ok": False, "message": "未选择任何模板"}, status_code=400)
+
+    ok, result = tpl_lib.fetch_registry()
+    if not ok:
+        return JSONResponse({"ok": False, "message": f"拉取模板库失败: {result['error']}"}, status_code=502)
+
+    by_key = {t["key"]: t for t in result["templates"]}
+    saved, missing = 0, []
+    for key in wanted:
+        raw = by_key.get(key)
+        if not raw:
+            missing.append(key)
+            continue
+        tpl_lib.save_template(raw)
+        saved += 1
+
+    message = f"已导入 {saved} 个模板"
+    if missing:
+        message += f"；未在模板库中找到: {', '.join(missing)}"
+    return JSONResponse({"ok": saved > 0, "message": message, "saved": saved})
+
+@app.post("/api/template-library/delete")
+def api_template_delete(key: str = Form(...), user: str = Depends(get_current_user)):
+    if not tpl_lib.delete_template(key):
+        return JSONResponse({"ok": False, "message": f"未找到已导入的模板 [{key}]"}, status_code=404)
+    fallback = "，已回退使用内置模板" if tpl_lib.get_template(key) else ""
+    return JSONResponse({"ok": True, "message": f"已移除导入的模板 [{key}]{fallback}"})

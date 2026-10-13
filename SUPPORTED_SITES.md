@@ -19,22 +19,80 @@
 
 ---
 
-## 站点模板配置项
+## 站点模板配置
 
-每个站点的全部信息集中在 `src/pig_checkin/templates_config.py` 的 `SITE_TEMPLATES` 中声明一次，后台下拉框与签到逻辑都从这里读取。
+站点配置已抽成独立 JSON 模板，代码只保留协议实现（`discuz` / `nexusphp` / `yysub`）。
 
-| 字段 | 用途 | 使用者 |
+### 模板来源与优先级
+
+| 来源 | 位置 | 说明 |
 | :--- | :--- | :--- |
-| `name` | 后台下拉框显示的完整站点名 | 仅 UI |
-| `auth_type` | 认证方式：`cookie` / `password` | UI + 保存校验 |
-| `auth_label` | 认证方式的中文标签 | 仅 UI |
-| `default_domain` | 站点默认域名（用户可覆盖） | UI 预填 + 签到兜底域名 |
-| `cookie_placeholder` | Cookie 输入框占位提示 | 仅 UI |
-| `flow` | 签到协议：`discuz` / `nexusphp` / `yysub` | 选择 `checkin.FLOWS` 中的实现 |
-| `sign_path` | 签到页相对路径（`discuz` / `nexusphp` 需要） | 拼接请求 URL |
-| `label` | 日志中显示的站点简称 | 日志输出 |
+| **内置模板库** | `src/pig_checkin/site_templates.json` | 随程序发布，开箱可用 |
+| **远程模板库** | 由 `PIG_TEMPLATE_REGISTRY_URL` 指定的地址 | 后台「模板库」按钮拉取，勾选导入 |
+| **本地导入库** | 数据库 `template_library` 表 | 导入后的模板，**同 key 时覆盖内置模板** |
 
-新增站点时只改这一个文件：填好 `flow` 与对应参数即可，**无需**编辑 `checkin.py`（`FLOWS` 已注册全部三种协议）。
+删除已导入的模板后会自动回退到内置模板。
+
+### 模板字段
+
+**元字段**（所有 flow 通用）：
+
+| 字段 | 必填 | 用途 |
+| :--- | :---: | :--- |
+| `key` | ✔ | 唯一标识（模板标识 / `site_type`），`^[a-z0-9][a-z0-9_]{0,31}$` |
+| `name` | ✔ | 后台下拉框显示的完整站点名 |
+| `flow` | ✔ | 协议实现：`discuz` / `nexusphp` / `yysub` |
+| `auth_type` | ✔ | `cookie` 或 `password` |
+| `auth_label` | ✔ | 认证方式中文标签（UI 展示） |
+| `default_domain` | ✔ | 默认域名，必须含 `http://` 或 `https://` |
+| `cookie_placeholder` | ✔ | Cookie 输入框占位提示 |
+| `label` | ✔ | 日志中的站点简称 |
+
+**协议字段**：只写需要覆盖的项，未写的自动取协议默认值（默认值见 `templates.py` 的 `*_DEFAULTS`）。
+约定 `*_patterns` 为按顺序尝试的正则数组（取首个命中，无捕获组时取整体匹配），`*_keywords` 为子串包含判定。
+
+`discuz` 常用覆盖项：
+
+| 字段 | 默认值 | 作用 |
+| :--- | :--- | :--- |
+| `sign_path` | `/plugin.php?id=dsu_paulsign:sign` | 签到页路径 |
+| `submit_path` | `/plugin.php?id=dsu_paulsign:sign&operation=qiandao&infloat=1` | 提交签到路径 |
+| `submit_body` | `{"qdxq":"kx","qdmode":"1","fastreply":"0"}` | 随表单提交的固定字段 |
+| `formhash_field` / `greeting_field` | `formhash` / `todaysay` | 动态字段名 |
+| `greetings` | 5 条中文祝福语 | 随机祝福语，支持 `{site}` 占位 |
+| `sign_form_selectors` | `[["input","qdxq"],["form","qiandao"]]` | 判定「页面还有待提交的签到表单」 |
+| `formhash_patterns` | 2 条正则 | 从 HTML 提取 formhash |
+| `logged_in_patterns` / `logged_in_keywords` | `discuz_uid` 正则 / `action=logout` | 登录态判定 |
+| `need_login_keywords` | 未登录提示文案 | 登录失效判定 |
+| `user_patterns` | 4 条正则 | 提取用户名 |
+| `already_signed_page_keywords` | 4 条已签到文案 | 仅在无签到表单时生效 |
+| `success_keywords` / `already_signed_keywords` | 提交响应判定文案 | 判定签到结果 |
+| `message_selectors` | `[["div","c"],["div","messagetext"]]` | 提取提示文本 |
+| `encoding` | 空（自动识别） | 强制指定 `utf-8` / `gbk` / `gb2312` |
+
+`nexusphp` 常用覆盖项：`sign_path`、`login_fail_keywords`、`login_required_keyword`、`user_patterns`、
+`done_keywords`（已签到）、`verify_keywords`（需人机验证）、`success_keywords`、`bonus_patterns`（奖励数额）、
+`card_desc_patterns`（卡片描述）、`award_patterns`（签到成功说明）、`encoding`。
+
+`yysub` 常用覆盖项：`login_path`、`info_path`、`login_body`（值支持 `{username}` / `{password}` 占位）、
+`login_fail_status`、`unauth_status`、`success_fields`（`a.b.c` 路径）、`ok_status`。
+
+### 新增站点的两种方式
+
+1. **改配置文件**：在 `src/pig_checkin/site_templates.json` 的 `templates` 数组里加一项，字段同上。
+2. **走远程模板库**：把自己写的模板库（同一份 JSON 结构，`{"schema":1,"templates":[...]}`）发布到任意可 HTTP 访问的地址，
+   在后台「模板库」里拉取并导入。本地自测可临时设置 `PIG_TEMPLATE_REGISTRY_URL` 指向该地址。
+
+两种方式都**不需要**改 `checkin.py`，前提是站点能归入现有三种协议。
+
+### 模板校验
+
+远程模板库内容不可信，导入前会逐项校验，不通过的直接跳过并在后台提示：
+
+- `key` 格式、`flow` / `auth_type` 取值、`default_domain` 必须含协议、非 `yysub` 必须有以 `/` 开头的 `sign_path`；
+- 未知字段一律拒绝（防拼写错误）；
+- 所有 `*_pattern` / `*_patterns` 必须能编译，且长度不超过 500 字符（压缩 ReDoS 空间）；
+- 模板库文档体积上限 1 MB。
 
 ---
 

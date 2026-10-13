@@ -118,15 +118,45 @@ def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
         domain = "https://" + domain
     return domain.rstrip("/")
 
+def _contains_any(text: str, keywords) -> bool:
+    return any(k and k in text for k in keywords)
+
+
+def _first_group(text: str, patterns) -> str | None:
+    """按顺序尝试正则，返回首个命中结果；无捕获组时返回整体匹配。"""
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            return (match.group(1) if match.groups() else match.group(0)).strip()
+    return None
+
+
+def _detect_encoding(res) -> str:
+    content_type = res.headers.get("Content-Type", "").lower()
+    raw = res.content.lower()
+    if "gbk" in content_type or b"charset=gbk" in raw or b'charset="gbk"' in raw or b"charset='gbk'" in raw:
+        return "gbk"
+    if "gb2312" in content_type or b"charset=gb2312" in raw:
+        return "gb2312"
+    return "utf-8"
+
+
+def _dig(obj, path: str):
+    """按 a.b.c 取嵌套字典字段，缺失返回 None。"""
+    cur = obj
+    for part in path.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return None
+        cur = cur[part]
+    return cur
+
+
 def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
-    default_domain = tpl["default_domain"]
-    sign_path = tpl["sign_path"]
     site_label = tpl["label"]
-    domain = format_domain(site_dict.get("domain"), default=default_domain)
-    cookie_str = site_dict.get("cookies", "")
-    cookies = parse_cookies_str(cookie_str)
+    domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
+    cookies = parse_cookies_str(site_dict.get("cookies", ""))
     
-    sign_page_url = f"{domain}{sign_path}"
+    sign_page_url = f"{domain}{tpl['sign_path']}"
     headers = {
         "User-Agent": USER_AGENT,
         "Referer": sign_page_url,
@@ -148,17 +178,9 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         logger.error("[%s] 访问签到页面网络失败: %s", site_label, e)
         return False, f"网络请求失败: {e}"
 
-    # 自动识别并解码 GBK / GB2312 编码
-    encoding = "utf-8"
-    raw_content = res.content
-    content_type = res.headers.get("Content-Type", "").lower()
-    if "gbk" in content_type or b"charset=gbk" in raw_content.lower() or b"charset=\"gbk\"" in raw_content.lower() or b"charset='gbk'" in raw_content.lower():
-        encoding = "gbk"
-    elif "gb2312" in content_type or b"charset=gb2312" in raw_content.lower():
-        encoding = "gb2312"
-
+    encoding = tpl["encoding"] or _detect_encoding(res)
     try:
-        res_text = raw_content.decode(encoding, errors="replace")
+        res_text = res.content.decode(encoding, errors="replace")
     except Exception:
         res_text = res.text
 
@@ -172,68 +194,33 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         session.cookies.update(new_cookies)
         res_text = content
 
-    # 统一精准的 Discuz 登录状态判定 (利用全局 UID、退出链接与未登录提示)
-    uid_match = re.search(r"discuz_uid\s*=\s*['\"]?(\d+)['\"]?", res_text)
-    discuz_uid = int(uid_match.group(1)) if uid_match else None
-    has_logout = "action=logout" in res_text
-
-    is_logged_in = (discuz_uid and discuz_uid > 0) or has_logout
-    if not is_logged_in or "您需要先登录才能继续本操作" in res_text or "<title>登录" in res_text:
-        logger.warning("[%s] 登录凭据无效或已过期 (uid=%s, has_logout=%s)", site_label, discuz_uid, has_logout)
+    # 登录状态判定：UID 或退出链接存在，且无未登录提示
+    discuz_uid = _first_group(res_text, tpl["logged_in_patterns"])
+    is_logged_in = bool(discuz_uid and discuz_uid.isdigit() and int(discuz_uid) > 0) or _contains_any(res_text, tpl["logged_in_keywords"])
+    if not is_logged_in or _contains_any(res_text, tpl["need_login_keywords"]):
+        logger.warning("[%s] 登录凭据无效或已过期 (uid=%s)", site_label, discuz_uid)
         return False, "Cookies 已失效或未登录，请更新 Cookies"
 
-    # 多模板通用提取用户名
-    user_match = (
-        re.search(r'title="访问我的空间">(.*?)</a>', res_text) or
-        re.search(r'class="vwmy"><a [^>]*>(.*?)</a>', res_text) or
-        re.search(r'<a [^>]*space-uid-\d+\.html[^>]*title="([^"]+)"', res_text) or
-        re.search(r'<span class="user_avt">([^<]+)</span>', res_text)
-    )
-    user_name = user_match.group(1).strip() if user_match else site_dict.get("name", "用户")
+    user_name = _first_group(res_text, tpl["user_patterns"]) or site_dict.get("name", "用户")
 
     soup = BeautifulSoup(res_text, "html.parser")
-    has_sign_form = (soup.find("input", {"name": "qdxq"}) is not None) or (soup.find("form", {"name": "qiandao"}) is not None)
+    has_sign_form = any(soup.find(tag, {"name": name}) is not None for tag, name in tpl["sign_form_selectors"])
 
     # 只有当签到表单不存在时，才判定为今日已签到（严禁使用“今日已签”裸字，否则会误命中侧边栏的“xxx人今日已签到”全站统计数据）
-    if not has_sign_form:
-        already_signed = (
-            "您今天已经签到过了" in res_text or
-            "已经签到过了" in res_text or
-            "您今日已经签到" in res_text or
-            "您累计已签到" in res_text
-        )
-        if already_signed:
-            logger.info("[%s] 用户 [%s] 今日已完成签到 (未检测到待提交表单)，无需重复签到", site_label, user_name)
-            return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
+    if not has_sign_form and _contains_any(res_text, tpl["already_signed_page_keywords"]):
+        logger.info("[%s] 用户 [%s] 今日已完成签到 (未检测到待提交表单)，无需重复签到", site_label, user_name)
+        return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
 
-    formhash_input = soup.find("input", {"name": "formhash"})
-    if formhash_input and formhash_input.get("value"):
-        formhash = formhash_input["value"]
-    else:
-        fh_match = re.search(r'name=["\']formhash["\']\s+value=["\']([a-zA-Z0-9]+)["\']', res_text) or re.search(r'formhash=([a-zA-Z0-9]+)', res_text)
-        if fh_match:
-            formhash = fh_match.group(1)
-        else:
-            logger.error("[%s] 未能从页面中提取到 formhash", site_label)
-            return False, "未能提取到 formhash"
+    formhash_input = soup.find("input", {"name": tpl["formhash_field"]})
+    formhash = (formhash_input.get("value") if formhash_input else None) or _first_group(res_text, tpl["formhash_patterns"])
+    if not formhash:
+        logger.error("[%s] 未能从页面中提取到 formhash", site_label)
+        return False, "未能提取到 formhash"
 
-    greetings = [
-        "开心每一天，签到打卡！",
-        f"论坛越办越好，支持{site_label}！",
-        "今天心情非常不错！",
-        "每日签到，支持论坛发展！",
-        "天天开心，天天向上！"
-    ]
-    todaysay = random.choice(greetings)
+    todaysay = random.choice(tpl["greetings"] or [""]).replace("{site}", site_label)
 
-    post_url = f"{domain}/plugin.php?id=dsu_paulsign:sign&operation=qiandao&infloat=1"
-    payload = {
-        "formhash": formhash,
-        "qdxq": "kx",
-        "qdmode": "1",
-        "todaysay": todaysay,
-        "fastreply": "0"
-    }
+    post_url = f"{domain}{tpl['submit_path']}"
+    payload = {**tpl["submit_body"], tpl["formhash_field"]: formhash, tpl["greeting_field"]: todaysay}
 
     logger.info("[%s] 提交签到表单 POST: %s (formhash: %s, todaysay: %s)", site_label, post_url, formhash, todaysay)
     try:
@@ -255,20 +242,22 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
             sign_text = sign_res.text
 
         sign_soup = BeautifulSoup(sign_text, "html.parser")
-        c_div = sign_soup.find("div", {"class": "c"}) or sign_soup.find("div", {"id": "messagetext"})
-        msg = c_div.text.strip() if c_div else sign_text[:120].strip()
-        if not msg:
-            msg = "签到提交完成"
+        msg = ""
+        for tag, name in tpl["message_selectors"]:
+            node = sign_soup.find(tag, {"class": name}) or sign_soup.find(tag, {"id": name})
+            if node and node.text.strip():
+                msg = node.text.strip()
+                break
+        msg = msg or sign_text[:120].strip() or "签到提交完成"
 
-        if "签到成功" in sign_text or "恭喜你" in sign_text or "获得" in sign_text or "奖励" in sign_text or "今日已签" in sign_text:
+        if _contains_any(sign_text, tpl["success_keywords"]):
             logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, msg)
             return True, f"用户 [{user_name}] 签到成功: {msg}"
-        elif "已经签到过了" in sign_text or "今天已经签到" in sign_text:
+        if _contains_any(sign_text, tpl["already_signed_keywords"]):
             logger.info("[%s] 用户 [%s] 今日已签到过: %s", site_label, user_name, msg)
             return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
-        else:
-            logger.warning("[%s] 签到返回提示: %s", site_label, msg)
-            return False, f"签到返回提示: {msg}"
+        logger.warning("[%s] 签到返回提示: %s", site_label, msg)
+        return False, f"签到返回提示: {msg}"
     except requests.exceptions.Timeout:
         logger.error("[%s] 提交签到表单超时 (超过 %d 秒)", site_label, REQUEST_TIMEOUT)
         return False, f"签到提交超时 (超过 {REQUEST_TIMEOUT} 秒)"
@@ -301,12 +290,10 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
     site_name = site_dict.get("name", tpl["label"])
 
     if username and password:
-        login_url = f"{domain}/User/Login/ajaxLogin"
+        login_url = f"{domain}{tpl['login_path']}"
         login_data = {
-            "account": username,
-            "email": username,
-            "password": password,
-            "remember": "1",
+            key: str(value).replace("{username}", username).replace("{password}", password)
+            for key, value in tpl["login_body"].items()
         }
         logger.info("[%s] 发起 POST 用户登录: %s (账号: %s)", site_name, login_url, username)
         try:
@@ -315,7 +302,7 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
                 login_json = res_login.json()
             except Exception:
                 login_json = {}
-            if login_json and login_json.get("status") in (0, "0", 4001, "4001"):
+            if login_json and login_json.get("status") in tpl["login_fail_status"]:
                 err_msg = login_json.get("info") or "账号或密码错误"
                 logger.error("[%s] 登录失败: %s", site_name, err_msg)
                 return False, f"登录失败: {err_msg}"
@@ -325,7 +312,7 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         except Exception as e:
             logger.warning("[%s] 登录请求异常: %s", site_name, e)
 
-    info_url = f"{domain}/user/login/getCurUserTopInfo"
+    info_url = f"{domain}{tpl['info_path']}"
     logger.info("[%s] 访问用户信息接口: %s", site_name, info_url)
     try:
         res_info = session.get(info_url, timeout=REQUEST_TIMEOUT)
@@ -335,7 +322,7 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
             info_json = {}
 
         status = info_json.get("status")
-        if status in (4001, "4001"):
+        if status in tpl["unauth_status"]:
             return False, "未登录或登录会话已失效 (status: 4001)"
 
         data = info_json.get("data") if isinstance(info_json.get("data"), dict) else {}
@@ -346,11 +333,11 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         point = userinfo.get("point")
         nickname = userinfo.get("nickname") or username or "用户"
 
-        if cont_login is not None or point is not None:
+        if any(_dig(info_json, field) is not None for field in tpl["success_fields"]):
             msg = f"登录成功，用户 [{nickname}] 连续登录: {cont_login if cont_login is not None else '未知'} 天，人人钻: {point if point is not None else '未知'}"
             logger.info("[%s] %s", site_name, msg)
             return True, msg
-        elif status in (1, 200, "1", "200") or "uid" in str(data):
+        elif status in tpl["ok_status"] or "uid" in str(data):
             msg = f"登录成功 (返回状态: {status})"
             logger.info("[%s] %s", site_name, msg)
             return True, msg
@@ -365,12 +352,9 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         return False, f"请求用户信息接口异常: {e}"
 
 def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
-    default_domain = tpl["default_domain"]
-    sign_path = tpl["sign_path"]
     site_label = tpl["label"]
-    domain = format_domain(site_dict.get("domain"), default=default_domain)
-    cookie_str = site_dict.get("cookies", "")
-    cookies = parse_cookies_str(cookie_str)
+    domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
+    cookies = parse_cookies_str(site_dict.get("cookies", ""))
     
     headers = {
         "User-Agent": USER_AGENT,
@@ -383,7 +367,7 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
     session.headers.update(headers)
     session.cookies.update(cookies)
 
-    attendance_url = f"{domain}{sign_path}"
+    attendance_url = f"{domain}{tpl['sign_path']}"
     site_name = site_dict.get("name", site_label)
 
     logger.info("[%s] 发起 GET 访问 NexusPHP 签到页: %s", site_name, attendance_url)
@@ -396,7 +380,7 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         logger.error("[%s] 访问签到页网络失败: %s", site_name, e)
         return False, f"网络请求失败: {e}"
 
-    if is_cloudflare_challenge(res.text, res.status_code) or "attendance-card--verify" in res.text:
+    if is_cloudflare_challenge(res.text, res.status_code) or _contains_any(res.text, tpl["verify_keywords"]):
         logger.warning("[%s] 检测到 Cloudflare / 人机验证拦截 (HTTP %d)，启动无头浏览器处理...", site_name, res.status_code)
         ok, content, new_cookies = solve_with_zendriver(attendance_url, cookies)
         if not ok:
@@ -409,36 +393,26 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         res_text = res.text
 
     # 检查是否登录（NexusPHP 登录失效判定）
-    if "login.php" in res_text or "class=\"login\"" in res_text or "userdetails.php" not in res_text:
+    if _contains_any(res_text, tpl["login_fail_keywords"]) or tpl["login_required_keyword"] not in res_text:
         logger.warning("[%s] 登录凭据无效或已失效", site_name)
         return False, "Cookies 已失效或未登录（请检查是否包含 c_secure_uid/pass 及 cf_clearance）"
 
-    # 提取用户信息
-    user_match = re.search(r'userdetails\.php\?id=\d+[^>]*>.*?<b>(.*?)</b>', res_text)
-    user_name = user_match.group(1).strip() if user_match else "NexusPT用户"
+    user_name = _first_group(res_text, tpl["user_patterns"]) or "NexusPT用户"
 
-    # 提取 audiences 特色的签到卡片或顶部状态
-    # 1. 顶部已获得奖励 (如 title="(签到已得24)")
-    attended_match = re.search(r'title=[\'"]\(签到已得(\d+)\)[\'"]', res_text) or re.search(r'已签到.*?<span>\+(\d+)</span>', res_text)
-    attended_bonus = attended_match.group(1) if attended_match else ""
-
-    # 2. 签到卡片提示 (如 "您今天已经签到过了，请勿重复刷新。")
-    card_desc_match = re.search(r'class=[\'"]attendance-card__desc[\'"]>(.*?)</p>', res_text)
-    card_desc = card_desc_match.group(1).strip() if card_desc_match else ""
-
-    # 3. 判定签到状态
-    if "attendance-card--done" in res_text or "今天已经签到" in res_text or "今日已签到" in res_text or "已经签到过了" in res_text:
+    # 判定签到状态：已签到 > 仍需人机验证 > 本次签到成功
+    if _contains_any(res_text, tpl["done_keywords"]):
+        attended_bonus = _first_group(res_text, tpl["bonus_patterns"]) or ""
+        card_desc = _first_group(res_text, tpl["card_desc_patterns"]) or ""
         info = f"今日已签到 (获得 {attended_bonus} 粒爆米花)" if attended_bonus else (card_desc or "今日已签到")
         logger.info("[%s] 用户 [%s] %s", site_name, user_name, info)
         return True, f"用户 [{user_name}] {info}"
 
-    if "attendance-card--verify" in res_text:
+    if _contains_any(res_text, tpl["verify_keywords"]):
         logger.warning("[%s] 签到页面需完成 Turnstile 人机验证", site_name)
         return False, "需完成人机验证 (Turnstile)，未完成签到"
 
-    if "签到成功" in res_text:
-        award_match = re.search(r'这是您的第.*?次签到.*?已获得.*?魔力值', res_text)
-        award_info = award_match.group(0) if award_match else "签到成功"
+    if _contains_any(res_text, tpl["success_keywords"]):
+        award_info = _first_group(res_text, tpl["award_patterns"]) or "签到成功"
         logger.info("[%s] 用户 [%s] 签到成功: %s", site_name, user_name, award_info)
         return True, f"用户 [{user_name}] {award_info}"
 
@@ -448,7 +422,7 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
     logger.warning("[%s] 未能匹配到明确的签到成功特征 (页面标题: %s)", site_name, title_text)
     return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
 
-# 协议实现注册表，站点通过 templates_config.SITE_TEMPLATES 中的 flow 字段选用
+# 协议实现注册表，站点通过模板的 flow 字段选用（见 templates.py）
 FLOWS = {
     "discuz": checkin_discuz_dsu_paulsign,
     "nexusphp": checkin_nexusphp,
@@ -457,15 +431,15 @@ FLOWS = {
 
 def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
     from pig_checkin.crypto import decrypt_text
-    from pig_checkin.templates_config import SITE_TEMPLATES
+    from pig_checkin.templates import get_template
     site_dict = dict(site_dict)
     for field in ("cookies", "username", "password"):
         if site_dict.get(field):
             site_dict[field] = decrypt_text(site_dict[field])
 
     site_type = site_dict.get("site_type", "cnlang")
-    tpl = SITE_TEMPLATES.get(site_type)
-    func = FLOWS.get(tpl.get("flow")) if tpl else None
+    tpl = get_template(site_type)
+    func = FLOWS.get(tpl["flow"]) if tpl else None
     if not func:
         return False, f"不支持的站点类型: {site_type}"
     return func(site_dict, tpl)

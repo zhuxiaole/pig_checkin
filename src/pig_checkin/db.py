@@ -68,6 +68,15 @@ def init_db():
             created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE SET NULL
         );
+
+        -- 本地导入的站点模板（覆盖内置目录中的同名 key）
+        -- 注意：表名不能用 templates，历史遗留表占用该名字且结构不同
+        CREATE TABLE IF NOT EXISTS template_library (
+            key TEXT PRIMARY KEY,
+            json TEXT NOT NULL,
+            source TEXT DEFAULT 'imported',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
         """)
 
         # 增量字段迁移 (兼容旧表结构)
