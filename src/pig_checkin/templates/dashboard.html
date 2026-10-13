@@ -1517,13 +1517,10 @@
                 const data = await res.json();
                 if (data.ok) {
                     showToast(data.message || '账号设置保存成功', 'success');
-                    if (data.new_username) {
-                        document.getElementById('current-user-display').textContent = data.new_username;
-                    }
                     closeModal('changeAccountModal');
-                    document.getElementById('acc_old_pwd').value = '';
-                    document.getElementById('acc_new_pwd').value = '';
-                    document.getElementById('acc_confirm_pwd').value = '';
+                    if (data.logout) {
+                        setTimeout(() => { window.location.href = '/login'; }, 800);
+                    }
                 } else {
                     showToast(data.message || '修改失败', 'error');
                 }

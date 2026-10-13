@@ -1,3 +1,5 @@
+import json
+
 import yaml
 
 import pig_checkin.checkin as ck
@@ -199,8 +201,8 @@ def test_latest_status_only_counts_today():
             conn.commit()
 
 
-def test_change_account_updates_session_and_password():
-    """回归：change_account 成功路径要同时改库和写 session（曾被误删 request 参数打成 500）。"""
+def test_change_account_logs_out_and_changes_password():
+    """回归：改账号/密码要同时改库并结束会话（曾被误删 request 参数打成 500）。"""
     from pig_checkin.app import change_account
     from pig_checkin.db import hash_password, verify_password
 
@@ -212,12 +214,13 @@ def test_change_account_updates_session_and_password():
         conn.commit()
 
     req = _Req()
-    req.session = {}  # 实例属性覆盖类属性，避免污染其它用例
+    req.session = {"user": old_name}  # 实例属性覆盖类属性，避免污染其它用例
     try:
         resp = change_account(request=req, new_username=new_name, old_password=old_pw,
                               new_password=new_pw, confirm_password=new_pw, user=old_name)
         assert resp.status_code == 200, resp.body
-        assert req.session["user"] == new_name, "会话里的用户名要同步更新"
+        assert json.loads(resp.body)["logout"] is True, "要告诉前端去重新登录"
+        assert req.session == {}, "改完凭据必须结束会话"
         with get_db() as conn:
             row = conn.execute("SELECT password FROM users WHERE username = ?", (new_name,)).fetchone()
         assert row and verify_password(row["password"], new_pw), "新密码要生效"
@@ -225,6 +228,22 @@ def test_change_account_updates_session_and_password():
         with get_db() as conn:
             conn.execute("DELETE FROM users WHERE username IN (?, ?)", (old_name, new_name))
             conn.commit()
+
+
+def test_session_invalidated_when_user_vanished():
+    """回归：数据库被重建后，旧 cookie 里的用户名不该继续算已登录。"""
+    from pig_checkin.app import dashboard, session_user
+
+    req = _Req()
+    req.session = {"user": "__ghost__"}
+    assert session_user(req) is None, "库里查不到的用户应视为未登录"
+    assert req.session == {}, "并顺手清掉会话"
+
+    req2 = _Req()
+    req2.session = {"user": "__ghost__"}
+    resp = dashboard(req2)
+    assert resp.status_code == 303, "应重定向而不是渲染控制台"
+    assert resp.headers["location"] == "/login"
 
 
 def test_scheduler_and_db():

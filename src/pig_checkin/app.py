@@ -27,15 +27,27 @@ def startup():
     init_db()
     start_scheduler()
 
-def get_current_user(request: Request):
+def session_user(request: Request) -> str | None:
+    """取当前会话用户；该用户已不在库里（例如数据库被重建）就清掉会话，视为未登录。"""
     user = request.session.get("user")
+    if not user:
+        return None
+    with get_db() as conn:
+        exists = conn.execute("SELECT 1 FROM users WHERE username = ?", (user,)).fetchone()
+    if not exists:
+        request.session.clear()
+        return None
+    return user
+
+def get_current_user(request: Request):
+    user = session_user(request)
     if not user:
         raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
     return user
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    if request.session.get("user"):
+    if session_user(request):
         return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(request, "login.html", {"error": None})
 
@@ -121,8 +133,9 @@ def change_account(
             )
         conn.commit()
 
-    request.session["user"] = new_username
-    return JSONResponse({"ok": True, "message": "账号信息修改成功", "new_username": new_username})
+    # 改完账号/密码就结束会话，强制用新凭据重新登录
+    request.session.clear()
+    return JSONResponse({"ok": True, "message": "账号信息修改成功，请用新凭据重新登录", "logout": True})
 
 @app.get("/api/dashboard-data")
 def api_dashboard_data(user: str = Depends(get_current_user)):
@@ -137,7 +150,7 @@ def api_dashboard_data(user: str = Depends(get_current_user)):
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
-    user = request.session.get("user")
+    user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     
