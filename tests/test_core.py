@@ -199,6 +199,34 @@ def test_latest_status_only_counts_today():
             conn.commit()
 
 
+def test_change_account_updates_session_and_password():
+    """回归：change_account 成功路径要同时改库和写 session（曾被误删 request 参数打成 500）。"""
+    from pig_checkin.app import change_account
+    from pig_checkin.db import hash_password, verify_password
+
+    old_name, new_name = "__unittest_a__", "__unittest_b__"
+    old_pw, new_pw = "pw-old-123", "pw-new-456"
+    with get_db() as conn:
+        conn.execute("DELETE FROM users WHERE username IN (?, ?)", (old_name, new_name))
+        conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (old_name, hash_password(old_pw)))
+        conn.commit()
+
+    req = _Req()
+    req.session = {}  # 实例属性覆盖类属性，避免污染其它用例
+    try:
+        resp = change_account(request=req, new_username=new_name, old_password=old_pw,
+                              new_password=new_pw, confirm_password=new_pw, user=old_name)
+        assert resp.status_code == 200, resp.body
+        assert req.session["user"] == new_name, "会话里的用户名要同步更新"
+        with get_db() as conn:
+            row = conn.execute("SELECT password FROM users WHERE username = ?", (new_name,)).fetchone()
+        assert row and verify_password(row["password"], new_pw), "新密码要生效"
+    finally:
+        with get_db() as conn:
+            conn.execute("DELETE FROM users WHERE username IN (?, ?)", (old_name, new_name))
+            conn.commit()
+
+
 def test_scheduler_and_db():
     assert len(compute_next_run("fixed", "12:00")) == 19
     assert len(compute_next_run("random", "09:00")) == 19

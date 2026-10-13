@@ -85,6 +85,7 @@ def logout(request: Request):
 
 @app.post("/change-account")
 def change_account(
+    request: Request,
     new_username: str = Form(...),
     old_password: str = Form(...),
     new_password: str = Form(""),
