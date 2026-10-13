@@ -244,10 +244,10 @@ def all_templates() -> dict[str, dict]:
     return {raw["key"]: resolve_template(raw) for raw in builtin_catalog()}
 
 
-def disabled_keys() -> set[str]:
+def enabled_keys() -> set[str]:
     from pig_checkin.db import get_db
     with get_db() as conn:
-        return {row[0] for row in conn.execute("SELECT key FROM disabled_templates").fetchall()}
+        return {row[0] for row in conn.execute("SELECT key FROM enabled_templates").fetchall()}
 
 
 def usage_counts() -> dict[str, int]:
@@ -258,9 +258,9 @@ def usage_counts() -> dict[str, int]:
 
 
 def enabled_templates() -> dict[str, dict]:
-    """后台「添加/编辑网站」可选用的模板。"""
-    disabled = disabled_keys()
-    return {key: tpl for key, tpl in all_templates().items() if key not in disabled}
+    """后台「添加/编辑网站」可选用的模板。默认一个都不启用，需在模板库中手动启用。"""
+    enabled = enabled_keys()
+    return {key: tpl for key, tpl in all_templates().items() if key in enabled}
 
 
 def set_template_enabled(key: str, enabled: bool) -> str | None:
@@ -272,7 +272,7 @@ def set_template_enabled(key: str, enabled: bool) -> str | None:
     tpl = get_template(key)
     if not tpl:
         return f"模板库中不存在 [{key}]"
-    if not enabled:
+    if not enabled and key in enabled_keys():
         used = usage_counts().get(key, 0)
         if used:
             return f"模板 [{tpl['name']}] 正被 {used} 个站点使用，无法停用；请先删除这些站点或改用其它模板"
@@ -280,9 +280,9 @@ def set_template_enabled(key: str, enabled: bool) -> str | None:
     from pig_checkin.db import get_db
     with get_db() as conn:
         if enabled:
-            conn.execute("DELETE FROM disabled_templates WHERE key = ?", (key,))
+            conn.execute("INSERT OR IGNORE INTO enabled_templates (key) VALUES (?)", (key,))
         else:
-            conn.execute("INSERT OR IGNORE INTO disabled_templates (key) VALUES (?)", (key,))
+            conn.execute("DELETE FROM enabled_templates WHERE key = ?", (key,))
         conn.commit()
     return None
 

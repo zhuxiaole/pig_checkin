@@ -89,34 +89,66 @@ def test_enable_disable():
     assert tl.validate_template(fake) == []
     tl._catalog_cache = tl.builtin_catalog() + [fake]  # 注入一个无站点引用的模板
     try:
+        assert key not in tl.enabled_templates(), "默认不启用任何模板"
+        assert tl.set_template_enabled(key, True) is None
+        assert key in tl.enabled_templates(), "启用后应出现在可选模板中"
         assert tl.set_template_enabled(key, False) is None, "未被使用的模板应可停用"
         assert key not in tl.enabled_templates(), "停用后不应出现在可选模板中"
         assert tl.get_template(key) is not None, "停用不应从模板库移除"
-        assert tl.set_template_enabled(key, True) is None
-        assert key in tl.enabled_templates()
     finally:
-        tl.set_template_enabled(key, True)
+        tl.set_template_enabled(key, False)
         tl._catalog_cache = [t for t in tl._catalog_cache if t["key"] != key]
     assert tl.set_template_enabled("no-such-key", True), "不存在的模板应返回错误说明"
 
 
 def test_cannot_disable_in_use_template():
+    """造一个引用某模板的临时站点，验证它拦住停用，并在结束后清理干净。"""
     from pig_checkin import app as appmod
 
-    usage = tl.usage_counts()
-    if not usage:
-        return  # 库里没有站点，无从验证
+    key = "cnlang"
+    site_id = None
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO sites (name, site_type, domain, auth_type, cookies) VALUES (?, ?, ?, ?, ?)",
+            ("__unittest__", key, "https://cnlang.org", "cookie", ""),
+        )
+        site_id = cur.lastrowid
+        conn.commit()
 
-    key = next(iter(usage))
-    error = tl.set_template_enabled(key, False)
-    assert error, f"在用模板 [{key}] 必须拒绝停用"
-    assert key in tl.enabled_templates(), "被拒绝后不应真的被停用"
+    try:
+        assert tl.set_template_enabled(key, True) is None
+        error = tl.set_template_enabled(key, False)
+        assert error, f"在用模板 [{key}] 必须拒绝停用"
+        assert key in tl.enabled_templates(), "被拒绝后不应真的被停用"
 
-    class _Req:  # dashboard 只需要 session 与 query_params
+        class _Req:  # dashboard 只需要 session 与 query_params
+            session = {"user": "admin"}
+            query_params = {}
+
+        assert f'value="{key}"' in appmod.dashboard(_Req()).body.decode("utf-8")
+    finally:
+        # 先删站点再停用，否则会被"在用不可停用"的守卫挡住（顺序反了会留下脏状态）
+        with get_db() as conn:
+            conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
+            conn.commit()
+        tl.set_template_enabled(key, False)
+
+
+def test_dropdown_only_lists_enabled_or_in_use():
+    """默认不启用任何模板时，下拉框只保留已存在站点用到的模板。"""
+    from pig_checkin import app as appmod
+
+    class _Req:
         session = {"user": "admin"}
         query_params = {}
 
-    assert f'value="{key}"' in appmod.dashboard(_Req()).body.decode("utf-8")
+    html = appmod.dashboard(_Req()).body.decode("utf-8")
+    select = html.split('id="add_site_type"', 1)[1].split("</select>", 1)[0]
+    options = [seg.split('"')[0] for seg in select.split("<option value=\"")[1:]]
+
+    with get_db() as conn:
+        in_use = {r[0] for r in conn.execute("SELECT DISTINCT site_type FROM sites").fetchall()}
+    assert set(options) == in_use | tl.enabled_keys()
 
 
 def test_all_templates_and_dispatch():
