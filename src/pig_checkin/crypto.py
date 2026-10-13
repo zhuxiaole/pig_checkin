@@ -1,16 +1,12 @@
 import os
 import base64
 import hashlib
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet
 
 DEFAULT_SECRET_KEY = "pig-checkin-default-secret-key-please-change-in-production"
 
-def get_secret_key() -> str:
-    key = os.environ.get("SECRET_KEY", "").strip()
-    return key if key else DEFAULT_SECRET_KEY
-
 def get_fernet() -> Fernet:
-    raw_key = get_secret_key()
+    raw_key = os.environ.get("SECRET_KEY", "").strip() or DEFAULT_SECRET_KEY
     key_32 = base64.urlsafe_b64encode(hashlib.sha256(raw_key.encode("utf-8")).digest())
     return Fernet(key_32)
 
@@ -35,6 +31,6 @@ def decrypt_text(cipher: str) -> str:
         return ""
     try:
         return get_fernet().decrypt(cipher.encode("utf-8")).decode("utf-8")
-    except (InvalidToken, Exception):
+    except Exception:
         # 兼容未加密历史数据或未知密文
         return cipher

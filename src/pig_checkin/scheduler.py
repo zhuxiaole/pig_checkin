@@ -37,9 +37,6 @@ def compute_next_run(schedule_type: str, schedule_time: str, next_day: bool = Fa
         )
     return target.strftime("%Y-%m-%d %H:%M:%S")
 
-compute_initial_next_run = lambda st, tm: compute_next_run(st, tm, next_day=False)
-compute_next_day_run = lambda st, tm: compute_next_run(st, tm, next_day=True)
-
 def run_site_checkin(site_id: int):
     try:
         with get_db() as conn:

@@ -11,7 +11,6 @@ import copy
 import re
 import logging
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
 
 import yaml
 
@@ -93,7 +92,7 @@ YYSUB_DEFAULTS = {
     "ok_status": [1, 200, "1", "200"],
 }
 
-FLOW_DEFAULTS: Dict[str, dict] = {
+FLOW_DEFAULTS: dict[str, dict] = {
     "discuz": DISCUZ_DEFAULTS,
     "nexusphp": NEXUSPHP_DEFAULTS,
     "yysub": YYSUB_DEFAULTS,
@@ -106,7 +105,7 @@ def _scalar_ok(value) -> bool:
     return isinstance(value, (str, int, float, bool))
 
 
-def _pattern_list(key: str, value) -> List[str]:
+def _pattern_list(key: str, value) -> list[str]:
     if key.endswith("_patterns") and isinstance(value, list):
         return [p for p in value if isinstance(p, str)]
     if key.endswith("_pattern") and isinstance(value, str):
@@ -114,7 +113,7 @@ def _pattern_list(key: str, value) -> List[str]:
     return []
 
 
-def _check_flow_fields(flow: str, raw: dict) -> List[str]:
+def _check_flow_fields(flow: str, raw: dict) -> list[str]:
     errors = []
     for key, default in FLOW_DEFAULTS[flow].items():
         if key not in raw:
@@ -152,12 +151,12 @@ def _check_flow_fields(flow: str, raw: dict) -> List[str]:
     return errors
 
 
-def validate_template(raw) -> List[str]:
+def validate_template(raw) -> list[str]:
     """返回错误列表，空列表表示模板合法。"""
     if not isinstance(raw, dict):
         return ["模板需为键值对象"]
 
-    errors: List[str] = []
+    errors: list[str] = []
     key = raw.get("key")
     if not isinstance(key, str) or not KEY_RE.match(key):
         errors.append("key 需为 1-32 位小写字母/数字/下划线")
@@ -202,7 +201,7 @@ def resolve_template(raw: dict) -> dict:
 
 # ---------------------------------------------------------------- 模板库
 
-def parse_catalog(text: str) -> Tuple[List[dict], List[str]]:
+def parse_catalog(text: str) -> tuple[list[dict], list[str]]:
     """解析模板库文档，返回 (合法模板列表, 错误说明列表)。"""
     doc = yaml.safe_load(text)
     if not isinstance(doc, dict):
@@ -223,10 +222,10 @@ def parse_catalog(text: str) -> Tuple[List[dict], List[str]]:
     return valid, errors
 
 
-_catalog_cache: List[dict] | None = None
+_catalog_cache: list[dict] | None = None
 
 
-def builtin_catalog() -> List[dict]:
+def builtin_catalog() -> list[dict]:
     global _catalog_cache
     if _catalog_cache is None:
         try:
@@ -240,25 +239,25 @@ def builtin_catalog() -> List[dict]:
     return _catalog_cache
 
 
-def all_templates() -> Dict[str, dict]:
+def all_templates() -> dict[str, dict]:
     """全部模板（已合并协议默认值）。"""
     return {raw["key"]: resolve_template(raw) for raw in builtin_catalog()}
 
 
-def disabled_keys() -> Set[str]:
+def disabled_keys() -> set[str]:
     from pig_checkin.db import get_db
     with get_db() as conn:
         return {row[0] for row in conn.execute("SELECT key FROM disabled_templates").fetchall()}
 
 
-def usage_counts() -> Dict[str, int]:
+def usage_counts() -> dict[str, int]:
     """各模板当前被多少个站点引用。"""
     from pig_checkin.db import get_db
     with get_db() as conn:
         return {row[0]: row[1] for row in conn.execute("SELECT site_type, COUNT(*) FROM sites GROUP BY site_type")}
 
 
-def enabled_templates() -> Dict[str, dict]:
+def enabled_templates() -> dict[str, dict]:
     """后台「添加/编辑网站」可选用的模板。"""
     disabled = disabled_keys()
     return {key: tpl for key, tpl in all_templates().items() if key not in disabled}
@@ -293,8 +292,3 @@ def get_template(key: str) -> dict | None:
     if not key:
         return None
     return all_templates().get(key)
-
-
-def get_template_auth_type(site_type: str) -> str:
-    tpl = get_template(site_type)
-    return tpl["auth_type"] if tpl else "cookie"

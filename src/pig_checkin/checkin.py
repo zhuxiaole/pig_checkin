@@ -5,7 +5,6 @@ import random
 import logging
 import requests
 from bs4 import BeautifulSoup
-from typing import Tuple
 from urllib.parse import urlparse
 
 logger = logging.getLogger("pig_checkin")
@@ -42,7 +41,7 @@ def find_browser_executable() -> str:
     except Exception:
         return None
 
-def solve_with_zendriver(url: str, cookies: dict = None) -> Tuple[bool, str, dict]:
+def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dict]:
     import asyncio
     async def _async_solve():
         import zendriver as zd
@@ -151,7 +150,7 @@ def _dig(obj, path: str):
     return cur
 
 
-def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
+def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     site_label = tpl["name"]
     domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
     cookies = parse_cookies_str(site_dict.get("cookies", ""))
@@ -265,7 +264,7 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         logger.error("[%s] 提交签到请求失败: %s", site_label, e)
         return False, f"签到请求提交失败: {e}"
 
-def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
+def checkin_yysub(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
     username = (site_dict.get("username") or "").strip()
     password = (site_dict.get("password") or "").strip()
@@ -351,7 +350,7 @@ def checkin_yysub(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
         logger.error("[%s] 请求用户信息接口异常: %s", site_name, e)
         return False, f"请求用户信息接口异常: {e}"
 
-def checkin_nexusphp(site_dict: dict, tpl: dict) -> Tuple[bool, str]:
+def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     site_label = tpl["name"]
     domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
     cookies = parse_cookies_str(site_dict.get("cookies", ""))
@@ -429,7 +428,7 @@ FLOWS = {
     "yysub": checkin_yysub,
 }
 
-def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
+def execute_checkin_once(site_dict: dict) -> tuple[bool, str]:
     from pig_checkin.crypto import decrypt_text
     from pig_checkin.templates import get_template
     site_dict = dict(site_dict)
@@ -444,7 +443,7 @@ def execute_checkin_once(site_dict: dict) -> Tuple[bool, str]:
         return False, f"不支持的站点类型: {site_type}"
     return func(site_dict, tpl)
 
-def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
+def execute_checkin(site_dict: dict) -> tuple[bool, str]:
     from pig_checkin.db import get_db
     import datetime
 
@@ -471,8 +470,8 @@ def execute_checkin(site_dict: dict) -> Tuple[bool, str]:
             full_msg = f"{msg} (第 {attempt} 次重试成功)" if attempt > 0 else msg
             logger.info("========== [签到成功] %s: %s ==========", site_name, full_msg)
             if site_id:
-                from pig_checkin.scheduler import compute_next_day_run
-                next_run_str = compute_next_day_run(site_dict.get("schedule_type", "random"), site_dict.get("schedule_time", "09:00"))
+                from pig_checkin.scheduler import compute_next_run
+                next_run_str = compute_next_run(site_dict.get("schedule_type", "random"), site_dict.get("schedule_time", "09:00"), next_day=True)
                 with get_db() as conn:
                     conn.execute(
                         "UPDATE sites SET last_status = '签到成功', last_run = ?, next_run = ? WHERE id = ?",

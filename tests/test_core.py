@@ -3,7 +3,7 @@ import yaml
 import pig_checkin.checkin as ck
 from pig_checkin.checkin import parse_cookies_str, FLOWS
 from pig_checkin import templates as tl
-from pig_checkin.scheduler import compute_initial_next_run, compute_next_day_run
+from pig_checkin.scheduler import compute_next_run
 from pig_checkin.db import init_db, get_db
 from pig_checkin.app import APP_VERSION
 
@@ -138,8 +138,9 @@ def test_all_templates_and_dispatch():
 
 
 def test_scheduler_and_db():
-    assert len(compute_initial_next_run("fixed", "12:00")) == 19
-    assert len(compute_next_day_run("random", "09:00")) == 19
+    assert len(compute_next_run("fixed", "12:00")) == 19
+    assert len(compute_next_run("random", "09:00")) == 19
+    assert len(compute_next_run("random", "09:00", next_day=True)) == 19
     with get_db() as conn:
         assert conn.execute("SELECT 1").fetchone()[0] == 1
     assert bool(APP_VERSION)

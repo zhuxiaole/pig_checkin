@@ -76,14 +76,6 @@ def init_db():
         );
         """)
 
-        # 清理早期「远程模板库导入」方案遗留的空表（有数据则保留，交由用户处理）
-        for legacy in ("template_library",):
-            row = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (legacy,)
-            ).fetchone()
-            if row and conn.execute(f"SELECT COUNT(*) FROM {legacy}").fetchone()[0] == 0:
-                conn.execute(f"DROP TABLE {legacy}")
-
         # 增量字段迁移 (兼容旧表结构)
         existing_cols = [row[1] for row in conn.execute("PRAGMA table_info(sites)").fetchall()]
         column_defs = {
