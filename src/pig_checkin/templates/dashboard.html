@@ -468,7 +468,7 @@
                                     <i class="ri-close-circle-fill text-sm"></i>
                                 </button>
                             </div>
-                            <select name="site_type" id="add_site_type" onchange="updateTemplateUI('add', true)"
+                            <select name="site_type" id="add_site_type" required onchange="updateTemplateUI('add', true)"
                                     class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                                 {% for key, tpl in site_templates.items() %}
                                 <option value="{{ key }}" {% if loop.first %}selected{% endif %}>{{ tpl.name }} &nbsp;·&nbsp; {{ tpl.default_domain }}</option>
@@ -587,7 +587,7 @@
                                     <i class="ri-close-circle-fill text-sm"></i>
                                 </button>
                             </div>
-                            <select name="site_type" id="edit_site_type" onchange="updateTemplateUI('edit', true)"
+                            <select name="site_type" id="edit_site_type" required onchange="updateTemplateUI('edit', true)"
                                     class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                                 {% for key, tpl in site_templates.items() %}
                                 <option value="{{ key }}">{{ tpl.name }} &nbsp;·&nbsp; {{ tpl.default_domain }}</option>
@@ -1641,7 +1641,8 @@
 
         function updateTemplateUI(prefix, changeDomain = false) {
             const siteType = document.getElementById(prefix + '_site_type').value;
-            const meta = templatesMeta[siteType] || { auth_type: 'cookie', auth_label: 'Cookies 认证', default_domain: 'https://cnlang.org' };
+            // 没有选中模板时不带 default_domain，免得凭空填出一个跟用户无关的域名
+            const meta = templatesMeta[siteType] || { auth_type: 'cookie', auth_label: 'Cookies 认证' };
             
             const authDisplay = document.getElementById(prefix + '_auth_display');
             if (authDisplay) {
@@ -1691,8 +1692,9 @@
 
             if (matches.length === 0) {
                 const opt = document.createElement('option');
+                opt.value = '';            // 留空，配合 select 的 required 挡住提交
                 opt.disabled = true;
-                opt.textContent = '未找到匹配的模板';
+                opt.textContent = '无可用模板，请先在模板库中启用';
                 select.appendChild(opt);
             } else {
                 let hasSelected = false;
