@@ -38,7 +38,7 @@ templates:
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
   - key: acgrip
-    name: ACG字幕论坛
+    name: ACG 字幕论坛
     flow: discuz
     auth_type: cookie
     auth_label: Cookies 认证
@@ -65,7 +65,7 @@ templates:
     sign_path: /attendance.php
 
   - key: ssdforum
-    name: SSD论坛
+    name: SSD 论坛
     flow: discuz
     auth_type: cookie
     auth_label: Cookies 认证
@@ -74,7 +74,7 @@ templates:
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
   - key: yysub
-    name: YYeTs人人字幕组
+    name: YYeTs 人人字幕组
     flow: yysub
     auth_type: password
     auth_label: 账号 & 密码认证

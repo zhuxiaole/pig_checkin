@@ -15,7 +15,7 @@
 | **星运阁 PT** | `https://pt.xingyungept.org` | `xingyunge` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **NovaHD PT** | `https://pt.novahd.top` | `novahd` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **SSD 论坛** | `https://ssdforum.org` | `ssdforum` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
-| **YYeTs人人字幕组** | `https://yysub.cc` | `yysub` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 | - |
+| **YYeTs 人人字幕组** | `https://yysub.cc` | `yysub` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 | - |
 
 ---
 
@@ -136,7 +136,7 @@
 
 ### 3. `yysub` — yysub.cc 原生 JSON API
 
-适用：YYeTs人人字幕组。该站无 Cloudflare 防盾。
+适用：YYeTs 人人字幕组。该站无 Cloudflare 防盾。
 
 | 步骤 | 请求 | 参数位置与内容 |
 | :--- | :--- | :--- |
