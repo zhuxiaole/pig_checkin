@@ -74,7 +74,7 @@ templates:
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
   - key: yysub
-    name: YYeTs字幕组
+    name: YYeTs人人字幕组
     flow: yysub
     auth_type: password
     auth_label: 账号 & 密码认证
