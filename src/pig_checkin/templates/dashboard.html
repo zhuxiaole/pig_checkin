@@ -717,7 +717,8 @@
 
                     <div>
                         <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">新密码 (可选)</label>
-                        <input type="password" name="new_password" id="acc_new_pwd" placeholder="留空则保持密码不变"
+                        <input type="password" name="new_password" id="acc_new_pwd" minlength="8" maxlength="64"
+                               placeholder="留空则不改；至少 8 位，需含字母和数字"
                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
 

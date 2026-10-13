@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from pig_checkin.db import init_db, get_db, verify_password, hash_password
+from pig_checkin.db import init_db, get_db, verify_password, hash_password, needs_rehash, password_error
 from pig_checkin.crypto import encrypt_text
 from pig_checkin.checkin import execute_checkin
 from pig_checkin.scheduler import start_scheduler, compute_next_run
@@ -56,6 +56,9 @@ def login_action(request: Request, username: str = Form(...), password: str = Fo
     with get_db() as conn:
         user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
         if user and verify_password(user["password"], password):
+            if needs_rehash(user["password"]):
+                conn.execute("UPDATE users SET password = ? WHERE id = ?", (hash_password(password), user["id"]))
+                conn.commit()
             request.session["user"] = username
             return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(request, "login.html", {"error": "用户名或密码错误"})
@@ -110,6 +113,11 @@ def change_account(
 
     if new_password and new_password != confirm_password:
         return JSONResponse({"ok": False, "message": "两次输入的新密码不一致"}, status_code=400)
+
+    if new_password.strip():
+        error = password_error(new_password.strip(), new_username)
+        if error:
+            return JSONResponse({"ok": False, "message": error}, status_code=400)
 
     with get_db() as conn:
         row = conn.execute("SELECT * FROM users WHERE username = ?", (user,)).fetchone()

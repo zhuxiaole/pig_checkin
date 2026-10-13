@@ -1,4 +1,5 @@
 import json
+import secrets
 
 import yaml
 
@@ -244,6 +245,79 @@ def test_session_invalidated_when_user_vanished():
     resp = dashboard(req2)
     assert resp.status_code == 303, "应重定向而不是渲染控制台"
     assert resp.headers["location"] == "/login"
+
+
+def test_password_policy():
+    from pig_checkin.db import password_error
+
+    ok = ["abcdefg1", "P@ssw0rd!", "我的密码abc123", "a" * 63 + "1"]
+    for pw in ok:
+        assert password_error(pw, "zhuxiaole") is None, f"{pw!r} 应通过"
+
+    bad = {
+        "": "空",
+        "abc1": "太短",
+        "abcdefgh": "无数字",
+        "12345678": "无字母且是常见弱密码",
+        "admin123": "常见弱密码",
+        "password1": "常见弱密码",
+        "a" * 64 + "1": "超长",
+        "zhuxiaole1": "包含用户名",
+    }
+    for pw, why in bad.items():
+        assert password_error(pw, "zhuxiaole"), f"{pw!r} 应被拒绝（{why}）"
+    assert password_error("   ", "u"), "纯空白应被拒绝"
+
+
+def test_password_hash_scrypt_and_legacy():
+    import hashlib
+
+    from pig_checkin.db import hash_password, needs_rehash, verify_password
+
+    stored = hash_password("GoodPass123")
+    assert stored.startswith("scrypt$"), "新哈希应是 scrypt 格式"
+    assert verify_password(stored, "GoodPass123")
+    assert not verify_password(stored, "GoodPass124")
+    assert not verify_password(stored, "")
+    assert not verify_password("scrypt$bad$data", "GoodPass123"), "损坏的存储串不得放行"
+    assert not needs_rehash(stored)
+
+    # 旧格式仍可验证，并被标记需要升级
+    legacy_salt = "a" * 32
+    legacy = f"{legacy_salt}:{hashlib.sha256((legacy_salt + 'oldpass123').encode()).hexdigest()}"
+    assert verify_password(legacy, "oldpass123"), "旧 sha256 密码必须还能登录"
+    assert not verify_password(legacy, "oldpass124")
+    assert needs_rehash(legacy), "旧格式应被标记为待升级"
+
+
+def test_login_upgrades_legacy_hash():
+    import hashlib
+
+    from pig_checkin.app import login_action
+    from pig_checkin.db import verify_password
+
+    name, password = "__unittest_legacy__", "oldpass123"
+    salt = secrets.token_hex(16)
+    legacy = f"{salt}:{hashlib.sha256((salt + password).encode()).hexdigest()}"
+    with get_db() as conn:
+        conn.execute("DELETE FROM users WHERE username = ?", (name,))
+        conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (name, legacy))
+        conn.commit()
+
+    req = _Req()
+    req.session = {}
+    try:
+        resp = login_action(request=req, username=name, password=password)
+        assert resp.status_code == 303, "旧密码应能登录"
+        with get_db() as conn:
+            stored = conn.execute("SELECT password FROM users WHERE username = ?", (name,)).fetchone()[0]
+        assert stored.startswith("scrypt$"), "登录成功后应自动升级到 scrypt"
+        assert verify_password(stored, password), "升级后仍能用原密码登录"
+        assert req.session["user"] == name
+    finally:
+        with get_db() as conn:
+            conn.execute("DELETE FROM users WHERE username = ?", (name,))
+            conn.commit()
 
 
 def test_scheduler_and_db():
