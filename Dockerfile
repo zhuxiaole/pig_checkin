@@ -1,8 +1,31 @@
+# 两阶段构建：uv 只在构建期用，不进最终镜像（省约 35MB）。
+# 两阶段必须用同一个基础镜像 —— venv/bin/python 是指向基础镜像解释器的符号链接。
+
+# ---------- 构建阶段：把依赖装进 /app/.venv ----------
+FROM python:3.14-alpine AS builder
+
+WORKDIR /app
+
+# 引入官方 uv 包管理工具（仅本阶段使用）
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# 缓存目录与目标可能跨文件系统，禁用硬链接
+ENV UV_LINK_MODE=copy
+
+# 先复制依赖声明文件，最大化利用构建缓存
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+# 再复制源码并完成项目自身安装（editable，.pth 指向 /app/src）
+COPY . .
+RUN uv sync --frozen --no-dev
+
+# ---------- 运行阶段：只带运行时需要的东西 ----------
 FROM python:3.14-alpine
 
 WORKDIR /app
 
-# 1. 系统基础依赖与运行时支持：
+# 系统依赖：
 # - tzdata: 支持 TZ 环境变量自定义时区
 # - ca-certificates: HTTPS 证书链校验
 # - chromium: zendriver 原生无头浏览器
@@ -13,31 +36,16 @@ RUN apk add --no-cache \
     chromium \
     font-noto-cjk
 
-# 2. 引入官方 uv 包管理工具
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-
-# 3. 环境变量优化：启用字节码预编译与独立复制模式
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai \
-    UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
     PIG_RELOAD=false \
     PIG_BROWSER_PATH=/usr/bin/chromium
 
-# 4. 复制依赖声明文件，最大化利用 Docker 镜像层缓存
-COPY pyproject.toml uv.lock README.md ./
+# 只搬 venv 与源码；uv 的缓存不在 /app 下，本来就不会被带进来
+COPY --from=builder /app /app
 
-# 5. 预装第三方依赖（不含开发依赖，不预装项目自身）
-RUN uv sync --frozen --no-dev --no-install-project && uv cache clean
-
-# 6. 复制应用源代码并完成项目自身可执行脚本安装
-COPY . .
-RUN uv sync --frozen --no-dev && uv cache clean
-
-# 7. 数据持久化挂载卷与端口暴露
 VOLUME ["/app/data"]
 EXPOSE 8000
 
-# 8. 启动应用
 CMD ["pig-checkin"]
