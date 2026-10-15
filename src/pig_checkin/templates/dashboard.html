@@ -146,7 +146,6 @@
                     <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">站点配置与定时任务</h2>
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap">
-                    <span id="site_search_summary" class="hidden text-xs text-slate-400 shrink-0"></span>
                     <div class="relative w-full sm:w-56 shrink-0">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                             <i class="ri-search-line text-sm"></i>
@@ -1380,13 +1379,6 @@
             }
 
             renderPaginationControls('sites-pagination', sitesCurrentPage, totalPages, total, sitesPageSize, 'goSitesPage');
-
-            // 搜索时在输入框左侧回显命中数量，边打字边有反馈（空关键词时整块隐藏，不留空隙）
-            const summaryEl = document.getElementById('site_search_summary');
-            if (summaryEl) {
-                summaryEl.textContent = query ? `找到 ${total} 个站点` : '';
-                summaryEl.classList.toggle('hidden', !query);
-            }
         }
 
         function goSitesPage(page) {
