@@ -83,7 +83,7 @@ templates:
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
   - key: duokan
-    name: 多看
+    name: 多看聚影
     flow: discuz
     auth_type: cookie
     auth_label: Cookies 认证
@@ -156,7 +156,7 @@ templates:
     sign_path: /attendance.php
 
   - key: pandapt
-    name: Panda PT
+    name: 熊猫 PT
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证

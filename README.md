@@ -129,22 +129,22 @@ services:
 | 站点名称 | 默认地址 | 模板标识 (`site_type`) | 架构 / 签到机制 | 认证方式 |
 | :--- | :--- | :--- | :--- | :--- |
 | **国语视界** | `https://cnlang.org` | `cnlang` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
-| **观众 PT** | `https://audiences.me` | `audiences` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **观众** | `https://audiences.me` | `audiences` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **影迷乐园** | `https://www.ymlyhd.com` | `ymlyhd` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
-| **ACG 字幕论坛** | `https://bbs.acgrip.com` | `acgrip` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
-| **星运阁 PT** | `https://pt.xingyungept.org` | `xingyunge` | NexusPHP (`/attendance.php`) | Cookies 认证 |
-| **NovaHD PT** | `https://pt.novahd.top` | `novahd` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **Anime 字幕论坛** | `https://bbs.acgrip.com` | `acgrip` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
+| **星陨阁** | `https://pt.xingyungept.org` | `xingyunge` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **NovaHD** | `https://pt.novahd.top` | `novahd` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **SSD 论坛** | `https://ssdforum.org` | `ssdforum` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
 | **PTShare 论坛** | `http://bbs.ptshare.org` | `ptshare` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
 | **恩山无线论坛** | `https://www.right.com.cn/forum` | `right` | Discuz! (`erling_qd` 插件) | Cookies 认证 |
-| **多看** | `https://duokan.club` | `duokan` | Discuz! (`zqlj_sign` 插件) | Cookies 认证 |
-| **HDFans PT** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 |
-| **PTLGS PT** | `https://ptlgs.org` | `ptlgs` | NexusPHP (`/attendance.php`) | Cookies 认证 |
-| **HDHome PT** | `https://hdhome.org` | `hdhome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
-| **Panda PT** | `https://pandapt.net` | `pandapt` | NexusPHP (`/attendance.php`) | Cookies 认证 |
-| **PTHome PT** | `https://pthome.net` | `pthome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
-| **HHanClub PT** | `https://hhanclub.net` | `hhanclub` | NexusPHP (`/attendance.php`) | Cookies 认证 |
-| **YYeTs 人人字幕组** | `https://yysub.cc` | `yysub` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 |
+| **多看聚影** | `https://duokan.club` | `duokan` | Discuz! (`zqlj_sign` 插件) | Cookies 认证 |
+| **红豆饭** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **PT 劳改所** | `https://ptlgs.org` | `ptlgs` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **高清家园** | `https://hdhome.org` | `hdhome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **熊猫 PT** | `https://pandapt.net` | `pandapt` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **PTHome** | `https://pthome.net` | `pthome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **憨憨** | `https://hhanclub.net` | `hhanclub` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **人人字幕组** | `https://yysub.cc` | `yyets` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 |
 
 *(后续每新增一个网站将在 [SUPPORTED_SITES.md](SUPPORTED_SITES.md) 中持续更新维护)*
 
