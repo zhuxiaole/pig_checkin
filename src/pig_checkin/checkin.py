@@ -260,6 +260,8 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
                 msg = node.text.strip()
                 break
         msg = msg or sign_text[:120].strip() or "签到提交完成"
+        # Discuz 的 showmessage 把「请稍候，本站将自动跳转…」塞在同一个节点里，只留第一行
+        msg = msg.splitlines()[0].strip() or msg
 
         # 部分 Discuz 插件（如 erling_qd）的签到按钮走 AJAX，返回 JSON 而非 HTML 提示
         try:

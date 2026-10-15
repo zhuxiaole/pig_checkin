@@ -75,7 +75,7 @@
 | `logged_in_patterns` / `logged_in_keywords` | `discuz_uid` 正则 / `action=logout` | 登录态判定 |
 | `need_login_keywords` | 未登录提示文案 | 登录失效判定 |
 | `user_patterns` | 4 条正则 | 提取用户名 |
-| `already_signed_page_keywords` | 4 条已签到文案 | 仅在无签到表单时生效 |
+| `already_signed_page_keywords` | 4 条已签到文案 | 仅在无签到表单时生效；**必须是页面独有的片段**，签到排行榜/统计里同样出现的字样会误判（如多看要用 `class="btna">今日已打`） |
 | `success_keywords` / `already_signed_keywords` | 提交响应判定文案 | 判定签到结果 |
 | `message_selectors` | `[["div","c"],["div","messagetext"]]` | 提取提示文本 |
 | `encoding` | 空（自动识别） | 强制指定 `utf-8` / `gbk` / `gb2312` |

@@ -98,9 +98,10 @@ templates:
     need_login_keywords: ["login-prompt", "登录之后才能"]
     gate_keywords: ["dev8133_cloudflare"]
     gate_message: 站点人机验证已过期：请用浏览器打开 https://duokan.club/sign.php 过一次验证，再把 Cookie（含 L76L_2132_cloudflare_check）重新粘贴进来
-    already_signed_page_keywords: ["今日已打", "已打卡"]
+    # 「今日已打」在打卡记录表里每人一条（未签到页面上也有 30 条），必须连按钮 class 一起匹配
+    already_signed_page_keywords: ['class="btna">今日已打']
     success_keywords: ["打卡成功", "签到成功"]
-    already_signed_keywords: ["今日已打", "已打卡", "已经打过卡", "今天已经打卡"]
+    already_signed_keywords: ["今日已打", "已经打过卡", "今天已经打卡", "请勿重复"]
     user_patterns:
       - 'class="vwmy"><a [^>]*>(.*?)</a>'
 
