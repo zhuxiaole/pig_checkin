@@ -161,16 +161,28 @@
                 </div>
             </div>
 
-            <!-- 桌面端表格视图 (md 及以上显示) -->
-            <div class="hidden md:block overflow-x-auto">
-                <table class="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+            <!-- 桌面端表格视图 (xl 及以上显示): 8 列低于 xl 放不下，会顶出横向滚动条 -->
+            <div class="hidden xl:block overflow-x-auto">
+                <table class="w-full table-fixed text-left text-sm text-slate-600 dark:text-slate-300">
+                    <!-- 固定列宽：站点/域名列吃掉剩余宽度，域名与状态超长就省略号截断，
+                         这样表格永远是 100% 宽，不会出现横向滚动条 -->
+                    <colgroup>
+                        <col>
+                        <col class="w-[10%]">
+                        <col class="w-[10%]">
+                        <col class="w-[14%]">
+                        <col class="w-[14%]">
+                        <col class="w-[12%]">
+                        <col class="w-[8%]">
+                        <col class="w-[16%]">
+                    </colgroup>
                     <thead class="bg-slate-100/70 dark:bg-slate-900/50 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-700/60">
                         <tr>
                             <th class="py-3.5 px-4">站点 / 域名</th>
                             <th class="py-3.5 px-4">认证方式</th>
                             <th class="py-3.5 px-4">调度策略</th>
-                            <th class="py-3.5 px-4 w-44 min-w-[175px] whitespace-nowrap">上次执行</th>
-                            <th class="py-3.5 px-4 w-48 min-w-[190px] whitespace-nowrap">下次执行</th>
+                            <th class="py-3.5 px-3 whitespace-nowrap">上次执行</th>
+                            <th class="py-3.5 px-3 whitespace-nowrap">下次执行</th>
                             <th class="py-3.5 px-4">最新状态</th>
                             <th class="py-3.5 px-4">定时开关</th>
                             <th class="py-3.5 px-4 text-right">操作</th>
@@ -180,9 +192,9 @@
                         {% for site in sites %}
                         <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                             <td class="py-3.5 px-4">
-                                <div class="font-medium text-slate-900 dark:text-white">{{ site.name }}</div>
+                                <div class="font-medium text-slate-900 dark:text-white truncate" title="{{ site.name }}">{{ site.name }}</div>
                                 <div class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                                    <span>{{ site.domain or "无地址" }}</span>
+                                    <span class="truncate" title="{{ site.domain }}">{{ site.domain or "无地址" }}</span>
                                     {% if site.domain %}
                                     <a href="{{ site.domain }}" target="_blank" class="hover:text-indigo-500"><i class="ri-external-link-line"></i></a>
                                     {% endif %}
@@ -205,27 +217,27 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td class="py-3.5 px-4 w-44 min-w-[175px] whitespace-nowrap">
+                            <td class="py-3.5 px-3 whitespace-nowrap">
                                 <div class="text-xs font-mono {{ 'text-slate-400 dark:text-slate-500' if not site.last_run else 'text-slate-600 dark:text-slate-300' }}">
                                     {{ site.last_run or "未执行" }}
                                 </div>
                             </td>
-                            <td class="py-3.5 px-4 w-48 min-w-[190px] whitespace-nowrap">
+                            <td class="py-3.5 px-3 whitespace-nowrap">
                                 <div class="text-xs font-mono {{ 'text-slate-400' if not site.enabled else 'text-indigo-600 dark:text-indigo-400 font-semibold' }}">
                                     {{ site.next_run_display }}
                                 </div>
                             </td>
                             <td class="py-3.5 px-4">
                                 {% if "成功" in site.last_status %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-full truncate" title="{{ site.last_status }}">
                                     <i class="ri-checkbox-circle-line mr-1"></i>{{ site.last_status }}
                                 </span>
                                 {% elif "重试" in site.last_status %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 max-w-full truncate" title="{{ site.last_status }}">
                                     <i class="ri-loader-2-line animate-spin mr-1"></i>{{ site.last_status }}
                                 </span>
                                 {% elif "失败" in site.last_status or "失效" in site.last_status %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-xs truncate" title="{{ site.last_status }}">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-full truncate" title="{{ site.last_status }}">
                                     <i class="ri-close-circle-line mr-1"></i>{{ site.last_status }}
                                 </span>
                                 {% else %}
@@ -266,8 +278,8 @@
                 </table>
             </div>
 
-            <!-- 移动端卡片视图 (md 以下屏幕显示) -->
-            <div id="sites-mobile-list" class="block md:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60">
+            <!-- 移动端卡片视图 (xl 以下屏幕显示) -->
+            <div id="sites-mobile-list" class="block xl:hidden divide-y divide-slate-200/80 dark:divide-slate-700/60">
                 {% for site in sites %}
                 <div class="p-4 space-y-3 hover:bg-slate-50/80 dark:hover:bg-slate-700/20 transition-colors">
                     <div class="flex items-start justify-between gap-2">
@@ -1108,11 +1120,11 @@
         function renderStatusBadge(status) {
             status = status || '等待签到';
             if (status.includes('成功')) {
-                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-checkbox-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 max-w-full truncate" title="${escapeHtml(status)}"><i class="ri-checkbox-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
             } else if (status.includes('重试')) {
-                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-loader-2-line animate-spin mr-1"></i>${escapeHtml(status)}</span>`;
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 max-w-full truncate" title="${escapeHtml(status)}"><i class="ri-loader-2-line animate-spin mr-1"></i>${escapeHtml(status)}</span>`;
             } else if (status.includes('失败') || status.includes('失效')) {
-                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-xs truncate" title="${escapeHtml(status)}"><i class="ri-close-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 max-w-full truncate" title="${escapeHtml(status)}"><i class="ri-close-circle-line mr-1"></i>${escapeHtml(status)}</span>`;
             }
             return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-600/50">${escapeHtml(status)}</span>`;
         }
@@ -1127,9 +1139,9 @@
             return `
             <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                 <td class="py-3.5 px-4">
-                    <div class="font-medium text-slate-900 dark:text-white">${escapeHtml(site.name)}</div>
+                    <div class="font-medium text-slate-900 dark:text-white truncate" title="${escapeHtml(site.name)}">${escapeHtml(site.name)}</div>
                     <div class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                        <span>${escapeHtml(site.domain || "无地址")}</span>
+                        <span class="truncate" title="${escapeHtml(site.domain || "")}">${escapeHtml(site.domain || "无地址")}</span>
                         ${domainLink}
                     </div>
                 </td>
@@ -1142,12 +1154,12 @@
                 <td class="py-3.5 px-4">
                     ${scheduleBadge}
                 </td>
-                <td class="py-3.5 px-4 w-44 min-w-[175px] whitespace-nowrap">
+                <td class="py-3.5 px-3 whitespace-nowrap">
                     <div class="text-xs font-mono ${!site.last_run ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}">
                         ${escapeHtml(site.last_run_display || site.last_run || "未执行")}
                     </div>
                 </td>
-                <td class="py-3.5 px-4 w-48 min-w-[190px] whitespace-nowrap">
+                <td class="py-3.5 px-3 whitespace-nowrap">
                     <div class="text-xs font-mono ${!site.enabled ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400 font-semibold'}">
                         ${escapeHtml(site.next_run_display || "待计算")}
                     </div>
