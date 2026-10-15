@@ -146,6 +146,13 @@
                     <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">站点配置与定时任务</h2>
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap">
+                    <div class="relative w-full sm:w-56 shrink-0">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                            <i class="ri-search-line text-sm"></i>
+                        </span>
+                        <input type="text" id="site_search" oninput="onSiteSearch()" placeholder="站点名称 / 地址 / 模板"
+                               class="w-full bg-slate-100 dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+                    </div>
                     <button id="btn-run-all" onclick="handleRunAll(this)" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs sm:text-sm font-medium shadow-md shadow-emerald-600/20 transition-all">
                         <i class="ri-play-fill text-base"></i>
                         <span>立即全部签到</span>
@@ -1327,27 +1334,46 @@
             `;
         }
 
+        // 站点搜索：站点名称 / 站点地址 / 模板名称 / 模板 key 任一命中即可
+        function siteMatchesQuery(site, query) {
+            if (!query) return true;
+            const tpl = templatesMeta[site.site_type] || {};
+            return [site.name, site.domain, tpl.name, site.site_type]
+                .some(value => (value || '').toString().toLowerCase().includes(query));
+        }
+
+        function onSiteSearch() {
+            sitesCurrentPage = 1;
+            renderSitesList();
+        }
+
         function renderSitesList() {
             const desktopTbody = document.getElementById('sites-desktop-body');
             const mobileList = document.getElementById('sites-mobile-list');
             if (!desktopTbody || !mobileList) return;
 
-            const total = allSites.length;
+            const searchEl = document.getElementById('site_search');
+            const query = (searchEl ? searchEl.value : '').toLowerCase().trim();
+            const matched = query ? allSites.filter(s => siteMatchesQuery(s, query)) : allSites;
+
+            const total = matched.length;
             const totalPages = Math.max(1, Math.ceil(total / sitesPageSize));
             sitesCurrentPage = Math.min(Math.max(1, sitesCurrentPage), totalPages);
 
             if (total === 0) {
+                // 区分「一个站点都没配」和「搜不到」，否则搜空了会以为数据没了
+                const emptyText = query ? '没有匹配的站点，换个关键词试试' : '暂无站点配置，请点击右上角「添加新网站」';
                 desktopTbody.innerHTML = `
                     <tr>
                         <td colspan="8" class="py-12 text-center text-slate-400">
-                            <i class="ri-inbox-line text-4xl mb-2 block text-slate-300 dark:text-slate-600"></i>
-                            暂无站点配置，请点击右上角「添加新网站」
+                            <i class="ri-${query ? 'search-eye-line' : 'inbox-line'} text-4xl mb-2 block text-slate-300 dark:text-slate-600"></i>
+                            ${emptyText}
                         </td>
                     </tr>`;
-                mobileList.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">暂无站点配置，请点击顶部按钮添加</div>`;
+                mobileList.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">${emptyText}</div>`;
             } else {
                 const start = (sitesCurrentPage - 1) * sitesPageSize;
-                const pageSites = allSites.slice(start, start + sitesPageSize);
+                const pageSites = matched.slice(start, start + sitesPageSize);
                 desktopTbody.innerHTML = pageSites.map(renderSiteDesktopRow).join('');
                 mobileList.innerHTML = pageSites.map(renderSiteMobileCard).join('');
             }
