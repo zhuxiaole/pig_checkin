@@ -772,8 +772,8 @@
 
     <!-- 模板库模态弹窗 -->
     <div id="templateLibraryModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
-            <div class="px-6 sm:px-8 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
+            <div class="px-6 sm:px-8 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 text-violet-600 dark:text-violet-400 flex items-center justify-center text-lg">
                         <i class="ri-archive-line"></i>
@@ -788,7 +788,7 @@
                 </button>
             </div>
 
-            <div class="overflow-y-auto px-6 sm:px-8 py-5 flex-1 min-h-0 text-sm">
+            <div class="overflow-y-auto px-6 sm:px-8 py-4 flex-1 min-h-0 text-sm">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:h-full">
                     <!-- 左列：全部模板 -->
                     <div class="flex flex-col min-h-0">
@@ -889,7 +889,7 @@
         let tplLibEnabled = [];
         let tplAllCurrentPage = 1;
         let tplEnabledCurrentPage = 1;
-        const tplPageSize = 5;
+        const tplPageSize = 8;
 
         function goTplAllPage(p) {
             tplAllCurrentPage = p;
@@ -1032,7 +1032,7 @@
             if (exiting) exiting.catch(() => {});
 
             allList.innerHTML = pagedMatched.map(t => `
-                <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
+                <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
                         <div class="text-[11px] text-slate-400 flex items-center gap-1"><span class="truncate min-w-0">${escapeHtml(t.default_domain)}</span><a href="${escapeHtml(t.default_domain)}" target="_blank" rel="noopener noreferrer" title="打开 ${escapeHtml(t.default_domain)}" class="shrink-0 hover:text-indigo-500"><i class="ri-external-link-line"></i></a><span class="shrink-0">· ${escapeHtml(t.flow)}</span></div>
@@ -1053,7 +1053,7 @@
             if (exiting) await exiting;
 
             enabledList.innerHTML = pagedEnabled.map(t => `
-                <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
+                <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
                         <div class="text-[11px] text-slate-400 flex items-center gap-1"><span class="truncate min-w-0">${escapeHtml(t.default_domain)}</span><a href="${escapeHtml(t.default_domain)}" target="_blank" rel="noopener noreferrer" title="打开 ${escapeHtml(t.default_domain)}" class="shrink-0 hover:text-indigo-500"><i class="ri-external-link-line"></i></a><span class="shrink-0">· ${escapeHtml(t.flow)}</span></div>
