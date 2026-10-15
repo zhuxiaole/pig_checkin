@@ -70,10 +70,10 @@ NEXUSPHP_DEFAULTS = {
     "user_patterns": [r"userdetails\.php\?id=\d+[^>]*>.*?<b>(.*?)</b>"],
     "done_keywords": ["attendance-card--done", "今天已经签到", "今日已签到", "已经签到过了"],
     "verify_keywords": ["attendance-card--verify"],
-    "success_keywords": ["签到成功"],
+    "success_keywords": ["签到成功", "这是您的第", "已连续签到", "本次签到获得"],
     "bonus_patterns": [r'title=[\'"]\(签到已得(\d+)\)[\'"]', r"已签到.*?<span>\+(\d+)</span>"],
     "card_desc_patterns": [r'class=[\'"]attendance-card__desc[\'"]>(.*?)</p>'],
-    "award_patterns": [r"这是您的第.*?次签到.*?已获得.*?魔力值"],
+    "award_patterns": [r"这是您的第\d+次签到.*?[。！!\n<]", r"这是您的第.*?次签到.*?已获得.*?魔力值"],
     "encoding": "",
 }
 

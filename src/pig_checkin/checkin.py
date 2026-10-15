@@ -403,7 +403,8 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     if _contains_any(res_text, tpl["done_keywords"]):
         attended_bonus = _first_group(res_text, tpl["bonus_patterns"]) or ""
         card_desc = _first_group(res_text, tpl["card_desc_patterns"]) or ""
-        info = f"今日已签到 (获得 {attended_bonus} 粒爆米花)" if attended_bonus else (card_desc or "今日已签到")
+        award_desc = _first_group(res_text, tpl["award_patterns"]) or ""
+        info = f"今日已签到 (获得 {attended_bonus} 粒爆米花)" if attended_bonus else (card_desc or award_desc or "今日已签到")
         logger.info("[%s] 用户 [%s] %s", site_name, user_name, info)
         return True, f"用户 [{user_name}] {info}"
 

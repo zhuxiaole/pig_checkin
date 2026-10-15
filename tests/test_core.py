@@ -152,7 +152,7 @@ def test_dropdown_only_lists_enabled_or_in_use():
 
 def test_all_templates_and_dispatch():
     merged = tl.all_templates()
-    for key in ("cnlang", "audiences", "acgrip", "yysub"):
+    for key in ("cnlang", "audiences", "acgrip", "yyets"):
         assert key in merged, f"缺少模板 {key}"
     assert tl.get_template("no-such-key") is None
 
@@ -166,6 +166,30 @@ def test_all_templates_and_dispatch():
     finally:
         ck.FLOWS["nexusphp"] = orig
     assert ck.execute_checkin_once({"site_type": "no-such-site"}) == (False, "不支持的站点类型: no-such-site")
+
+
+def test_nexusphp_attendance_patterns():
+    from pig_checkin.checkin import checkin_nexusphp
+    tpl = tl.get_template("hhanclub")
+    html = """
+    <html><head><title>HHCLUB</title></head><body>
+    <a href="userdetails.php?id=22775"><b>zhuxiaole</b></a>
+    <p class="register-now-info register-info">这是您的第460次签到，已连续签到5天，本次签到获得30个憨豆。你目前拥有补签卡5张。</p>
+    </body></html>
+    """
+    import requests
+    orig = requests.Session.get
+    try:
+        class Resp:
+            status_code = 200
+            text = html
+        requests.Session.get = lambda self, url, **kw: Resp()
+        ok, msg = checkin_nexusphp({"domain": "https://hhanclub.net", "cookies": "c_secure_uid=1; c_secure_pass=x"}, tpl)
+        assert ok is True
+        assert "这是您的第460次签到" in msg
+        assert "30个憨豆" in msg
+    finally:
+        requests.Session.get = orig
 
 
 def test_latest_status_only_counts_today():
