@@ -73,6 +73,15 @@ templates:
     cookie_placeholder: 请粘贴登录 ssdforum.org 后的完整 Cookie 字符串
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
+  - key: ptshare
+    name: PTShare 论坛
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: http://bbs.ptshare.org
+    cookie_placeholder: 请粘贴登录 bbs.ptshare.org 后的完整 Cookie 字符串
+    sign_path: /plugin.php?id=dsu_paulsign:sign
+
   - key: hdfans
     name: 红豆饭
     flow: nexusphp
