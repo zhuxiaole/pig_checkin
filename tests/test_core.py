@@ -339,6 +339,115 @@ def test_discuz_token_in_url_placeholder():
     assert "8b532b5c" not in sent["url"], "用了登录表单的 formhash，而不是打卡令牌"
 
 
+def test_token_auth_type_encrypted_at_rest():
+    """密钥认证：库里必须是密文，前端只下发 has_token，执行时才解密。"""
+    from pig_checkin.app import add_site, get_dashboard_state
+    from pig_checkin.checkin import execute_checkin_once
+    from pig_checkin.crypto import decrypt_text, is_encrypted
+
+    key = "pgk_" + "A" * 43
+    with get_db() as conn:
+        conn.execute("DELETE FROM sites WHERE name = '__unittest_token__'")
+        conn.commit()
+    try:
+        add_site(name="__unittest_token__", site_type="rousi", domain="https://rousi.pro",
+                 cookies="", username="", password="", token=key,
+                 schedule_type="random", schedule_time="09:00",
+                 max_retries=1, retry_interval=1, user="admin")
+        with get_db() as conn:
+            row = dict(conn.execute("SELECT * FROM sites WHERE name = '__unittest_token__'").fetchone())
+
+        assert row["auth_type"] == "token"
+        assert row["token"] and key not in row["token"], "密钥不能明文落库"
+        assert is_encrypted(row["token"])
+        assert decrypt_text(row["token"]) == key, "加解密要能还原"
+
+        masked = [s for s in get_dashboard_state()[0] if s["id"] == row["id"]][0]
+        assert masked["token"] == "" and masked["token"] is not None
+        assert masked["has_token"] is True
+
+        # 执行时用解密后的密钥，凭据缺失要明确报错而不是发空请求
+        import requests
+        sent = {}
+        orig = requests.Session.post
+        try:
+            class Resp:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {"code": 0, "message": "success",
+                            "data": {"reward": 100, "current_streak": 1, "total_days": 81}}
+
+            def fake_post(self, url, **kw):
+                sent["auth"] = self.headers.get("Authorization")
+                return Resp()
+
+            requests.Session.post = fake_post
+            ok, msg = execute_checkin_once(dict(row))
+        finally:
+            requests.Session.post = orig
+
+        assert ok is True and "获得 100 魔力" in msg and "累计 81 天" in msg
+        assert sent["auth"] == f"Bearer {key}", "要用解密后的密钥做 Bearer 认证"
+
+        ok, msg = execute_checkin_once({**dict(row), "token": ""})
+        assert ok is False and "未配置密钥" in msg
+    finally:
+        with get_db() as conn:
+            conn.execute("DELETE FROM sites WHERE name = '__unittest_token__'")
+            conn.commit()
+
+
+def test_peergo_flow_response_branches():
+    """PeerGo 接口四种应答：成功 / 今天已签到 / 密钥失效 / 权限不足。"""
+    import requests
+    from pig_checkin.checkin import checkin_peergo
+
+    tpl = tl.get_template("rousi")
+    assert tpl["auth_type"] == "token" and tpl["claim_path"] == "/api/points/attendance"
+
+    class Resp:
+        def __init__(self, payload, status=200):
+            self.status_code = status
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    orig = requests.Session.post
+    try:
+        seen = {}
+
+        def fake_post(self, url, **kw):
+            seen["url"] = url
+            seen["json"] = kw.get("json")
+            return Resp(seen["reply"])
+
+        requests.Session.post = fake_post
+        site = {"domain": "https://rousi.pro", "token": "pgk_x"}
+
+        seen["reply"] = {"code": 0, "message": "success",
+                         "data": {"reward": 100, "current_streak": 3, "total_days": 81}}
+        ok, msg = checkin_peergo(site, tpl)
+        assert ok is True and "获得 100 魔力" in msg and "连续 3 天" in msg
+        assert seen["url"].endswith("/api/points/attendance") and seen["json"] == {}
+
+        seen["reply"] = {"code": 1, "message": "今天已签到"}
+        ok, msg = checkin_peergo(site, tpl)
+        assert ok is True and "今日已签到" in msg
+
+        seen["reply"] = {"code": 401, "message": "API Key 无效或已撤销"}
+        ok, msg = checkin_peergo(site, tpl)
+        assert ok is False and "密钥无效" in msg
+
+        seen["reply"] = {"code": 403, "message": "当前账号没有执行该操作的权限"}
+        ok, msg = checkin_peergo(site, tpl)
+        assert ok is False and "attendance:claim" in msg
+    finally:
+        requests.Session.post = orig
+
+
 def test_latest_status_only_counts_today():
     """「最新状态」只显示当天的结果，昨天的成功不能冒充今天。"""
     import datetime

@@ -1,7 +1,7 @@
 """站点模板库。
 
 全部模板来自随程序发布的 site_templates.yaml；代码只保留协议实现
-（discuz / nexusphp / yysub），模板描述站点之间的差异：签到路径、请求参数、
+（discuz / nexusphp / yysub / peergo），模板描述站点之间的差异：签到路径、请求参数、
 以及判定签到状态的关键字与正则。
 
 「启用/停用」只决定后台「添加/编辑网站」下拉框里可选哪些模板，
@@ -94,10 +94,22 @@ YYSUB_DEFAULTS = {
     "ok_status": [1, 200, "1", "200"],
 }
 
+# PeerGo 系站点（如 rousi.pro）：用个人 API Key 调它给 MoviePilot 等自动化工具准备的兼容接口。
+# 认证头固定为 Authorization: Bearer <密钥>；应答形如 {"code":0,"message":"success","data":{...}}。
+PEERGO_DEFAULTS = {
+    "claim_path": "/api/points/attendance",
+    "claim_body": {},
+    "claim_mode": "",            # 留空则用站点默认（fixed）；可选 fixed / random
+    "already_claimed_codes": [1],
+    "unauth_codes": [401],
+    "forbidden_codes": [403],
+}
+
 FLOW_DEFAULTS: dict[str, dict] = {
     "discuz": DISCUZ_DEFAULTS,
     "nexusphp": NEXUSPHP_DEFAULTS,
     "yysub": YYSUB_DEFAULTS,
+    "peergo": PEERGO_DEFAULTS,
 }
 
 
@@ -167,8 +179,8 @@ def validate_template(raw) -> list[str]:
     if flow not in FLOW_DEFAULTS:
         return errors + [f"flow 需为 {'/'.join(FLOW_DEFAULTS)} 之一"]
 
-    if raw.get("auth_type") not in ("cookie", "password"):
-        errors.append("auth_type 需为 cookie 或 password")
+    if raw.get("auth_type") not in ("cookie", "password", "token"):
+        errors.append("auth_type 需为 cookie / password / token")
 
     for field in ("name", "auth_label", "cookie_placeholder"):
         value = raw.get(field, "")
@@ -181,7 +193,8 @@ def validate_template(raw) -> list[str]:
     if not isinstance(domain, str) or not domain.startswith(("http://", "https://")) or not domain.split("//", 1)[1]:
         errors.append("default_domain 需为含协议的完整域名，如 https://example.com")
 
-    if flow != "yysub":
+    # 只有声明了 sign_path 的协议（discuz / nexusphp）才强制校验它
+    if "sign_path" in FLOW_DEFAULTS[flow] or "sign_path" in raw:
         sign_path = raw.get("sign_path", "")
         if not isinstance(sign_path, str) or not sign_path.startswith("/"):
             errors.append("sign_path 需以 / 开头的站内路径")

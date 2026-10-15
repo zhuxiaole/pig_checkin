@@ -449,18 +449,93 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     logger.warning("[%s] 未能匹配到明确的签到成功特征 (页面标题: %s)", site_name, title_text)
     return False, f"未匹配到明确的签到成功特征 (页面标题: {title_text})"
 
+def checkin_peergo(site_dict: dict, tpl: dict) -> tuple[bool, str]:
+    """PeerGo 系站点：用个人 API Key 调它的自动化接口签到。
+
+    接口契约（见 PeerGo 的 moviepilot 兼容层）：认证头 `Authorization: Bearer <key>`，
+    成功返回 {"code":0,...,"data":{reward,total_days,current_streak,...}}，
+    当天已签到时返回 {"code":1,"message":"今天已签到"}，密钥失效 401、缺少 attendance:claim 权限 403。
+    """
+    site_name = tpl["name"]
+    domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
+    api_key = (site_dict.get("token") or "").strip()
+    if not api_key:
+        logger.error("[%s] 未配置密钥", site_name)
+        return False, "未配置密钥 (个人 API Key)"
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+    session = requests.Session()
+    session.headers.update(headers)
+
+    url = f"{domain}{tpl['claim_path']}"
+    body = dict(tpl["claim_body"])
+    if tpl["claim_mode"]:
+        body["mode"] = tpl["claim_mode"]
+
+    logger.info("[%s] POST 签到接口: %s", site_name, url)
+    try:
+        res = session.post(url, json=body, timeout=REQUEST_TIMEOUT)
+    except requests.exceptions.Timeout:
+        logger.error("[%s] 签到接口超时 (超过 %d 秒)", site_name, REQUEST_TIMEOUT)
+        return False, f"网络请求超时 (超过 {REQUEST_TIMEOUT} 秒)"
+    except Exception as e:
+        logger.error("[%s] 签到接口请求失败: %s", site_name, e)
+        return False, f"网络请求失败: {e}"
+
+    try:
+        payload = res.json()
+    except Exception:
+        logger.error("[%s] 签到接口返回非 JSON (HTTP %d): %s", site_name, res.status_code, res.text[:200])
+        return False, f"接口返回异常 (HTTP {res.status_code})"
+    if not isinstance(payload, dict):
+        return False, f"接口返回异常 (HTTP {res.status_code})"
+
+    code = payload.get("code", res.status_code)
+    message = str(payload.get("message") or "").strip()
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+
+    if code in tpl["unauth_codes"]:
+        logger.error("[%s] 密钥无效: %s", site_name, message)
+        return False, f"密钥无效或已撤销 ({message})"
+    if code in tpl["forbidden_codes"]:
+        logger.error("[%s] 密钥权限不足: %s", site_name, message)
+        return False, f"密钥权限不足，缺少 attendance:claim 权限 ({message})"
+    if code in tpl["already_claimed_codes"]:
+        logger.info("[%s] 今日已签到: %s", site_name, message or "今天已签到")
+        return True, f"今日已签到，无需重复签到 ({message or '今天已签到'})"
+    if code != 0:
+        logger.warning("[%s] 签到接口返回失败 code=%s: %s", site_name, code, message)
+        return False, f"签到失败: {message or code}"
+
+    reward = data.get("reward")
+    streak = data.get("current_streak")
+    total = data.get("total_days")
+    parts = [f"获得 {reward} 魔力" if reward is not None else "签到成功"]
+    if streak is not None:
+        parts.append(f"连续 {streak} 天")
+    if total is not None:
+        parts.append(f"累计 {total} 天")
+    info = "，".join(parts)
+    logger.info("[%s] 签到成功: %s", site_name, info)
+    return True, info
+
 # 协议实现注册表，站点通过模板的 flow 字段选用（见 templates.py）
 FLOWS = {
     "discuz": checkin_discuz_dsu_paulsign,
     "nexusphp": checkin_nexusphp,
     "yysub": checkin_yysub,
+    "peergo": checkin_peergo,
 }
 
 def execute_checkin_once(site_dict: dict) -> tuple[bool, str]:
     from pig_checkin.crypto import decrypt_text
     from pig_checkin.templates import get_template
     site_dict = dict(site_dict)
-    for field in ("cookies", "username", "password"):
+    for field in ("cookies", "username", "password", "token"):
         if site_dict.get(field):
             site_dict[field] = decrypt_text(site_dict[field])
 

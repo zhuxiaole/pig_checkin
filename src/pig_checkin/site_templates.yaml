@@ -189,3 +189,14 @@ templates:
     auth_label: 账号 & 密码认证
     default_domain: https://yysub.cc
     cookie_placeholder: （可选）若有需要可填写 Cookie
+
+  # PeerGo 系站点用个人 API Key 走它给自动化工具准备的接口，不需要 Cookie。
+  # 密钥里必须含 attendance:claim 权限，否则签到会 403。
+  - key: rousi
+    name: 肉丝
+    flow: peergo
+    auth_type: token
+    auth_label: 密钥认证
+    default_domain: https://rousi.pro
+    cookie_placeholder: 请粘贴 rousi.pro 账号设置里的「个人 API Key」(pgk_ 开头，需勾选 attendance:claim 权限)
+

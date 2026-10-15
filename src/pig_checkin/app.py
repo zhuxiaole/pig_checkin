@@ -85,9 +85,11 @@ def get_dashboard_state():
             s["has_cookies"] = bool(s.get("cookies") and str(s["cookies"]).strip())
             s["has_username"] = bool(s.get("username") and str(s["username"]).strip())
             s["has_password"] = bool(s.get("password") and str(s["password"]).strip())
+            s["has_token"] = bool(s.get("token") and str(s["token"]).strip())
             s["cookies"] = ""
             s["username"] = ""
             s["password"] = ""
+            s["token"] = ""
 
         logs_cur = conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 500").fetchall()
         logs = [dict(l) for l in logs_cur]
@@ -185,6 +187,7 @@ def add_site(
     cookies: str = Form(""),
     username: str = Form(""),
     password: str = Form(""),
+    token: str = Form(""),
     schedule_type: str = Form("random"),
     schedule_time: str = Form("09:00"),
     max_retries: int = Form(3),
@@ -196,11 +199,12 @@ def add_site(
     enc_cookies = encrypt_text(cookies.strip())
     enc_username = encrypt_text(username.strip())
     enc_password = encrypt_text(password.strip())
+    enc_token = encrypt_text(token.strip())
     with get_db() as conn:
         conn.execute("""
-            INSERT INTO sites (name, site_type, domain, auth_type, cookies, username, password, schedule_type, schedule_time, max_retries, retry_interval, enabled, next_run, last_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
-        """, (name, site_type, domain, auth_type, enc_cookies, enc_username, enc_password, schedule_type, schedule_time, max_retries, retry_interval, initial_next_run))
+            INSERT INTO sites (name, site_type, domain, auth_type, cookies, username, password, token, schedule_type, schedule_time, max_retries, retry_interval, enabled, next_run, last_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '等待签到')
+        """, (name, site_type, domain, auth_type, enc_cookies, enc_username, enc_password, enc_token, schedule_type, schedule_time, max_retries, retry_interval, initial_next_run))
         conn.commit()
     return JSONResponse({"ok": True, "message": f"成功添加站点 [{name}]"})
 
@@ -213,6 +217,7 @@ def edit_site(
     cookies: str = Form(""),
     username: str = Form(""),
     password: str = Form(""),
+    token: str = Form(""),
     schedule_type: str = Form("random"),
     schedule_time: str = Form("09:00"),
     max_retries: int = Form(3),
@@ -224,7 +229,7 @@ def edit_site(
     initial_next_run = compute_next_run(schedule_type, schedule_time)
     
     with get_db() as conn:
-        old_site = conn.execute("SELECT cookies, username, password FROM sites WHERE id = ?", (id,)).fetchone()
+        old_site = conn.execute("SELECT cookies, username, password, token FROM sites WHERE id = ?", (id,)).fetchone()
         
         # 增量覆盖规则：填入新值则加密覆盖；留空/未填写则保留原有保存值
         if cookies.strip():
@@ -242,12 +247,17 @@ def edit_site(
         else:
             enc_password = old_site["password"] if old_site and old_site["password"] else ""
 
+        if token.strip():
+            enc_token = encrypt_text(token.strip())
+        else:
+            enc_token = old_site["token"] if old_site and old_site["token"] else ""
+
         conn.execute("""
             UPDATE sites 
-            SET name = ?, site_type = ?, domain = ?, auth_type = ?, cookies = ?, username = ?, password = ?,
+            SET name = ?, site_type = ?, domain = ?, auth_type = ?, cookies = ?, username = ?, password = ?, token = ?,
                 schedule_type = ?, schedule_time = ?, max_retries = ?, retry_interval = ?, enabled = ?, next_run = ?
             WHERE id = ?
-        """, (name, site_type, domain, auth_type, enc_cookies, enc_username, enc_password, schedule_type, schedule_time, max_retries, retry_interval, enabled, initial_next_run, id))
+        """, (name, site_type, domain, auth_type, enc_cookies, enc_username, enc_password, enc_token, schedule_type, schedule_time, max_retries, retry_interval, enabled, initial_next_run, id))
         conn.commit()
     return JSONResponse({"ok": True, "message": f"成功更新站点 [{name}] 配置"})
 

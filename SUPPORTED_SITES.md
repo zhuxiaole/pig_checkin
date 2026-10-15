@@ -18,6 +18,7 @@
 | **PTShare 论坛** | `http://bbs.ptshare.org` | `ptshare` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **恩山无线论坛** | `https://www.right.com.cn/forum` | `right` | Discuz! (`erling_qd` 插件，AJAX + JSON) | Cookies 认证 | ✔ 自动穿透 |
 | **多看聚影** | `https://duokan.club` | `duokan` | Discuz! (`zqlj_sign` 插件，令牌在 URL) | Cookies 认证 | ⚠ 需手动过一次人机验证 |
+| **肉丝** | `https://rousi.pro` | `rousi` | PeerGo (`POST /api/points/attendance`) | 密钥认证 | - |
 | **红豆饭** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **PT 劳改所** | `https://ptlgs.org` | `ptlgs` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **高清家园** | `https://hdhome.org` | `hdhome` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
@@ -30,7 +31,7 @@
 
 ## 站点模板配置
 
-站点配置全部抽成 YAML 模板（`src/pig_checkin/site_templates.yaml`），代码只保留协议实现（`discuz` / `nexusphp` / `yysub`）。
+站点配置全部抽成 YAML 模板（`src/pig_checkin/site_templates.yaml`），代码只保留协议实现（`discuz` / `nexusphp` / `yysub` / `peergo`）。
 模板随程序发布，**不依赖任何远程服务**。
 
 ### 启用与停用
@@ -51,8 +52,8 @@
 | :--- | :---: | :--- |
 | `key` | ✔ | 唯一标识（`site_type`），`^[a-z0-9][a-z0-9_]{0,31}$` |
 | `name` | ✔ | 站点名称，**只写名称，不要带网址**（如 `国语视界`） |
-| `flow` | ✔ | 协议实现：`discuz` / `nexusphp` / `yysub` |
-| `auth_type` | ✔ | `cookie` 或 `password` |
+| `flow` | ✔ | 协议实现：`discuz` / `nexusphp` / `yysub` / `peergo` |
+| `auth_type` | ✔ | `cookie` / `password` / `token`（密钥，单独一列加密存储） |
 | `auth_label` | ✔ | 认证方式中文标签（UI 展示） |
 | `default_domain` | ✔ | 默认域名，必须含 `http://` 或 `https://` |
 | `cookie_placeholder` | ✔ | Cookie 输入框占位提示 |
@@ -86,6 +87,18 @@
 
 `yysub` 常用覆盖项：`login_path`、`info_path`、`login_body`（值支持 `{username}` / `{password}` 占位）、
 `login_fail_status`、`unauth_status`、`success_fields`（`a.b.c` 路径）、`ok_status`。
+
+`peergo` 常用覆盖项（PeerGo 系站点，用个人 API Key 调它的自动化接口，不需要 Cookie）：
+
+| 字段 | 默认值 | 作用 |
+| :--- | :--- | :--- |
+| `claim_path` | `/api/points/attendance` | 签到接口（`POST`，认证头 `Authorization: Bearer <密钥>`） |
+| `claim_body` | `{}` | 随请求提交的 JSON 字段 |
+| `claim_mode` | 空 | 留空用站点默认（`fixed`），可选 `fixed` / `random` |
+| `already_claimed_codes` | `[1]` | 应答里代表「今天已签到」的 `code` |
+| `unauth_codes` / `forbidden_codes` | `[401]` / `[403]` | 密钥失效 / 权限不足的 `code` |
+
+> 密钥需要有 `attendance:claim` 权限（在站点账号设置里生成个人 API Key 时勾选），否则接口返回 403。
 
 ### 新增站点
 

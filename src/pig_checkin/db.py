@@ -108,6 +108,7 @@ def init_db():
             cookies TEXT DEFAULT '',
             username TEXT DEFAULT '',
             password TEXT DEFAULT '',
+            token TEXT DEFAULT '',
             domain TEXT DEFAULT 'https://cnlang.org',
             schedule_type TEXT DEFAULT 'random', -- 'random' or 'fixed'
             schedule_time TEXT DEFAULT '09:00',
@@ -145,7 +146,8 @@ def init_db():
             "schedule_time": "TEXT DEFAULT '09:00'",
             "max_retries": "INTEGER DEFAULT 3",
             "retry_interval": "INTEGER DEFAULT 60",
-            "next_run": "TIMESTAMP"
+            "next_run": "TIMESTAMP",
+            "token": "TEXT DEFAULT ''"
         }
         for col, col_type in column_defs.items():
             if col not in existing_cols:
@@ -159,28 +161,22 @@ def init_db():
                 ("admin", hash_password("admin123"))
             )
 
-        # 自动加密现有历史明文凭据 (cookies, username, password)
+        # 自动加密现有历史明文凭据 (cookies, username, password, token)
         from pig_checkin.crypto import encrypt_text, is_encrypted
-        site_rows = conn.execute("SELECT id, cookies, username, password FROM sites").fetchall()
+        site_rows = conn.execute("SELECT id, cookies, username, password, token FROM sites").fetchall()
         for r in site_rows:
             sid = r["id"]
-            ck = r["cookies"] or ""
-            un = r["username"] or ""
-            pw = r["password"] or ""
+            fields = {name: (r[name] or "") for name in ("cookies", "username", "password", "token")}
+            encrypted = {name: value for name, value in fields.items()}
             needs_update = False
-            new_ck, new_un, new_pw = ck, un, pw
-            if ck and not is_encrypted(ck):
-                new_ck = encrypt_text(ck)
-                needs_update = True
-            if un and not is_encrypted(un):
-                new_un = encrypt_text(un)
-                needs_update = True
-            if pw and not is_encrypted(pw):
-                new_pw = encrypt_text(pw)
-                needs_update = True
+            for name, value in fields.items():
+                if value and not is_encrypted(value):
+                    encrypted[name] = encrypt_text(value)
+                    needs_update = True
             if needs_update:
                 conn.execute(
-                    "UPDATE sites SET cookies = ?, username = ?, password = ? WHERE id = ?",
-                    (new_ck, new_un, new_pw, sid)
+                    "UPDATE sites SET cookies = ?, username = ?, password = ?, token = ? WHERE id = ?",
+                    (encrypted["cookies"], encrypted["username"], encrypted["password"],
+                     encrypted["token"], sid)
                 )
         conn.commit()

@@ -203,7 +203,7 @@
                             <td class="py-3.5 px-4">
                                 <span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
                                     <i class="ri-key-2-line mr-1 text-slate-400"></i>
-                                    {{ "Cookies" if site.auth_type == 'cookie' else "账号密码" }}
+                                    {{ "Cookies" if site.auth_type == 'cookie' else ("密钥" if site.auth_type == 'token' else "账号密码") }}
                                 </span>
                             </td>
                             <td class="py-3.5 px-4">
@@ -313,7 +313,7 @@
                     <!-- 属性标签 -->
                     <div class="flex flex-wrap gap-2 text-xs">
                         <span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600/40">
-                            {{ "Cookies" if site.auth_type == 'cookie' else "账号密码" }}
+                            {{ "Cookies" if site.auth_type == 'cookie' else ("密钥" if site.auth_type == 'token' else "账号密码") }}
                         </span>
                         {% if site.schedule_type == 'fixed' %}
                         <span class="px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">
@@ -532,9 +532,11 @@
                     </div>
 
                     <div id="add_cookie_field">
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Cookie 字符串</label>
-                        <textarea name="cookies" rows="3" placeholder="请从浏览器开发者工具中复制粘贴 Cookie 字符串"
+                        <label id="add_cookie_label" class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Cookie 字符串</label>
+                        <textarea name="cookies" id="add_cookies" rows="3" placeholder="请从浏览器开发者工具中复制粘贴 Cookie 字符串"
                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
+                        <input type="text" name="token" id="add_token" placeholder="请粘贴站点个人 API Key"
+                               class="hidden w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500">
                     </div>
 
                     <div id="add_cred_fields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -661,12 +663,14 @@
 
                     <div id="edit_cookie_field">
                         <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Cookie 字符串</label>
+                            <label id="edit_cookie_label" class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Cookie 字符串</label>
                             <span id="edit_cookie_status" class="text-xs font-medium"></span>
                         </div>
                         <textarea name="cookies" id="edit_cookies" rows="3"
                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
-                        <p class="text-[11px] text-slate-400 mt-1">留空则保持原有 Cookie 不变；输入新内容将覆盖原配置。</p>
+                        <input type="text" name="token" id="edit_token"
+                               class="hidden w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                        <p id="edit_cookie_hint" class="text-[11px] text-slate-400 mt-1">留空则保持原有 Cookie 不变；输入新内容将覆盖原配置。</p>
                     </div>
 
                     <div id="edit_cred_fields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1148,7 +1152,7 @@
                 <td class="py-3.5 px-4">
                     <span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
                         <i class="ri-key-2-line mr-1 text-slate-400"></i>
-                        ${site.auth_type === 'cookie' ? 'Cookies' : '账号密码'}
+                        ${site.auth_type === 'cookie' ? 'Cookies' : (site.auth_type === 'token' ? '密钥' : '账号密码')}
                     </span>
                 </td>
                 <td class="py-3.5 px-4">
@@ -1222,7 +1226,7 @@
 
                 <div class="flex flex-wrap gap-2 text-xs">
                     <span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600/40">
-                        ${site.auth_type === 'cookie' ? 'Cookies' : '账号密码'}
+                        ${site.auth_type === 'cookie' ? 'Cookies' : (site.auth_type === 'token' ? '密钥' : '账号密码')}
                     </span>
                     ${site.schedule_type === 'fixed'
                         ? `<span class="px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">固定 ${escapeHtml(site.schedule_time || '09:00')}</span>`
@@ -1726,10 +1730,40 @@
 
             const cookieField = document.getElementById(prefix + '_cookie_field');
             const credFields = document.getElementById(prefix + '_cred_fields');
+            const cookieLabel = document.getElementById(prefix + '_cookie_label');
+            const cookieArea = document.getElementById(prefix + '_cookies');
+            const tokenInput = document.getElementById(prefix + '_token');
+            const placeholder = meta.cookie_placeholder || '';
+
+            // 已保存过凭据的编辑态：占位文案换成「留空则保持原配置」，不再提示去粘贴
+            const applyPlaceholder = (el) => {
+                if (!el) return;
+                if (el.dataset.saved === '1') {
+                    el.placeholder = '已安全加密保存，留空则保持原配置；输入新内容将覆盖原值';
+                } else if (placeholder) {
+                    el.placeholder = placeholder;
+                }
+            };
 
             if (meta.auth_type === 'cookie') {
                 if (cookieField) cookieField.classList.remove('hidden');
                 if (credFields) credFields.classList.add('hidden');
+                if (cookieLabel) cookieLabel.textContent = 'Cookie 字符串';
+                if (cookieArea) cookieArea.classList.remove('hidden');
+                if (tokenInput) tokenInput.classList.add('hidden');
+                applyPlaceholder(cookieArea);
+                const cookieHint = document.getElementById('edit_cookie_hint');
+                if (cookieHint) cookieHint.textContent = '留空则保持原有 Cookie 不变；输入新内容将覆盖原配置。';
+            } else if (meta.auth_type === 'token') {
+                // 密钥认证：同一个位置换成单行输入框，标签与占位提示跟着模板走
+                if (cookieField) cookieField.classList.remove('hidden');
+                if (credFields) credFields.classList.add('hidden');
+                if (cookieLabel) cookieLabel.textContent = '密钥';
+                if (cookieArea) cookieArea.classList.add('hidden');
+                if (tokenInput) tokenInput.classList.remove('hidden');
+                applyPlaceholder(tokenInput);
+                const hint = document.getElementById('edit_cookie_hint');
+                if (hint) hint.textContent = '留空则保持原有密钥不变；输入新内容将覆盖原配置。';
             } else {
                 if (cookieField) cookieField.classList.add('hidden');
                 if (credFields) credFields.classList.remove('hidden');
@@ -1820,19 +1854,21 @@
             // 凭据脱敏处理：输入框不显示原有密文/明文，每次打开模态框均置空
             const editCookiesInput = document.getElementById('edit_cookies');
             editCookiesInput.value = '';
+            const editTokenInput = document.getElementById('edit_token');
+            editTokenInput.value = '';
             const editUserInput = document.getElementById('edit_username');
             editUserInput.value = '';
             const editPwdInput = document.getElementById('edit_password');
             editPwdInput.value = '';
 
-            // 显示「已填写」或「未填写」状态提示
+            // 显示「已填写」或「未填写」状态提示；占位文案由 updateTemplateUI 统一设置
+            editCookiesInput.dataset.saved = site.has_cookies ? '1' : '0';
+            editTokenInput.dataset.saved = site.has_token ? '1' : '0';
             const cookieStatus = document.getElementById('edit_cookie_status');
-            if (site.has_cookies) {
+            if (site.auth_type === 'token' ? site.has_token : site.has_cookies) {
                 cookieStatus.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><i class="ri-checkbox-circle-fill"></i>已填写</span>`;
-                editCookiesInput.placeholder = '已安全加密保存，留空则保持原配置；输入新内容将覆盖原值';
             } else {
                 cookieStatus.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1"><i class="ri-error-warning-fill"></i>未填写</span>`;
-                editCookiesInput.placeholder = '未配置，请粘贴浏览器中复制的完整 Cookie 字符串';
             }
 
             const userStatus = document.getElementById('edit_username_status');

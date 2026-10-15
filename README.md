@@ -85,7 +85,7 @@ services:
 | 环境变量名 | 默认值 | 必填/建议 | 功能说明 |
 | :--- | :--- | :---: | :--- |
 | **`TZ`** | `Asia/Shanghai` | **推荐配置** | 容器系统时区。依赖预置的 `tzdata`，确保签到日志时间戳、每日定时触发时刻与您所在地区时间精准一致（例如 `Asia/Shanghai`、`UTC`、`America/New_York`）。 |
-| **`SECRET_KEY`** | *(内置默认密钥)* | **强烈建议修改** | 站点凭据（Cookies、密码）对称加密根密钥（Fernet / AES-128-CBC + HMAC-SHA256）。生产与公网部署务必修改为高强度随机字符串。 |
+| **`SECRET_KEY`** | *(内置默认密钥)* | **强烈建议修改** | 站点凭据（Cookies、密码、API 密钥）对称加密根密钥（Fernet / AES-128-CBC + HMAC-SHA256）。生产与公网部署务必修改为高强度随机字符串。 |
 | **`PIG_REQUEST_TIMEOUT`** | `30` | 可选 | 单次 HTTP 请求超时限制（秒）。网络较慢或站点响应迟缓时可调大。 |
 | **`PIG_BROWSER_TIMEOUT`** | `35` | 可选 | 无痕浏览器绕过 Cloudflare 时的单次页面加载超时限制（秒）。 |
 | **`PIG_RELOAD`** | `false` | 可选 | Uvicorn 服务热重载开关。生产容器环境保持 `false`；本地调试代码若需热加载可设为 `true`。 |
@@ -95,7 +95,7 @@ services:
 ## 安全配置与密钥设置（强烈建议）
 
 > ⚠️ **重要安全提醒**：
-> 数据库中存储的站点 **Cookies**、**用户名** 与 **密码** 均采用工业级 **Fernet (AES-128-CBC + HMAC-SHA256)** 对称加密存储。
+> 数据库中存储的站点 **Cookies**、**用户名**、**密码** 与 **API 密钥** 均采用工业级 **Fernet (AES-128-CBC + HMAC-SHA256)** 对称加密存储。
 > 系统默认会读取环境变量 `SECRET_KEY` 作为加密根密钥。**为了保护您的站点账号凭据安全，强烈建议您在生产或公网环境中部署时，务必自定义设置 `SECRET_KEY` 环境变量**！若未配置，系统将回退使用代码内置默认密钥。
 
 ### 设置环境变量运行方式：
@@ -145,6 +145,8 @@ services:
 | **PTHome** | `https://pthome.net` | `pthome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **憨憨** | `https://hhanclub.net` | `hhanclub` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **人人字幕组** | `https://yysub.cc` | `yyets` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 |
+
+| **肉丝** | `https://rousi.pro` | `rousi` | PeerGo (`/api/points/attendance`) | 密钥认证 |
 
 *(后续每新增一个网站将在 [SUPPORTED_SITES.md](SUPPORTED_SITES.md) 中持续更新维护)*
 
