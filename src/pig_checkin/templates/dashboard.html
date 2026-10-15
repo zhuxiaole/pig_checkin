@@ -20,6 +20,8 @@
         }
     </script>
     <link href="https://cdn.bootcdn.net/ajax/libs/remixicon/4.2.0/remixicon.css" rel="stylesheet"/>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png"/>
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png"/>
     <style>
         /* 自定义滚动条样式 */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -40,9 +42,7 @@
     <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20 text-white">
-                    🐖
-                </div>
+                <img src="/static/logo.png" alt="Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-indigo-500/20 object-cover">
                 <div>
                     <span class="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">Pig Checkin</span>
                     <span id="app-version-badge" class="hidden sm:inline-block ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">v{{ app_version }}</span>
