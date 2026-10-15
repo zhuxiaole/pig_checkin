@@ -137,6 +137,10 @@ services:
 | **SSD 论坛** | `https://ssdforum.org` | `ssdforum` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
 | **HDFans PT** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **PTLGS PT** | `https://ptlgs.org` | `ptlgs` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **HDHome PT** | `https://hdhome.org` | `hdhome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **Panda PT** | `https://pandapt.net` | `pandapt` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **PTHome PT** | `https://pthome.net` | `pthome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **HHanClub PT** | `https://hhanclub.net` | `hhanclub` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **YYeTs 人人字幕组** | `https://yysub.cc` | `yysub` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 |
 
 *(后续每新增一个网站将在 [SUPPORTED_SITES.md](SUPPORTED_SITES.md) 中持续更新维护)*

@@ -91,6 +91,42 @@ templates:
     cookie_placeholder: 请粘贴登录 ptlgs.org 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
     sign_path: /attendance.php
 
+  - key: hdhome
+    name: HDHome PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://hdhome.org
+    cookie_placeholder: 请粘贴登录 hdhome.org 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
+  - key: pandapt
+    name: Panda PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://pandapt.net
+    cookie_placeholder: 请粘贴登录 pandapt.net 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
+  - key: pthome
+    name: PTHome PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://pthome.net
+    cookie_placeholder: 请粘贴登录 pthome.net 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
+  - key: hhanclub
+    name: HHanClub PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://hhanclub.net
+    cookie_placeholder: 请粘贴登录 hhanclub.net 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
   - key: yysub
     name: YYeTs 人人字幕组
     flow: yysub
