@@ -76,6 +76,8 @@ NEXUSPHP_DEFAULTS = {
     "bonus_patterns": [r'title=[\'"]\(签到已得(\d+)\)[\'"]', r"已签到.*?<span>\+(\d+)</span>"],
     "card_desc_patterns": [r'class=[\'"]attendance-card__desc[\'"]>(.*?)</p>'],
     "award_patterns": [r"这是您的第\d+次签到.*?[。！!\n<]", r"这是您的第.*?次签到.*?已获得.*?魔力值"],
+    # 少数站点（如 BTSchool）当天领取入口用完就不再渲染，页面不含这些片段即视为今日已领取
+    "already_signed_if_absent": [],
     "encoding": "",
 }
 

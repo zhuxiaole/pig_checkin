@@ -84,7 +84,9 @@
 
 `nexusphp` 常用覆盖项：`sign_path`、`login_fail_keywords`、`login_required_keyword`、`user_patterns`、
 `done_keywords`（已签到）、`verify_keywords`（需人机验证）、`success_keywords`、`bonus_patterns`（奖励数额）、
-`card_desc_patterns`（卡片描述）、`award_patterns`（签到成功说明）、`encoding`。
+`card_desc_patterns`（卡片描述）、`award_patterns`（签到成功说明）、
+`already_signed_if_absent`（页面**不含**这些片段即视为今日已领取，用于当天入口用完就不再渲染的站点，如 BTSchool）、
+`encoding`。
 
 `yysub` 常用覆盖项：`login_path`、`info_path`、`login_body`（值支持 `{username}` / `{password}` 占位）、
 `login_fail_status`、`unauth_status`、`success_fields`（`a.b.c` 路径）、`ok_status`。
@@ -150,7 +152,10 @@
 
 BTSchool 同属 NexusPHP，但走的是老版「每日领取魔力」入口 `/index.php?action=addbonus`（不是
 `attendance-card` 那套卡片签到），因此它的 `done_keywords` / `success_keywords` 由模板单独覆盖，
-不影响其余 NexusPHP 站点。
+不影响其余 NexusPHP 站点。实测该站两种状态：
+
+- **刚领取**：首页会插一块绿色提示「今日签到，获得 NN 个魔力值」→ 命中 `success_keywords`，并提取出奖励数额；
+- **今日已领**：入口链接 `action=addbonus` 直接不再渲染（页面既无入口也无提示）→ 由 `already_signed_if_absent` 兜底判为已签到，避免重复执行时误报失败。
 
 | 步骤 | 请求 | 参数位置与内容 |
 | :--- | :--- | :--- |

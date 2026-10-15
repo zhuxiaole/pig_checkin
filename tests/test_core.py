@@ -497,6 +497,50 @@ def test_run_site_is_async_and_deduped():
             conn.commit()
 
 
+def test_nexusphp_already_signed_if_absent():
+    """BTSchool：领取入口当天用完就不再渲染，页面没有入口 = 今日已领取；有入口但没成功文案 = 失败。"""
+    import requests
+    from pig_checkin.checkin import checkin_nexusphp
+
+    tpl = tl.get_template("btschool")
+    assert tpl["already_signed_if_absent"] == ["action=addbonus"]
+    assert tpl["sign_path"] == "/index.php?action=addbonus"
+
+    def page(inner: str) -> str:
+        return ('<html><head><title>BTSCHOOL :: 首页</title></head><body>'
+                '<a href="userdetails.php?id=134228"><b>zhuxiaole</b></a>' + inner + "</body></html>")
+
+    JUST_CLAIMED = page("<table><tr><td style='background: green'><b><a href=\"index.php\">"
+                        "<font color=\"white\">今日签到，获得42个魔力值</font></a></b></td></tr></table>")
+    ALREADY = page('<font class="color_bonus">魔力值 </font>[<a href="mybonus.php">使用</a>]: 184,873.6')
+    NOT_YET = page('<a href="index.php?action=addbonus">签到</a>')
+
+    class Resp:
+        def __init__(self, text):
+            self.status_code = 200
+            self.text = text
+            self.content = text.encode("utf-8")
+            self.headers = {"Content-Type": "text/html; charset=utf-8"}
+
+    site = {"domain": "https://pt.btschool.club", "cookies": "c_secure_uid=1"}
+    orig = requests.Session.get
+    try:
+        requests.Session.get = lambda self, url, **kw: Resp(JUST_CLAIMED)
+        ok, msg = checkin_nexusphp(site, tpl)
+        assert ok is True and "42个魔力值" in msg, msg
+
+        requests.Session.get = lambda self, url, **kw: Resp(ALREADY)
+        ok, msg = checkin_nexusphp(site, tpl)
+        assert ok is True and "今日已签到" in msg, msg
+
+        # 入口还在（说明今天没领到）时不能被「入口消失」逻辑误判成成功
+        requests.Session.get = lambda self, url, **kw: Resp(NOT_YET)
+        ok, msg = checkin_nexusphp(site, tpl)
+        assert ok is False, msg
+    finally:
+        requests.Session.get = orig
+
+
 def test_latest_status_only_counts_today():
     """「最新状态」只显示当天的结果，昨天的成功不能冒充今天。"""
     import datetime

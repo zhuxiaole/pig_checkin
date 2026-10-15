@@ -443,6 +443,12 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         logger.info("[%s] 用户 [%s] 签到成功: %s", site_name, user_name, award_info)
         return True, f"用户 [{user_name}] {award_info}"
 
+    # 当天领取入口用完就不渲染的站点（如 BTSchool）：页面已无入口 = 今日已领过，
+    # 放在成功判定之后，免得刚领取那一次也被吞成「已领取」而丢掉奖励数额。
+    if tpl["already_signed_if_absent"] and not _contains_any(res_text, tpl["already_signed_if_absent"]):
+        logger.info("[%s] 用户 [%s] 今日已签到 (页面已无领取入口)", site_name, user_name)
+        return True, f"用户 [{user_name}] 今日已签到，无需重复签到"
+
     # 未能识别成功特征，避免误报为成功
     soup = BeautifulSoup(res_text, "html.parser")
     title_text = soup.title.string.strip() if soup.title else ""

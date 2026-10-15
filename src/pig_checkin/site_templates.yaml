@@ -191,11 +191,14 @@ templates:
     cookie_placeholder: 请粘贴登录 pt.btschool.club 后的完整 Cookie 字符串 (包含 c_secure_uid 与 c_secure_pass)
     sign_path: /index.php?action=addbonus
     # 老版 NexusPHP 的「每日领取魔力」入口，不是 attendance-card 那套卡片签到，
-    # 因此用模板级关键字覆盖协议默认值（只影响本模板）
+    # 因此用模板级关键字覆盖协议默认值（只影响本模板）。
+    # 实测：领取成功时首页会插一块绿色提示「今日签到，获得NN个魔力值」；
+    # 当天领过之后入口链接 action=addbonus 就不再渲染，故用「入口消失」兜底判已领取。
     done_keywords: ["今天已经签到", "今日已签到", "已经签到过了", "已经领取", "今日已领取", "请勿重复"]
-    success_keywords: ["成功添加", "成功领取", "领取成功", "签到成功"]
-    bonus_patterns: ['成功添加\s*([\d.,]+)', '成功领取\s*([\d.,]+)']
-    award_patterns: ['成功添加.*?魔力值', '成功领取.*?魔力值']
+    success_keywords: ["今日签到", "成功添加", "成功领取", "领取成功", "签到成功"]
+    bonus_patterns: ['获得\s*([\d.,]+)\s*个魔力值', '成功添加\s*([\d.,]+)', '成功领取\s*([\d.,]+)']
+    award_patterns: ['今日签到.*?魔力值', '成功添加.*?魔力值', '成功领取.*?魔力值']
+    already_signed_if_absent: ["action=addbonus"]
 
   - key: yyets
     name: 人人字幕组
