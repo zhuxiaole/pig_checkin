@@ -182,6 +182,21 @@ templates:
     cookie_placeholder: 请粘贴登录 hhanclub.net 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
     sign_path: /attendance.php
 
+  - key: btschool
+    name: BTSchool
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://pt.btschool.club
+    cookie_placeholder: 请粘贴登录 pt.btschool.club 后的完整 Cookie 字符串 (包含 c_secure_uid 与 c_secure_pass)
+    sign_path: /index.php?action=addbonus
+    # 老版 NexusPHP 的「每日领取魔力」入口，不是 attendance-card 那套卡片签到，
+    # 因此用模板级关键字覆盖协议默认值（只影响本模板）
+    done_keywords: ["今天已经签到", "今日已签到", "已经签到过了", "已经领取", "今日已领取", "请勿重复"]
+    success_keywords: ["成功添加", "成功领取", "领取成功", "签到成功"]
+    bonus_patterns: ['成功添加\s*([\d.,]+)', '成功领取\s*([\d.,]+)']
+    award_patterns: ['成功添加.*?魔力值', '成功领取.*?魔力值']
+
   - key: yyets
     name: 人人字幕组
     flow: yysub

@@ -145,8 +145,8 @@ services:
 | **熊猫 PT** | `https://pandapt.net` | `pandapt` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **PTHome** | `https://pthome.net` | `pthome` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **憨憨** | `https://hhanclub.net` | `hhanclub` | NexusPHP (`/attendance.php`) | Cookies 认证 |
+| **BTSchool** | `https://pt.btschool.club` | `btschool` | NexusPHP (`/index.php?action=addbonus`) | Cookies 认证 |
 | **人人字幕组** | `https://yysub.cc` | `yyets` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 |
-
 | **肉丝** | `https://rousi.pro` | `rousi` | PeerGo (`/api/points/attendance`) | 密钥认证 |
 
 *(后续每新增一个网站将在 [SUPPORTED_SITES.md](SUPPORTED_SITES.md) 中持续更新维护)*

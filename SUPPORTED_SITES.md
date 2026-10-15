@@ -25,6 +25,7 @@
 | **熊猫 PT** | `https://pandapt.net` | `pandapt` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **PTHome** | `https://pthome.net` | `pthome` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **憨憨** | `https://hhanclub.net` | `hhanclub` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
+| **BTSchool** | `https://pt.btschool.club` | `btschool` | NexusPHP (`/index.php?action=addbonus`) | Cookies 认证 | - |
 | **人人字幕组** | `https://yysub.cc` | `yyets` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 | - |
 
 ---
@@ -116,7 +117,7 @@
 
 ## 签到流程详解
 
-系统把签到逻辑抽象为 **4 种协议**（`flow`），18 个站点只是同一协议的参数差异。
+系统把签到逻辑抽象为 **4 种协议**（`flow`），19 个站点只是同一协议的参数差异。
 
 ### 1. `discuz` — Discuz! 论坛签到（7 站）
 
@@ -143,9 +144,13 @@
 4. **提交时已签到**：响应含 `already_signed_keywords`（`已经签到过了` / `今天已经签到`）→ 成功。
 5. **其余**：判为失败，并把 `div.c` 或 `#messagetext` 中的提示文本回显到日志（只取第一行，Discuz 会把“请稍候，本站将自动跳转…”塞在同一个节点里）。
 
-### 2. `nexusphp` — NexusPHP PT 站签到（9 站）
+### 2. `nexusphp` — NexusPHP PT 站签到（10 站）
 
-适用：观众、星陨阁、NovaHD、红豆饭、PT 劳改所、高清家园、熊猫 PT、PTHome、憨憨。签到路径均为 `/attendance.php`。
+适用：观众、星陨阁、NovaHD、红豆饭、PT 劳改所、高清家园、熊猫 PT、PTHome、憨憨。这些站点签到路径均为 `/attendance.php`。
+
+BTSchool 同属 NexusPHP，但走的是老版「每日领取魔力」入口 `/index.php?action=addbonus`（不是
+`attendance-card` 那套卡片签到），因此它的 `done_keywords` / `success_keywords` 由模板单独覆盖，
+不影响其余 NexusPHP 站点。
 
 | 步骤 | 请求 | 参数位置与内容 |
 | :--- | :--- | :--- |
