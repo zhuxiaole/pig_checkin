@@ -82,6 +82,28 @@ templates:
     cookie_placeholder: 请粘贴登录 bbs.ptshare.org 后的完整 Cookie 字符串
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
+  - key: duokan
+    name: 多看
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://duokan.club
+    cookie_placeholder: 请粘贴登录 duokan.club 后的完整 Cookie 字符串 (必须包含 L76L_2132_cloudflare_check，它来自站点的人机验证，24 小时有效)
+    sign_path: /sign.php
+    submit_path: /sign.php?sign={formhash}
+    submit_body: {}
+    greeting_field: ""
+    formhash_patterns:
+      - 'sign\.php\?sign=([0-9a-fA-F]{6,32})'
+    need_login_keywords: ["login-prompt", "登录之后才能"]
+    gate_keywords: ["dev8133_cloudflare"]
+    gate_message: 站点人机验证已过期：请用浏览器打开 https://duokan.club/sign.php 过一次验证，再把 Cookie（含 L76L_2132_cloudflare_check）重新粘贴进来
+    already_signed_page_keywords: ["今日已打", "已打卡"]
+    success_keywords: ["打卡成功", "签到成功"]
+    already_signed_keywords: ["今日已打", "已打卡", "已经打过卡", "今天已经打卡"]
+    user_patterns:
+      - 'class="vwmy"><a [^>]*>(.*?)</a>'
+
   # 恩山用的是 erling_qd 插件（AJAX 提交表单 + JSON 应答），不是 dsu_paulsign。
   # 签到页必须走 plugin.php 形式：伪静态的 erling_qd-sign_in.html 会撞上阿里云 ESA 滑块验证。
   - key: right

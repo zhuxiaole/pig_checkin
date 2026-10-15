@@ -294,6 +294,51 @@ def test_discuz_dsu_paulsign_path_unchanged():
     assert sent["formhash"] == "a1b2c3d4" and sent["qdxq"] == "kx"
 
 
+def test_discuz_token_in_url_placeholder():
+    """多看（zqlj_sign）：令牌在 URL 上而不是表单字段，且页面里还有个登录表单的 formhash 干扰。"""
+    import requests
+    from pig_checkin.checkin import checkin_discuz_dsu_paulsign
+
+    tpl = tl.get_template("duokan")
+    assert tpl["submit_path"].endswith("{formhash}")
+
+    html = ('<html><body><script>var discuz_uid = 573515;</script>'
+            '<a href="home.php?mod=spacecp" class="vwmy"><a>猪小乐</a>'
+            '<input type="hidden" name="formhash" value="8b532b5c">'
+            '<div class="bm signbtn cl"><a href="sign.php?sign=ea2fcc50" class="btna">立即打卡</a></div>'
+            '</body></html>')
+    reply = '<html><body><div class="showmsg">打卡成功，获得 10 铜板</div></body></html>'
+
+    class Resp:
+        def __init__(self, text):
+            self.status_code = 200
+            self.text = text
+            self.content = text.encode("utf-8")
+            self.headers = {"Content-Type": "text/html; charset=utf-8"}
+
+        def json(self):
+            raise ValueError("not json")
+
+    sent = {}
+    orig_get, orig_post = requests.Session.get, requests.Session.post
+    try:
+        requests.Session.get = lambda self, url, **kw: Resp(html)
+
+        def fake_post(self, url, **kw):
+            sent["url"] = url
+            sent["data"] = kw.get("data")
+            return Resp(reply)
+
+        requests.Session.post = fake_post
+        ok, msg = checkin_discuz_dsu_paulsign({"domain": "https://duokan.club", "cookies": "x=y"}, tpl)
+    finally:
+        requests.Session.get, requests.Session.post = orig_get, orig_post
+
+    assert ok is True and "打卡成功" in msg
+    assert sent["url"].endswith("/sign.php?sign=ea2fcc50"), sent["url"]
+    assert "8b532b5c" not in sent["url"], "用了登录表单的 formhash，而不是打卡令牌"
+
+
 def test_latest_status_only_counts_today():
     """「最新状态」只显示当天的结果，昨天的成功不能冒充今天。"""
     import datetime

@@ -57,6 +57,8 @@ DISCUZ_DEFAULTS = {
         r"formhash=([a-zA-Z0-9]+)",
     ],
     "already_signed_page_keywords": ["您今天已经签到过了", "已经签到过了", "您今日已经签到", "您累计已签到"],
+    "gate_keywords": [],
+    "gate_message": "站点人机验证未通过，请在浏览器里重新验证后再更新 Cookies",
     "success_keywords": ["签到成功", "恭喜你", "获得", "奖励", "今日已签"],
     "already_signed_keywords": ["已经签到过了", "今天已经签到"],
     "message_selectors": [["div", "c"], ["div", "messagetext"]],

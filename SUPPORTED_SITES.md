@@ -17,6 +17,7 @@
 | **SSD 论坛** | `https://ssdforum.org` | `ssdforum` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **PTShare 论坛** | `http://bbs.ptshare.org` | `ptshare` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **恩山无线论坛** | `https://www.right.com.cn/forum` | `right` | Discuz! (`erling_qd` 插件，AJAX + JSON) | Cookies 认证 | ✔ 自动穿透 |
+| **多看** | `https://duokan.club` | `duokan` | Discuz! (`zqlj_sign` 插件，令牌在 URL) | Cookies 认证 | ⚠ 需手动过一次人机验证 |
 | **红豆饭** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **PT 劳改所** | `https://ptlgs.org` | `ptlgs` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **高清家园** | `https://hdhome.org` | `hdhome` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
@@ -64,9 +65,10 @@
 | 字段 | 默认值 | 作用 |
 | :--- | :--- | :--- |
 | `sign_path` | `/plugin.php?id=dsu_paulsign:sign` | 签到页路径 |
-| `submit_path` | `/plugin.php?id=dsu_paulsign:sign&operation=qiandao&infloat=1` | 提交签到路径 |
+| `submit_path` | `/plugin.php?id=dsu_paulsign:sign&operation=qiandao&infloat=1` | 提交签到路径，可用 `{formhash}` 占位（令牌在 URL 上的插件，如多看） |
 | `submit_body` | `{"qdxq":"kx","qdmode":"1","fastreply":"0"}` | 随表单提交的固定字段 |
 | `formhash_field` / `greeting_field` | `formhash` / `todaysay` | 动态字段名；`greeting_field` 留空则提交体里不带问候语 |
+| `gate_keywords` / `gate_message` | 空 / 通用提示 | 命中站点自带的人机验证闸门时直接返回该提示（如多看） |
 | `greetings` | 5 条中文祝福语 | 随机祝福语，支持 `{site}` 占位 |
 | `sign_form_selectors` | `[["input","qdxq"],["form","qiandao"]]` | 判定「页面还有待提交的签到表单」 |
 | `formhash_patterns` | 2 条正则 | 从 HTML 提取 formhash |

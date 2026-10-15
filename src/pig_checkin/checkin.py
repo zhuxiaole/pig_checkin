@@ -195,6 +195,10 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         res_text = content
 
     # 登录状态判定：UID 或退出链接存在，且无未登录提示
+    if _contains_any(res_text, tpl["gate_keywords"]):
+        logger.warning("[%s] 命中站点人机验证闸门 (未通过或已过期)", site_label)
+        return False, tpl["gate_message"]
+
     discuz_uid = _first_group(res_text, tpl["logged_in_patterns"])
     is_logged_in = bool(discuz_uid and discuz_uid.isdigit() and int(discuz_uid) > 0) or _contains_any(res_text, tpl["logged_in_keywords"])
     if not is_logged_in or _contains_any(res_text, tpl["need_login_keywords"]):
@@ -211,15 +215,19 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         logger.info("[%s] 用户 [%s] 今日已完成签到 (未检测到待提交表单)，无需重复签到", site_label, user_name)
         return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
 
-    formhash_input = soup.find("input", {"name": tpl["formhash_field"]})
-    formhash = (formhash_input.get("value") if formhash_input else None) or _first_group(res_text, tpl["formhash_patterns"])
+    # 先按模板正则取（有些站点页面里还有个登录表单的 formhash 会干扰 input 兜底）
+    formhash = _first_group(res_text, tpl["formhash_patterns"])
+    if not formhash:
+        formhash_input = soup.find("input", {"name": tpl["formhash_field"]})
+        formhash = formhash_input.get("value") if formhash_input else None
     if not formhash:
         logger.error("[%s] 未能从页面中提取到 formhash", site_label)
         return False, "未能提取到 formhash"
 
     todaysay = random.choice(tpl["greetings"] or [""]).replace("{site}", site_label)
 
-    post_url = f"{domain}{tpl['submit_path']}"
+    # 部分插件的令牌走 URL 而不是表单字段，submit_path 里可用 {formhash} 占位
+    post_url = f"{domain}{tpl['submit_path']}".replace("{formhash}", formhash)
     payload = {**tpl["submit_body"], tpl["formhash_field"]: formhash}
     if tpl["greeting_field"]:
         payload[tpl["greeting_field"]] = todaysay
