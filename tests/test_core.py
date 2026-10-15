@@ -192,6 +192,70 @@ def test_nexusphp_attendance_patterns():
         requests.Session.get = orig
 
 
+def test_discuz_erling_qd_plugin_flow():
+    """恩山（erling_qd 插件）：未登录/已签到/正常签到三条路径 + AJAX JSON 应答。"""
+    import requests
+    from pig_checkin.checkin import checkin_discuz_dsu_paulsign
+
+    tpl = tl.get_template("right")
+    assert tpl["sign_path"] == "/plugin.php?id=erling_qd:sign_in"
+    assert tpl["greeting_field"] == "", "签到体里不该混进 todaysay"
+
+    def page(uid, extra=""):
+        return ('<html><body><script>var discuz_uid = %s;</script>'
+                '<span class="erqd-nickname">zhuxiaole</span>%s</body></html>') % (uid, extra)
+
+    GUEST = '<html><body><script>var discuz_uid = 0;</script><div class="login-prompt">您需要登录后才能使用签到功能</div></body></html>'
+    SIGNED = page(123, '<button id="signin-btn" class="erqd-checkin-btn erqd-checkin-btn2" disabled>已签到</button>')
+    READY = page(123, '<button id="signin-btn" class="erqd-checkin-btn">立即签到</button>'
+                      "<script>var FORMHASH = 'a1b2c3d4';</script>")
+
+    class Resp:
+        def __init__(self, text, status=200):
+            self.status_code = status
+            self.text = text
+            self.content = text.encode("utf-8")
+            self.headers = {"Content-Type": "text/html; charset=utf-8"}
+
+        def json(self):
+            return __import__("json").loads(self.text)
+
+    sent = {}
+    orig_get, orig_post = requests.Session.get, requests.Session.post
+    try:
+        def fake_get(self, url, **kw):
+            return Resp(sent.get("page", GUEST))
+
+        def fake_post(self, url, **kw):
+            sent["url"] = url
+            sent["data"] = kw.get("data")
+            return Resp(sent.get("reply", '{"success":true,"message":"签到成功，获得 10 个积分"}'))
+
+        requests.Session.get = fake_get
+        requests.Session.post = fake_post
+        site = {"domain": "https://www.right.com.cn/forum", "cookies": "rHEX_2132_saltkey=x"}
+
+        sent["page"] = GUEST
+        assert checkin_discuz_dsu_paulsign(site, tpl) == (False, "Cookies 已失效或未登录，请更新 Cookies")
+
+        sent["page"] = SIGNED
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is True and "今日已签到" in msg
+        assert "url" not in sent, "已签到时不该再提交签到请求"
+
+        sent["page"] = READY
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is True and "签到成功" in msg and "10 个积分" in msg
+        assert sent["url"].endswith("/plugin.php?id=erling_qd:action&action=sign")
+        assert sent["data"] == {"formhash": "a1b2c3d4"}, sent["data"]
+
+        sent["reply"] = '{"success":false,"message":"签到失败，请稍后再试"}'
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is False and "签到失败" in msg
+    finally:
+        requests.Session.get, requests.Session.post = orig_get, orig_post
+
+
 def test_latest_status_only_counts_today():
     """「最新状态」只显示当天的结果，昨天的成功不能冒充今天。"""
     import datetime

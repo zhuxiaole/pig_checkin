@@ -220,9 +220,12 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     todaysay = random.choice(tpl["greetings"] or [""]).replace("{site}", site_label)
 
     post_url = f"{domain}{tpl['submit_path']}"
-    payload = {**tpl["submit_body"], tpl["formhash_field"]: formhash, tpl["greeting_field"]: todaysay}
+    payload = {**tpl["submit_body"], tpl["formhash_field"]: formhash}
+    if tpl["greeting_field"]:
+        payload[tpl["greeting_field"]] = todaysay
 
-    logger.info("[%s] 提交签到表单 POST: %s (formhash: %s, todaysay: %s)", site_label, post_url, formhash, todaysay)
+    logger.info("[%s] 提交签到表单 POST: %s (formhash: %s%s)", site_label, post_url, formhash,
+                f", {tpl['greeting_field']}: {todaysay}" if tpl["greeting_field"] else "")
     try:
         if encoding in ("gbk", "gb2312"):
             import urllib.parse
@@ -249,6 +252,19 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
                 msg = node.text.strip()
                 break
         msg = msg or sign_text[:120].strip() or "签到提交完成"
+
+        # 部分 Discuz 插件（如 erling_qd）的签到按钮走 AJAX，返回 JSON 而非 HTML 提示
+        try:
+            sign_json = sign_res.json()
+        except Exception:
+            sign_json = None
+        if isinstance(sign_json, dict) and ("success" in sign_json or "message" in sign_json):
+            msg = str(sign_json.get("message") or "签到提交完成")
+            if sign_json.get("success"):
+                logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, msg)
+                return True, f"用户 [{user_name}] 签到成功: {msg}"
+            logger.warning("[%s] 签到接口返回失败: %s", site_label, msg)
+            return False, f"签到失败: {msg}"
 
         if _contains_any(sign_text, tpl["success_keywords"]):
             logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, msg)

@@ -136,6 +136,7 @@ services:
 | **NovaHD PT** | `https://pt.novahd.top` | `novahd` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **SSD 论坛** | `https://ssdforum.org` | `ssdforum` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
 | **PTShare 论坛** | `http://bbs.ptshare.org` | `ptshare` | Discuz! (`dsu_paulsign`) | Cookies 认证 |
+| **恩山无线论坛** | `https://www.right.com.cn/forum` | `right` | Discuz! (`erling_qd` 插件) | Cookies 认证 |
 | **HDFans PT** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **PTLGS PT** | `https://ptlgs.org` | `ptlgs` | NexusPHP (`/attendance.php`) | Cookies 认证 |
 | **HDHome PT** | `https://hdhome.org` | `hdhome` | NexusPHP (`/attendance.php`) | Cookies 认证 |

@@ -82,6 +82,27 @@ templates:
     cookie_placeholder: 请粘贴登录 bbs.ptshare.org 后的完整 Cookie 字符串
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
+  # 恩山用的是 erling_qd 插件（AJAX 提交表单 + JSON 应答），不是 dsu_paulsign。
+  # 签到页必须走 plugin.php 形式：伪静态的 erling_qd-sign_in.html 会撞上阿里云 ESA 滑块验证。
+  - key: right
+    name: 恩山无线论坛
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://www.right.com.cn/forum
+    cookie_placeholder: 请粘贴登录 www.right.com.cn 后的完整 Cookie 字符串
+    sign_path: /plugin.php?id=erling_qd:sign_in
+    submit_path: /plugin.php?id=erling_qd:action&action=sign
+    submit_body: {}
+    greeting_field: ""
+    formhash_patterns:
+      - "FORMHASH\\s*=\\s*'([A-Za-z0-9]+)'"
+      - "name=[\"']formhash[\"']\\s+value=[\"']([A-Za-z0-9]+)[\"']"
+    need_login_keywords: ["login-prompt", "请先登录"]
+    already_signed_page_keywords: ["erqd-checkin-btn2"]
+    user_patterns:
+      - 'class="erqd-nickname">([^<]+)<'
+
   - key: hdfans
     name: 红豆饭
     flow: nexusphp
