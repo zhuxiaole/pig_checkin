@@ -189,18 +189,18 @@
                                 </div>
                             </td>
                             <td class="py-3.5 px-4">
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
+                                <span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
                                     <i class="ri-key-2-line mr-1 text-slate-400"></i>
                                     {{ "Cookies" if site.auth_type == 'cookie' else "账号密码" }}
                                 </span>
                             </td>
                             <td class="py-3.5 px-4">
                                 {% if site.schedule_type == 'fixed' %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">
+                                <span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">
                                     <i class="ri-alarm-line mr-1"></i>固定 {{ site.schedule_time }}
                                 </span>
                                 {% else %}
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
+                                <span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
                                     <i class="ri-shuffle-line mr-1"></i>每日随机
                                 </span>
                                 {% endif %}
@@ -235,7 +235,7 @@
                                 {% endif %}
                             </td>
                             <td class="py-3.5 px-4">
-                                <button onclick="handleToggleSite({{ site.id }})" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' if site.enabled else 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700' }}">
+                                <button onclick="handleToggleSite({{ site.id }})" class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium transition-all {{ 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' if site.enabled else 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700' }}">
                                     {{ "已开启" if site.enabled else "已关闭" }}
                                 </button>
                             </td>
@@ -1121,8 +1121,8 @@
         function renderSiteDesktopRow(site) {
             const domainLink = site.domain ? `<a href="${encodeURI(site.domain)}" target="_blank" class="hover:text-indigo-500"><i class="ri-external-link-line"></i></a>` : '';
             const scheduleBadge = site.schedule_type === 'fixed'
-                ? `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20"><i class="ri-alarm-line mr-1"></i>固定 ${escapeHtml(site.schedule_time || '09:00')}</span>`
-                : `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20"><i class="ri-shuffle-line mr-1"></i>每日随机</span>`;
+                ? `<span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20"><i class="ri-alarm-line mr-1"></i>固定 ${escapeHtml(site.schedule_time || '09:00')}</span>`
+                : `<span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20"><i class="ri-shuffle-line mr-1"></i>每日随机</span>`;
 
             return `
             <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
@@ -1134,7 +1134,7 @@
                     </div>
                 </td>
                 <td class="py-3.5 px-4">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
+                    <span class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/50">
                         <i class="ri-key-2-line mr-1 text-slate-400"></i>
                         ${site.auth_type === 'cookie' ? 'Cookies' : '账号密码'}
                     </span>
@@ -1156,7 +1156,7 @@
                     ${renderStatusBadge(site.last_status)}
                 </td>
                 <td class="py-3.5 px-4">
-                    <button onclick="handleToggleSite(${site.id})" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${site.enabled ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+                    <button onclick="handleToggleSite(${site.id})" class="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${site.enabled ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600/40 hover:bg-slate-200 dark:hover:bg-slate-700'}">
                         ${site.enabled ? '已开启' : '已关闭'}
                     </button>
                 </td>
