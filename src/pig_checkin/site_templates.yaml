@@ -73,6 +73,15 @@ templates:
     cookie_placeholder: 请粘贴登录 ssdforum.org 后的完整 Cookie 字符串
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
+  - key: hdfans
+    name: HDFans PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://hdfans.org
+    cookie_placeholder: 请粘贴登录 hdfans.org 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
   - key: yysub
     name: YYeTs 人人字幕组
     flow: yysub
