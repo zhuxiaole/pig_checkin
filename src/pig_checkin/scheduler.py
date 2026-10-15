@@ -50,6 +50,23 @@ def run_site_checkin(site_id: int):
         with _lock:
             _running_site_ids.discard(site_id)
 
+def submit_site(site_id: int) -> bool:
+    """把站点签到提交到线程池执行，立即返回。
+
+    同一站点已在执行时返回 False —— 手动「立即签到」与定时任务共用这一道锁，
+    避免同一个站点被并发跑两遍（浏览器实例也会翻倍）。
+    """
+    with _lock:
+        if site_id in _running_site_ids:
+            return False
+        _running_site_ids.add(site_id)
+    executor.submit(run_site_checkin, site_id)
+    return True
+
+def running_site_ids() -> set:
+    with _lock:
+        return set(_running_site_ids)
+
 def _scheduler_loop():
     while True:
         try:
@@ -62,11 +79,8 @@ def _scheduler_loop():
             
             for site in sites:
                 sid = site["id"]
-                with _lock:
-                    if sid not in _running_site_ids:
-                        _running_site_ids.add(sid)
-                        logger.info("⏰ [定时调度] 触发站点任务: ID=%d 到达计划时刻 (%s)，提交执行", sid, now_str)
-                        executor.submit(run_site_checkin, sid)
+                if submit_site(sid):
+                    logger.info("⏰ [定时调度] 触发站点任务: ID=%d 到达计划时刻 (%s)，提交执行", sid, now_str)
         except Exception:
             pass
         time.sleep(10)

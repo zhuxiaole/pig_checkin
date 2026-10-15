@@ -448,6 +448,55 @@ def test_peergo_flow_response_branches():
         requests.Session.post = orig
 
 
+def test_run_site_is_async_and_deduped():
+    """回归：立即签到不能再同步阻塞请求，且同一站点并发只会跑一次。"""
+    import time
+
+    from pig_checkin import scheduler as sch
+    from pig_checkin.app import api_dashboard_data, run_site
+
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO sites (name, site_type, domain, auth_type, enabled) VALUES (?, ?, ?, ?, 1)",
+            ("__unittest_async__", "cnlang", "https://cnlang.org", "cookie"),
+        )
+        site_id = cur.lastrowid
+        conn.commit()
+
+    calls = []
+    orig = sch.execute_checkin
+
+    def fake_checkin(site_dict):
+        calls.append(site_dict.get("id"))
+        time.sleep(0.4)
+        return True, "ok"
+
+    sch.execute_checkin = fake_checkin
+    try:
+        started = time.time()
+        first = json.loads(run_site(site_id, user="admin").body)
+        elapsed = time.time() - started
+
+        assert elapsed < 0.3, f"立即签到仍然同步阻塞了 {elapsed:.2f}s"
+        assert first["ok"] is True and first["queued"] is True, first
+        assert site_id in api_dashboard_data(user="admin")["running_ids"], "前端拿不到运行中站点，转圈态就没了"
+
+        second = json.loads(run_site(site_id, user="admin").body)
+        assert second["queued"] is False and "正在签到中" in second["message"], second
+        assert len(calls) == 1, f"同一站点被重复提交了 {len(calls)} 次"
+
+        deadline = time.time() + 5
+        while site_id in sch.running_site_ids() and time.time() < deadline:
+            time.sleep(0.1)
+        assert site_id not in sch.running_site_ids(), "任务结束后没从运行集合里摘掉"
+        assert len(calls) == 1
+    finally:
+        sch.execute_checkin = orig
+        with get_db() as conn:
+            conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
+            conn.commit()
+
+
 def test_latest_status_only_counts_today():
     """「最新状态」只显示当天的结果，昨天的成功不能冒充今天。"""
     import datetime

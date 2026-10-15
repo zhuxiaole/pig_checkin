@@ -7,8 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from pig_checkin.db import init_db, get_db, verify_password, hash_password, needs_rehash, password_error
 from pig_checkin.crypto import encrypt_text
-from pig_checkin.checkin import execute_checkin
-from pig_checkin.scheduler import start_scheduler, compute_next_run
+from pig_checkin.scheduler import start_scheduler, compute_next_run, submit_site, running_site_ids
 from pig_checkin import templates as tpl_lib
 
 app = FastAPI(title="Pig Checkin Service")
@@ -155,7 +154,8 @@ def api_dashboard_data(user: str = Depends(get_current_user)):
         "current_user": user,
         "app_version": APP_VERSION,
         "sites": sites,
-        "logs": logs
+        "logs": logs,
+        "running_ids": sorted(running_site_ids())
     }
 
 @app.get("/", response_class=HTMLResponse)
@@ -297,35 +297,32 @@ def api_site_logs(site_id: int, user: str = Depends(get_current_user)):
 
 @app.get("/run-site/{site_id}")
 def run_site(site_id: int, user: str = Depends(get_current_user)):
+    """立即签到：丢进线程池后立刻返回，结果由前端轮询状态/日志呈现。
+
+    单站签到可能跑几分钟（重试间隔 60 秒 × N 次），同步等会一直占着请求，
+    而且前端每 2 秒重绘表格会把转圈的按钮整块换掉，看起来就是「转圈突然停了」。
+    """
     with get_db() as conn:
-        site = conn.execute("SELECT * FROM sites WHERE id = ?", (site_id,)).fetchone()
+        site = conn.execute("SELECT id, name FROM sites WHERE id = ?", (site_id,)).fetchone()
         if not site:
             return JSONResponse({"ok": False, "message": "站点不存在"}, status_code=404)
-        site_dict = dict(site)
+        name = site["name"]
 
-    ok, message = execute_checkin(site_dict)
-    with get_db() as conn:
-        updated = conn.execute("SELECT last_status, last_run FROM sites WHERE id = ?", (site_id,)).fetchone()
-        status_text = updated["last_status"] if updated else ("签到成功" if ok else "签到失败")
-        now_str = updated["last_run"] if updated else ""
-
-    return JSONResponse({"ok": ok, "message": message, "status": status_text, "last_run": now_str})
+    if not submit_site(site_id):
+        return JSONResponse({"ok": True, "queued": False, "message": f"[{name}] 正在签到中，请稍候"})
+    return JSONResponse({"ok": True, "queued": True, "message": f"[{name}] 已开始签到"})
 
 @app.get("/run-all")
 def run_all(user: str = Depends(get_current_user)):
     with get_db() as conn:
-        sites = conn.execute("SELECT * FROM sites WHERE enabled = 1").fetchall()
+        sites = conn.execute("SELECT id FROM sites WHERE enabled = 1").fetchall()
 
-    results = [execute_checkin(dict(site))[0] for site in sites]
-    success_count = sum(results)
-    fail_count = len(results) - success_count
-
-    return JSONResponse({
-        "ok": True,
-        "message": f"全部签到完成：成功 {success_count} 个，失败 {fail_count} 个",
-        "success_count": success_count,
-        "fail_count": fail_count
-    })
+    queued = sum(1 for site in sites if submit_site(site["id"]))
+    skipped = len(sites) - queued
+    message = f"已提交 {queued} 个站点签到"
+    if skipped:
+        message += f"，{skipped} 个正在执行中已跳过"
+    return JSONResponse({"ok": True, "queued": queued, "skipped": skipped, "message": message})
 
 @app.get("/clear-logs")
 def clear_logs(user: str = Depends(get_current_user)):

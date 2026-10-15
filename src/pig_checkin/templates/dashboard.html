@@ -857,6 +857,8 @@
         let templatesMeta = {{ site_templates | tojson }};
         let allSites = {{ sites | tojson }};
         let allLogs = {{ logs | tojson }};
+        // 服务端正在执行的站点 id 集合：转圈状态由它驱动，否则每 2 秒重绘表格会把转圈的按钮整块换掉
+        let allRunning = new Set();
 
         // 分页状态管理 (默认每页 10 条)
         let sitesCurrentPage = 1;
@@ -868,12 +870,13 @@
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const isSuccess = type === 'success';
-            
-            const bgClass = isSuccess 
-                ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200 shadow-emerald-950/30' 
-                : 'bg-rose-950/90 border-rose-500/40 text-rose-200 shadow-rose-950/30';
-            const iconClass = isSuccess ? 'ri-checkbox-circle-fill text-emerald-400' : 'ri-error-warning-fill text-rose-400';
+            const styles = {
+                success: ['bg-emerald-950/90 border-emerald-500/40 text-emerald-200 shadow-emerald-950/30', 'ri-checkbox-circle-fill text-emerald-400'],
+                error: ['bg-rose-950/90 border-rose-500/40 text-rose-200 shadow-rose-950/30', 'ri-error-warning-fill text-rose-400'],
+                // 中性提示（例如「已开始签到」）：别用红色，否则跟失败混在一起
+                info: ['bg-slate-900/90 border-slate-500/40 text-slate-200 shadow-slate-950/30', 'ri-information-line text-sky-400'],
+            };
+            const [bgClass, iconClass] = styles[type] || styles.error;
             
             toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl text-xs sm:text-sm font-medium transition-all duration-300 transform -translate-y-2 opacity-0 ${bgClass}`;
             toast.innerHTML = `<i class="${iconClass} text-lg shrink-0"></i><span class="break-all leading-snug">${escapeHtml(message)}</span>`;
@@ -1177,8 +1180,8 @@
                     </button>
                 </td>
                 <td class="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                    <button onclick="handleRunSite(${site.id}, this)" title="执行签到" class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center disabled:opacity-50">
-                        <i class="ri-play-line text-sm"></i>
+                    <button onclick="handleRunSite(${site.id}, this)" title="执行签到" ${allRunning.has(site.id) ? 'disabled' : ''} class="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 transition-all inline-flex items-center disabled:opacity-50">
+                        <i class="${allRunning.has(site.id) ? 'ri-loader-4-line animate-spin' : 'ri-play-line'} text-sm"></i>
                     </button>
                     <button onclick="openSiteLogsModal(${site.id})" title="查看日志" class="p-2 rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/10 dark:hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30 transition-all inline-flex items-center">
                         <i class="ri-file-list-2-line text-sm"></i>
@@ -1209,8 +1212,8 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1">
-                        <button onclick="handleRunSite(${site.id}, this)" class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform disabled:opacity-50" title="签到">
-                            <i class="ri-play-fill text-sm"></i>
+                        <button onclick="handleRunSite(${site.id}, this)" ${allRunning.has(site.id) ? 'disabled' : ''} class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 active:scale-95 transition-transform disabled:opacity-50" title="签到">
+                            <i class="${allRunning.has(site.id) ? 'ri-loader-4-line animate-spin' : 'ri-play-fill'} text-sm"></i>
                         </button>
                         <button onclick="openSiteLogsModal(${site.id})" class="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20 active:scale-95 transition-transform" title="日志">
                             <i class="ri-file-list-2-line text-sm"></i>
@@ -1399,6 +1402,7 @@
 
                 allSites = data.sites;
                 allLogs = data.logs;
+                allRunning = new Set((data.running_ids || []).map(Number));
 
                 // 1. 更新顶部指标
                 if (data.app_version) {
@@ -1419,23 +1423,21 @@
         // ========== Fetch API 异步业务操作 ==========
 
         // 1. 执行单个站点签到
+        // 后端只负责把任务丢进线程池并立刻返回，转圈由 allRunning 驱动（见 renderSiteDesktopRow）
         async function handleRunSite(siteId, btn) {
-            const originalHtml = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-sm"></i>`;
-            const pollTimer = setInterval(refreshDashboard, 2000);
             try {
-                const res = await fetch(`/run-site/${siteId}`, {
-                    headers: { 'Accept': 'application/json' }
-                });
+                const res = await fetch(`/run-site/${siteId}`, { headers: { 'Accept': 'application/json' } });
                 const data = await res.json();
-                showToast(data.message || (data.ok ? '签到执行完成' : '签到执行失败'), data.ok ? 'success' : 'error');
+                if (!data.ok) {
+                    showToast(data.message || '签到执行失败', 'error');
+                    return;
+                }
+                showToast(data.message, data.queued ? 'info' : 'error');
+                await refreshDashboard();      // 立刻把该行切成转圈态
+                await waitForSites([Number(siteId)]);
             } catch (err) {
                 showToast('网络请求异常: ' + err.message, 'error');
             } finally {
-                clearInterval(pollTimer);
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
                 await refreshDashboard();
             }
         }
@@ -1444,21 +1446,42 @@
         async function handleRunAll(btn) {
             const originalHtml = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-base"></i><span>执行中...</span>`;
-            const pollTimer = setInterval(refreshDashboard, 2000);
+            btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-base"></i><span>提交中...</span>`;
             try {
-                const res = await fetch('/run-all', {
-                    headers: { 'Accept': 'application/json' }
-                });
+                const res = await fetch('/run-all', { headers: { 'Accept': 'application/json' } });
                 const data = await res.json();
-                showToast(data.message || '全部签到执行完毕', data.ok ? 'success' : 'error');
+                showToast(data.message || '全部签到已提交', data.ok ? 'info' : 'error');
+                await refreshDashboard();
+                await waitForSites([...allRunning]);
             } catch (err) {
                 showToast('网络请求异常: ' + err.message, 'error');
             } finally {
-                clearInterval(pollTimer);
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
                 await refreshDashboard();
+            }
+        }
+
+        // 轮询到指定站点全部跑完，再把最终结果弹出来（签到可能耗时几分钟，期间列表照常刷新）
+        async function waitForSites(ids) {
+            if (!ids.length) return;
+            const deadline = Date.now() + 15 * 60 * 1000;
+            while (Date.now() < deadline) {
+                await new Promise(r => setTimeout(r, 2000));
+                await refreshDashboard();
+                if (!ids.some(id => allRunning.has(id))) break;
+            }
+            for (const id of ids) {
+                const site = allSites.find(s => s.id === id);
+                const log = allLogs.find(l => l.site_id === id);
+                if (!site) continue;
+                if (allRunning.has(id)) {
+                    showToast(`[${site.name}] 仍在执行，稍后刷新查看结果`, 'info');
+                } else if (log) {
+                    showToast(`${site.name}: ${log.message}`, log.status === '成功' ? 'success' : 'error');
+                } else {
+                    showToast(`${site.name}: ${site.last_status || '已执行'}`, 'info');
+                }
             }
         }
 
@@ -2006,6 +2029,8 @@
         // 初始化站点列表与日志列表分页渲染
         renderSitesList();
         renderLogsList();
+        // 先同步一次，拿到服务端正在执行的站点集合（转圈态）
+        refreshDashboard();
 
         // 页面前台可见时，每 5 秒自动同步一次最新签到状态与实时日志
         setInterval(() => {
