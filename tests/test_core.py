@@ -202,7 +202,8 @@ def test_discuz_erling_qd_plugin_flow():
     assert tpl["greeting_field"] == "", "签到体里不该混进 todaysay"
 
     def page(uid, extra=""):
-        return ('<html><body><script>var discuz_uid = %s;</script>'
+        return ('<html><head><style>.erqd-checkin-btn2 { background-color: #4082b9; }</style></head>'
+                '<body><script>var discuz_uid = %s;</script>'
                 '<span class="erqd-nickname">zhuxiaole</span>%s</body></html>') % (uid, extra)
 
     GUEST = '<html><body><script>var discuz_uid = 0;</script><div class="login-prompt">您需要登录后才能使用签到功能</div></body></html>'

@@ -99,7 +99,9 @@ templates:
       - "FORMHASH\\s*=\\s*'([A-Za-z0-9]+)'"
       - "name=[\"']formhash[\"']\\s+value=[\"']([A-Za-z0-9]+)[\"']"
     need_login_keywords: ["login-prompt", "请先登录"]
-    already_signed_page_keywords: ["erqd-checkin-btn2"]
+    # 不能用裸类名 erqd-checkin-btn2：那串字符在页面 <style> 里永远存在（CSS 规则名），
+    # 会把「立即签到」误判成已签到，于是永远不发签到请求。
+    already_signed_page_keywords: [">已签到<", 'erqd-checkin-btn2" disabled']
     user_patterns:
       - 'class="erqd-nickname">([^<]+)<'
 
