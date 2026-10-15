@@ -256,6 +256,43 @@ def test_discuz_erling_qd_plugin_flow():
         requests.Session.get, requests.Session.post = orig_get, orig_post
 
 
+def test_discuz_dsu_paulsign_path_unchanged():
+    """dsu_paulsign 站点（cnlang 等）：提交体仍是旧的 5 个字段，应答走关键字判定。"""
+    import requests
+    from pig_checkin.checkin import checkin_discuz_dsu_paulsign
+
+    tpl = tl.get_template("cnlang")
+    assert tpl["greeting_field"] == "todaysay", "老站点必须仍带 todaysay"
+    html = ('<html><body><script>var discuz_uid = 22775;</script>'
+            '<a href="home.php?mod=spacecp">zhuxiaole</a>'
+            '<input type="hidden" name="formhash" value="a1b2c3d4">'
+            '<form id="qiandao"><input name="qdxq" value="kx"></form></body></html>')
+    reply = "<root><![CDATA[<script>showmessage('签到成功');</script>]]></root>"
+
+    class Resp:
+        def __init__(self, text):
+            self.status_code = 200
+            self.text = text
+            self.content = text.encode("utf-8")
+            self.headers = {"Content-Type": "text/html; charset=utf-8"}
+
+        def json(self):
+            raise ValueError("not json")
+
+    sent = {}
+    orig_get, orig_post = requests.Session.get, requests.Session.post
+    try:
+        requests.Session.get = lambda self, url, **kw: Resp(html)
+        requests.Session.post = lambda self, url, **kw: sent.update(kw.get("data") or {}) or Resp(reply)
+        ok, msg = checkin_discuz_dsu_paulsign({"domain": "https://cnlang.org", "cookies": "x=y"}, tpl)
+    finally:
+        requests.Session.get, requests.Session.post = orig_get, orig_post
+
+    assert ok is True and "签到成功" in msg
+    assert set(sent) == {"qdxq", "qdmode", "fastreply", "formhash", "todaysay"}, sent
+    assert sent["formhash"] == "a1b2c3d4" and sent["qdxq"] == "kx"
+
+
 def test_latest_status_only_counts_today():
     """「最新状态」只显示当天的结果，昨天的成功不能冒充今天。"""
     import datetime
