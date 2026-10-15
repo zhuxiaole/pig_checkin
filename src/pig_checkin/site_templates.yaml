@@ -20,7 +20,7 @@ templates:
     sign_path: /dsu_paulsign-sign.html?mobile=no
 
   - key: audiences
-    name: 观众 PT
+    name: 观众
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -38,7 +38,7 @@ templates:
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
   - key: acgrip
-    name: ACG 字幕论坛
+    name: Anime 字幕论坛
     flow: discuz
     auth_type: cookie
     auth_label: Cookies 认证
@@ -47,7 +47,7 @@ templates:
     sign_path: /dsu_paulsign-sign.html
 
   - key: xingyunge
-    name: 星运阁 PT
+    name: 星陨阁
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -56,7 +56,7 @@ templates:
     sign_path: /attendance.php
 
   - key: novahd
-    name: NovaHD PT
+    name: NovaHD
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -74,7 +74,7 @@ templates:
     sign_path: /plugin.php?id=dsu_paulsign:sign
 
   - key: hdfans
-    name: HDFans PT
+    name: 红豆饭
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -83,7 +83,7 @@ templates:
     sign_path: /attendance.php
 
   - key: ptlgs
-    name: PTLGS PT
+    name: PT 劳改所
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -92,7 +92,7 @@ templates:
     sign_path: /attendance.php
 
   - key: hdhome
-    name: HDHome PT
+    name: 高清家园
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -110,7 +110,7 @@ templates:
     sign_path: /attendance.php
 
   - key: pthome
-    name: PTHome PT
+    name: PTHome
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -119,7 +119,7 @@ templates:
     sign_path: /attendance.php
 
   - key: hhanclub
-    name: HHanClub PT
+    name: 憨憨
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
@@ -127,8 +127,8 @@ templates:
     cookie_placeholder: 请粘贴登录 hhanclub.net 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
     sign_path: /attendance.php
 
-  - key: yysub
-    name: YYeTs 人人字幕组
+  - key: yyets
+    name: 人人字幕组
     flow: yysub
     auth_type: password
     auth_label: 账号 & 密码认证
