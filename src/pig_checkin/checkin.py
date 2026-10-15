@@ -54,7 +54,8 @@ def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dic
             browser = await zd.start(
                 browser_executable_path=exe,
                 headless=True,
-                sandbox=False
+                sandbox=False,
+                browser_args=["--disable-gpu"]
             )
             parsed = urlparse(url)
             domain = parsed.netloc or "audiences.me"
@@ -69,17 +70,17 @@ def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dic
                 await browser.cookies.set_all(cookie_params)
                 page = await browser.get(url)
 
-            for _ in range(max(1, BROWSER_TIMEOUT // 3)):
+            for _ in range(max(1, BROWSER_TIMEOUT // 2)):
+                await asyncio.sleep(2)
                 content = await page.get_content()
                 if "attendance-card--done" in content or "今天已经签到" in content:
                     break
                 if is_cloudflare_challenge(content) or "attendance-card--verify" in content:
                     try:
                         await page.verify_cf(click_delay=2, timeout=8)
-                        await asyncio.sleep(1)
                     except Exception:
-                        await asyncio.sleep(2)
-                else:
+                        pass
+                elif "</body" in content:
                     break
             else:
                 content = await page.get_content()
