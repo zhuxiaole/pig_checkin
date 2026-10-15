@@ -11,7 +11,7 @@ from pig_checkin.crypto import encrypt_text
 from pig_checkin.scheduler import start_scheduler, compute_next_run, submit_site, running_site_ids
 from pig_checkin import templates as tpl_lib
 
-app = FastAPI(title="Pig Checkin Service")
+app = FastAPI(title="猪签 - Pig Checkin")
 app.add_middleware(SessionMiddleware, secret_key="pig-checkin-super-secret-key-lazy-is-best")
 
 try:
