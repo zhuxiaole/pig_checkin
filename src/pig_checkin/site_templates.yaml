@@ -82,6 +82,15 @@ templates:
     cookie_placeholder: 请粘贴登录 hdfans.org 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
     sign_path: /attendance.php
 
+  - key: ptlgs
+    name: PTLGS PT
+    flow: nexusphp
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://ptlgs.org
+    cookie_placeholder: 请粘贴登录 ptlgs.org 后的完整 Cookie 字符串 (包含 c_secure_uid、c_secure_pass 及 cf_clearance)
+    sign_path: /attendance.php
+
   - key: yysub
     name: YYeTs 人人字幕组
     flow: yysub
