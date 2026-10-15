@@ -146,6 +146,7 @@
                     <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">站点配置与定时任务</h2>
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap">
+                    <span id="site_search_summary" class="hidden text-xs text-slate-400 shrink-0"></span>
                     <div class="relative w-full sm:w-56 shrink-0">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                             <i class="ri-search-line text-sm"></i>
@@ -153,7 +154,6 @@
                         <input type="text" id="site_search" oninput="onSiteSearch()" placeholder="搜索站点名称、地址、模板…"
                                class="w-full bg-slate-100 dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
                     </div>
-                    <span id="site_search_summary" class="text-xs text-slate-400 shrink-0"></span>
                     <button id="btn-run-all" onclick="handleRunAll(this)" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs sm:text-sm font-medium shadow-md shadow-emerald-600/20 transition-all">
                         <i class="ri-play-fill text-base"></i>
                         <span>立即全部签到</span>
@@ -1381,9 +1381,12 @@
 
             renderPaginationControls('sites-pagination', sitesCurrentPage, totalPages, total, sitesPageSize, 'goSitesPage');
 
-            // 搜索时在旁边回显命中数量，边打字边有反馈
+            // 搜索时在输入框左侧回显命中数量，边打字边有反馈（空关键词时整块隐藏，不留空隙）
             const summaryEl = document.getElementById('site_search_summary');
-            if (summaryEl) summaryEl.textContent = query ? `找到 ${total} 个站点` : '';
+            if (summaryEl) {
+                summaryEl.textContent = query ? `找到 ${total} 个站点` : '';
+                summaryEl.classList.toggle('hidden', !query);
+            }
         }
 
         function goSitesPage(page) {
