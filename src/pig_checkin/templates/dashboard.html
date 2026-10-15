@@ -799,10 +799,11 @@
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <i class="ri-search-line text-sm"></i>
                             </span>
-                            <input type="text" id="tpl_lib_search" oninput="renderTemplateLibrary()" placeholder="按名称、标识或默认地址搜索…"
+                            <input type="text" id="tpl_lib_search" oninput="tplAllCurrentPage = 1; renderTemplateLibrary()" placeholder="按名称、标识或默认地址搜索…"
                                    class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
                         </div>
                         <div id="tpl_all_list" class="space-y-2 md:flex-1 md:min-h-0 md:overflow-y-auto pr-0.5"></div>
+                        <div id="tpl_all_pagination" class="mt-2 pt-2 border-t border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs shrink-0"></div>
                     </div>
 
                     <!-- 右列：已启用模板 -->
@@ -814,10 +815,11 @@
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <i class="ri-search-line text-sm"></i>
                             </span>
-                            <input type="text" id="tpl_enabled_search" oninput="renderTemplateLibrary()" placeholder="按名称、标识或默认地址搜索…"
+                            <input type="text" id="tpl_enabled_search" oninput="tplEnabledCurrentPage = 1; renderTemplateLibrary()" placeholder="按名称、标识或默认地址搜索…"
                                    class="w-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
                         </div>
                         <div id="tpl_enabled_list" class="space-y-2 md:flex-1 md:min-h-0 md:overflow-y-auto pr-0.5"></div>
+                        <div id="tpl_enabled_pagination" class="mt-2 pt-2 border-t border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs shrink-0"></div>
                     </div>
                 </div>
             </div>
@@ -885,11 +887,26 @@
         // ---------------- 模板库 ----------------
         let tplLibAll = [];
         let tplLibEnabled = [];
+        let tplAllCurrentPage = 1;
+        let tplEnabledCurrentPage = 1;
+        const tplPageSize = 5;
+
+        function goTplAllPage(p) {
+            tplAllCurrentPage = p;
+            renderTemplateLibrary();
+        }
+
+        function goTplEnabledPage(p) {
+            tplEnabledCurrentPage = p;
+            renderTemplateLibrary();
+        }
 
         async function openTemplateLibrary() {
             openModal('templateLibraryModal');
             document.getElementById('tpl_lib_search').value = '';
             document.getElementById('tpl_enabled_search').value = '';
+            tplAllCurrentPage = 1;
+            tplEnabledCurrentPage = 1;
             await loadTemplateLibrary(true);
         }
 
@@ -898,6 +915,10 @@
             if (showLoading) {
                 document.getElementById('tpl_all_list').innerHTML = '<div class="text-slate-400 text-xs py-3">加载中…</div>';
                 document.getElementById('tpl_enabled_list').innerHTML = '';
+                const p1 = document.getElementById('tpl_all_pagination');
+                const p2 = document.getElementById('tpl_enabled_pagination');
+                if (p1) p1.innerHTML = '';
+                if (p2) p2.innerHTML = '';
             }
             try {
                 const res = await fetch('/api/template-library');
@@ -954,6 +975,31 @@
             }));
         }
 
+        function renderTplPagination(containerId, currentPage, totalPages, totalItems, onPageFn) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            if (totalItems === 0 || totalPages <= 1) {
+                el.innerHTML = totalItems > 0 ? `<div class="text-[11px] text-slate-400">共 ${totalItems} 个模板</div><div></div>` : '';
+                return;
+            }
+            const startIdx = (currentPage - 1) * tplPageSize + 1;
+            const endIdx = Math.min(currentPage * tplPageSize, totalItems);
+            el.innerHTML = `
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">
+                    <span>第 <strong class="text-slate-700 dark:text-slate-200">${startIdx}-${endIdx}</strong> 条 / 共 <strong class="text-slate-700 dark:text-slate-200">${totalItems}</strong> 条</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="${onPageFn}(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} class="px-2 py-0.5 text-xs rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                        上一页
+                    </button>
+                    <span class="px-1.5 font-mono text-xs text-slate-600 dark:text-slate-300">${currentPage}/${totalPages}</span>
+                    <button onclick="${onPageFn}(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} class="px-2 py-0.5 text-xs rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                        下一页
+                    </button>
+                </div>
+            `;
+        }
+
         async function renderTemplateLibrary(animate = false, changedKey = null) {
             const query = (document.getElementById('tpl_lib_search').value || '').toLowerCase().trim();
             const enabledQuery = (document.getElementById('tpl_enabled_search').value || '').toLowerCase().trim();
@@ -966,8 +1012,17 @@
             document.getElementById('tpl_all_count').textContent = `(${matched.length}/${tplLibAll.length})`;
             document.getElementById('tpl_enabled_count').textContent = `(${enabledMatched.length}/${tplLibEnabled.length})`;
 
+            const allTotalPages = Math.max(1, Math.ceil(matched.length / tplPageSize));
+            tplAllCurrentPage = Math.min(Math.max(1, tplAllCurrentPage), allTotalPages);
+
+            const enabledTotalPages = Math.max(1, Math.ceil(enabledMatched.length / tplPageSize));
+            tplEnabledCurrentPage = Math.min(Math.max(1, tplEnabledCurrentPage), enabledTotalPages);
+
+            const pagedMatched = matched.slice((tplAllCurrentPage - 1) * tplPageSize, tplAllCurrentPage * tplPageSize);
+            const pagedEnabled = enabledMatched.slice((tplEnabledCurrentPage - 1) * tplPageSize, tplEnabledCurrentPage * tplPageSize);
+
             // 右列要消失的行先开始淡出，但不阻塞左列——否则两次 180ms 串起来会显得迟钝
-            const nextKeys = new Set(enabledMatched.map(t => t.key));
+            const nextKeys = new Set(pagedEnabled.map(t => t.key));
             const prevKeys = animate
                 ? new Set([...enabledList.children].map(el => el.dataset.key).filter(Boolean))
                 : new Set();
@@ -976,7 +1031,7 @@
                 : null;
             if (exiting) exiting.catch(() => {});
 
-            allList.innerHTML = matched.map(t => `
+            allList.innerHTML = pagedMatched.map(t => `
                 <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
@@ -997,7 +1052,7 @@
 
             if (exiting) await exiting;
 
-            enabledList.innerHTML = enabledMatched.map(t => `
+            enabledList.innerHTML = pagedEnabled.map(t => `
                 <div data-key="${escapeHtml(t.key)}" class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5">
                     <div class="min-w-0">
                         <div class="font-medium text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</div>
@@ -1013,6 +1068,9 @@
             if (animate) {
                 tplAnimateEnter([...enabledList.children].filter(el => el.dataset.key && !prevKeys.has(el.dataset.key)));
             }
+
+            renderTplPagination('tpl_all_pagination', tplAllCurrentPage, allTotalPages, matched.length, 'goTplAllPage');
+            renderTplPagination('tpl_enabled_pagination', tplEnabledCurrentPage, enabledTotalPages, enabledMatched.length, 'goTplEnabledPage');
         }
 
         // 让「添加/编辑网站」下拉框与左侧启用状态保持一致
