@@ -92,20 +92,24 @@ def _scheduler_loop():
     last_cc_sync = 0.0
     while True:
         try:
-            from pig_checkin.db import get_setting
-            auto_sync = get_setting("cookiecloud_auto_sync", "0") == "1"
-            if auto_sync:
-                try:
-                    interval_sec = max(300, int(get_setting("cookiecloud_sync_interval", "60")) * 60)
-                except Exception:
-                    interval_sec = 3600
-                now_ts = time.time()
-                if now_ts - last_cc_sync >= interval_sec:
-                    last_cc_sync = now_ts
-                    try_auto_sync_cookiecloud()
-
+            now_ts = time.time()
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             with get_db() as conn:
+                # 一次连接顺带读取配置，避免循环内多次打开关闭数据库连接
+                cc_row = conn.execute("SELECT value FROM settings WHERE key = 'cookiecloud_auto_sync'").fetchone()
+                if cc_row and cc_row["value"] == "1":
+                    int_row = conn.execute("SELECT value FROM settings WHERE key = 'cookiecloud_sync_interval'").fetchone()
+                    try:
+                        interval_sec = max(300, int(int_row["value"]) * 60) if int_row else 3600
+                    except Exception:
+                        interval_sec = 3600
+
+                    if now_ts - last_cc_sync >= interval_sec:
+                        last_cc_sync = now_ts
+                        # 提交给线程池后台异步执行，绝不因为 CookieCloud 网络耗时阻塞主调度循环
+                        executor.submit(try_auto_sync_cookiecloud)
+
                 sites = conn.execute(
                     "SELECT id FROM sites WHERE enabled = 1 AND next_run IS NOT NULL AND next_run <= ?", 
                     (now_str,)
