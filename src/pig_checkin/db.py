@@ -3,10 +3,8 @@ import hashlib
 import hmac
 import re
 import secrets
-import shutil
 from pathlib import Path
 
-OLD_DB_PATH = Path(__file__).resolve().parent / "checkin.db"
 DB_DIR = Path.cwd() / "data"
 DB_PATH = DB_DIR / "checkin.db"
 
@@ -89,8 +87,6 @@ def password_error(password: str, username: str = "") -> str | None:
 
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not DB_PATH.exists() and OLD_DB_PATH.exists():
-        shutil.copy2(OLD_DB_PATH, DB_PATH)
     with get_db() as conn:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS users (

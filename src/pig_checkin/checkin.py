@@ -3,6 +3,7 @@ import re
 import time
 import random
 import logging
+import functools
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -144,12 +145,7 @@ def _detect_encoding(res) -> str:
 
 def _dig(obj, path: str):
     """按 a.b.c 取嵌套字典字段，缺失返回 None。"""
-    cur = obj
-    for part in path.split("."):
-        if not isinstance(cur, dict) or part not in cur:
-            return None
-        cur = cur[part]
-    return cur
+    return functools.reduce(lambda d, k: d.get(k) if isinstance(d, dict) else None, path.split("."), obj)
 
 
 def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
