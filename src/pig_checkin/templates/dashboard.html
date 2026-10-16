@@ -539,7 +539,14 @@
                     </div>
 
                     <div id="add_cookie_field">
-                        <label id="add_cookie_label" class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">Cookie 字符串</label>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label id="add_cookie_label" class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Cookie 字符串</label>
+                            <button type="button" id="add_btn_fetch_cc" onclick="fetchCookieFromCloud('add', this)"
+                                    class="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium inline-flex items-center gap-1 transition-colors">
+                                <i class="ri-cloud-download-line text-sm"></i>
+                                <span>从 CookieCloud 获取</span>
+                            </button>
+                        </div>
                         <textarea name="cookies" id="add_cookies" rows="3" placeholder="请从浏览器开发者工具中复制粘贴 Cookie 字符串"
                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
                         <input type="text" name="token" id="add_token" placeholder="请粘贴站点个人 API Key"
@@ -671,7 +678,14 @@
                     <div id="edit_cookie_field">
                         <div class="flex items-center justify-between mb-1.5">
                             <label id="edit_cookie_label" class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Cookie 字符串</label>
-                            <span id="edit_cookie_status" class="text-xs font-medium"></span>
+                            <div class="flex items-center gap-3">
+                                <span id="edit_cookie_status" class="text-xs font-medium"></span>
+                                <button type="button" id="edit_btn_fetch_cc" onclick="fetchCookieFromCloud('edit', this)"
+                                        class="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium inline-flex items-center gap-1 transition-colors">
+                                    <i class="ri-cloud-download-line text-sm"></i>
+                                    <span>从 CookieCloud 获取</span>
+                                </button>
+                            </div>
                         </div>
                         <textarea name="cookies" id="edit_cookies" rows="3"
                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
@@ -814,14 +828,20 @@
                         <p class="text-[11px] text-slate-400 mt-1">本地以 AES-128/Fernet 加密保存；若留空则保持原密码不变。</p>
                     </div>
 
-                    <div class="pt-1">
+                    <div class="pt-1 space-y-3">
                         <label class="flex items-start gap-2.5 cursor-pointer">
-                            <input type="checkbox" id="cc_auto_sync" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <input type="checkbox" id="cc_auto_sync" onchange="toggleCcIntervalInput()" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
                             <div class="text-xs">
                                 <span class="font-medium text-slate-800 dark:text-slate-200">启用定时自动同步</span>
-                                <p class="text-slate-400 mt-0.5">每 30 分钟在后台自动拉取最新 Cookies 并匹配更新各站点。</p>
+                                <p class="text-slate-400 mt-0.5">在后台按设定间隔自动拉取最新 Cookies 并匹配更新各站点。</p>
                             </div>
                         </label>
+                        <div id="cc_interval_box" class="flex items-center gap-2 pl-6">
+                            <label class="text-xs text-slate-600 dark:text-slate-300 shrink-0">同步间隔：每</label>
+                            <input type="number" id="cc_sync_interval" min="5" max="1440" value="60"
+                                   class="w-20 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-center text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono">
+                            <span class="text-xs text-slate-500 dark:text-slate-400">分钟</span>
+                        </div>
                     </div>
 
                     <div id="cc_sync_result" class="hidden p-3 rounded-xl border text-xs"></div>
@@ -1779,6 +1799,8 @@
                 document.getElementById('cc_uuid').value = data.uuid || '';
                 document.getElementById('cc_password').value = '';
                 document.getElementById('cc_auto_sync').checked = !!data.auto_sync;
+                document.getElementById('cc_sync_interval').value = data.sync_interval || 60;
+                toggleCcIntervalInput();
 
                 const pwStatus = document.getElementById('cc_pw_status');
                 if (data.has_password) {
@@ -1791,6 +1813,12 @@
             }
         }
 
+        function toggleCcIntervalInput() {
+            const checked = document.getElementById('cc_auto_sync').checked;
+            const box = document.getElementById('cc_interval_box');
+            if (box) box.classList.toggle('opacity-40', !checked);
+        }
+
         async function handleSaveCookieCloud(btn) {
             btn.disabled = true;
             const originalText = btn.textContent;
@@ -1800,12 +1828,14 @@
             const uuid = document.getElementById('cc_uuid').value.trim();
             const password = document.getElementById('cc_password').value.trim();
             const autoSync = document.getElementById('cc_auto_sync').checked ? 1 : 0;
+            const syncInterval = parseInt(document.getElementById('cc_sync_interval').value, 10) || 60;
 
             const formData = new FormData();
             formData.append('url', url);
             formData.append('uuid', uuid);
             formData.append('password', password);
             formData.append('auto_sync', autoSync);
+            formData.append('sync_interval', syncInterval);
 
             try {
                 const res = await fetch('/api/cookiecloud', {
@@ -1840,12 +1870,14 @@
                 const url = document.getElementById('cc_url').value.trim();
                 const uuid = document.getElementById('cc_uuid').value.trim();
                 const password = document.getElementById('cc_password').value.trim();
+                const syncInterval = parseInt(document.getElementById('cc_sync_interval').value, 10) || 60;
                 if (url && uuid && password) {
                     const fd = new FormData();
                     fd.append('url', url);
                     fd.append('uuid', uuid);
                     fd.append('password', password);
                     fd.append('auto_sync', document.getElementById('cc_auto_sync').checked ? 1 : 0);
+                    fd.append('sync_interval', syncInterval);
                     await fetch('/api/cookiecloud', { method: 'POST', body: fd });
                 }
 
@@ -1870,6 +1902,45 @@
                         resultBox.innerHTML = `<div><strong>同步失败：</strong>${escapeHtml(data.message)}</div>`;
                         resultBox.classList.remove('hidden');
                     }
+                }
+            } catch (e) {
+                showToast('请求异常: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        async function fetchCookieFromCloud(prefix, btn) {
+            const domainInput = document.getElementById(prefix + '_domain');
+            const domain = (domainInput ? domainInput.value : '').trim();
+            if (!domain) {
+                showToast('请先填写站点地址 (DOMAIN)', 'error');
+                if (domainInput) domainInput.focus();
+                return;
+            }
+
+            const cookieArea = document.getElementById(prefix + '_cookies');
+            if (!cookieArea) return;
+
+            btn.disabled = true;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-sm"></i><span>获取中...</span>`;
+
+            try {
+                const res = await fetch('/api/cookiecloud/site-cookie?domain=' + encodeURIComponent(domain), {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    cookieArea.value = data.cookies;
+                    showToast(`已从 CookieCloud 获取到 ${data.count} 个 Cookie 并填入`, 'success');
+                    const statusSpan = document.getElementById(prefix + '_cookie_status');
+                    if (statusSpan) {
+                        statusSpan.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><i class="ri-checkbox-circle-fill"></i>已获取</span>`;
+                    }
+                } else {
+                    showToast(data.message || '获取失败', 'error');
                 }
             } catch (e) {
                 showToast('请求异常: ' + e.message, 'error');
@@ -2017,7 +2088,12 @@
             const cookieLabel = document.getElementById(prefix + '_cookie_label');
             const cookieArea = document.getElementById(prefix + '_cookies');
             const tokenInput = document.getElementById(prefix + '_token');
+            const btnFetchCc = document.getElementById(prefix + '_btn_fetch_cc');
             const placeholder = meta.cookie_placeholder || '';
+
+            if (btnFetchCc) {
+                btnFetchCc.classList.toggle('hidden', meta.auth_type !== 'cookie');
+            }
 
             // 已保存过凭据的编辑态：占位文案换成「留空则保持原配置」，不再提示去粘贴
             const applyPlaceholder = (el) => {

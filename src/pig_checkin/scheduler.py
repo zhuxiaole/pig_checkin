@@ -92,10 +92,14 @@ def _scheduler_loop():
     last_cc_sync = 0.0
     while True:
         try:
+            from pig_checkin.cookiecloud import get_cookiecloud_config
+            cfg = get_cookiecloud_config()
+            interval_sec = max(300, cfg.get("sync_interval", 60) * 60)
             now_ts = time.time()
-            if now_ts - last_cc_sync >= 1800:  # 每 30 分钟检查一次自动同步
+            if now_ts - last_cc_sync >= interval_sec:
                 last_cc_sync = now_ts
-                try_auto_sync_cookiecloud()
+                if cfg.get("auto_sync"):
+                    try_auto_sync_cookiecloud()
 
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with get_db() as conn:

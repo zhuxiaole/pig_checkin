@@ -784,17 +784,44 @@ def test_cookiecloud_crypto_and_sync():
             conn.execute("DELETE FROM sites WHERE id = ?", (test_site_id,))
             conn.commit()
 
-    # 5. 配置加密保存与读取
-    save_cookiecloud_config("https://cc.example.org", "uuid-test", "password-123456", True)
+    # 5. 配置加密保存与读取（包含同步间隔）
+    save_cookiecloud_config("https://cc.example.org", uuid, password, True, sync_interval=45)
     raw_db_pw = get_setting("cookiecloud_password")
-    assert raw_db_pw and "password-123456" not in raw_db_pw, "密码不能明文落库"
+    assert raw_db_pw and password not in raw_db_pw, "密码不能明文落库"
     assert is_encrypted(raw_db_pw), "密码必须用 Fernet 加密"
 
     cfg = get_cookiecloud_config()
     assert cfg["url"] == "https://cc.example.org"
-    assert cfg["uuid"] == "uuid-test"
-    assert cfg["password"] == "password-123456"
+    assert cfg["uuid"] == uuid
+    assert cfg["password"] == password
     assert cfg["auto_sync"] is True
+    assert cfg["sync_interval"] == 45
+
+    # 6. 单域名提取：get_cookies_for_domain
+    import requests
+    orig_get = requests.get
+    try:
+        class FakeResp:
+            status_code = 200
+            def json(self):
+                return {"encrypted": enc_b64}
+        requests.get = lambda url, **kw: FakeResp()
+        from pig_checkin.cookiecloud import get_cookies_for_domain
+        from pig_checkin.app import api_get_site_cookie
+
+        ok, cstr, meta = get_cookies_for_domain("https://audiences.me/attendance.php")
+        assert ok is True and "c_secure_uid=uid_888" in cstr and "cf_clearance=cf_token_xxx" in cstr
+        assert meta["count"] == 3
+
+        # 未匹配到的域名返回明确提示
+        ok, msg, _ = get_cookies_for_domain("https://not-exists-domain.com")
+        assert ok is False and "未找到" in msg
+
+        # API 端点验证
+        resp = api_get_site_cookie("https://audiences.me", user="admin")
+        assert resp["ok"] is True and "cf_clearance=cf_token_xxx" in resp["cookies"]
+    finally:
+        requests.get = orig_get
 
 
 def test_scheduler_and_db():

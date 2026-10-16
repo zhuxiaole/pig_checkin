@@ -383,6 +383,7 @@ def api_get_cookiecloud(user: str = Depends(get_current_user)):
         "uuid": cfg["uuid"],
         "has_password": cfg["has_password"],
         "auto_sync": cfg["auto_sync"],
+        "sync_interval": cfg.get("sync_interval", 60),
     }
 
 @app.post("/api/cookiecloud")
@@ -391,11 +392,25 @@ def api_save_cookiecloud(
     uuid: str = Form(""),
     password: str = Form(""),
     auto_sync: int = Form(0),
+    sync_interval: int = Form(60),
     user: str = Depends(get_current_user),
 ):
     from pig_checkin.cookiecloud import save_cookiecloud_config
-    save_cookiecloud_config(url, uuid, password, auto_sync == 1)
+    save_cookiecloud_config(url, uuid, password, auto_sync == 1, sync_interval=sync_interval)
     return JSONResponse({"ok": True, "message": "CookieCloud 配置已保存"})
+
+@app.get("/api/cookiecloud/site-cookie")
+def api_get_site_cookie(domain: str, user: str = Depends(get_current_user)):
+    from pig_checkin.cookiecloud import get_cookies_for_domain
+    ok, cookies_or_msg, meta = get_cookies_for_domain(domain)
+    if not ok:
+        return JSONResponse({"ok": False, "message": cookies_or_msg}, status_code=400)
+    return {
+        "ok": True,
+        "cookies": cookies_or_msg,
+        "count": meta.get("count", 0),
+        "host": meta.get("host", ""),
+    }
 
 @app.post("/api/cookiecloud/sync")
 def api_sync_cookiecloud(user: str = Depends(get_current_user)):

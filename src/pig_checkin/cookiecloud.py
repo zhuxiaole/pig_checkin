@@ -50,6 +50,10 @@ def get_cookiecloud_config() -> dict:
     uuid = get_setting("cookiecloud_uuid", "")
     enc_pw = get_setting("cookiecloud_password", "")
     auto_sync = get_setting("cookiecloud_auto_sync", "0") == "1"
+    try:
+        sync_interval = max(5, int(get_setting("cookiecloud_sync_interval", "60")))
+    except Exception:
+        sync_interval = 60
     
     pw = decrypt_text(enc_pw) if enc_pw else ""
     return {
@@ -58,10 +62,11 @@ def get_cookiecloud_config() -> dict:
         "password": pw,
         "has_password": bool(enc_pw),
         "auto_sync": auto_sync,
+        "sync_interval": sync_interval,
     }
 
 
-def save_cookiecloud_config(url: str, uuid: str, password: str, auto_sync: bool):
+def save_cookiecloud_config(url: str, uuid: str, password: str, auto_sync: bool, sync_interval: int = 60):
     url = url.strip().rstrip("/")
     uuid = uuid.strip()
     password = password.strip()
@@ -69,6 +74,10 @@ def save_cookiecloud_config(url: str, uuid: str, password: str, auto_sync: bool)
     set_setting("cookiecloud_url", url)
     set_setting("cookiecloud_uuid", uuid)
     set_setting("cookiecloud_auto_sync", "1" if auto_sync else "0")
+    try:
+        set_setting("cookiecloud_sync_interval", str(max(5, int(sync_interval))))
+    except Exception:
+        set_setting("cookiecloud_sync_interval", "60")
     
     if password:
         set_setting("cookiecloud_password", encrypt_text(password))
@@ -153,3 +162,27 @@ def sync_cookies_to_sites(cookie_map: dict[str, list[dict]]) -> list[dict]:
                 })
         conn.commit()
     return updated_sites
+
+
+def get_cookies_for_domain(domain_or_url: str) -> tuple[bool, str, dict]:
+    """根据传入的域名或 URL，从 CookieCloud 中提取并合并匹配的所有 Cookie。"""
+    cfg = get_cookiecloud_config()
+    if not cfg["url"] or not cfg["uuid"] or not cfg["password"]:
+        return False, "请先在系统设置中配置并保存 CookieCloud 服务器地址、KEY 与端对端密码", {}
+
+    parsed = urllib.parse.urlparse(domain_or_url.strip())
+    host = parsed.hostname or parsed.netloc or domain_or_url.strip()
+    if not host:
+        return False, "无效的站点域名", {}
+
+    ok, msg, data = fetch_and_decrypt_cookiecloud(cfg["url"], cfg["uuid"], cfg["password"])
+    if not ok:
+        return False, msg, {}
+
+    cmap = _extract_cookie_map(data)
+    matched = _match_domain_cookies(host, cmap)
+    if not matched:
+        return False, f"CookieCloud 中未找到匹配域名 [{host}] 的 Cookie", {}
+
+    cookie_str = "; ".join(f"{k}={v}" for k, v in matched.items())
+    return True, cookie_str, {"count": len(matched), "host": host}
