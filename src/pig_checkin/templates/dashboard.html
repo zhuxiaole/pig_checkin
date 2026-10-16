@@ -1764,10 +1764,6 @@
             switchSettingsTab(tab);
         }
 
-        function openChangeAccountModal() {
-            openSettingsModal('account');
-        }
-
         function switchSettingsTab(tab) {
             const btnAcc = document.getElementById('tab-btn-account');
             const btnCc = document.getElementById('tab-btn-cookiecloud');
@@ -1819,31 +1815,29 @@
             if (box) box.classList.toggle('opacity-40', !checked);
         }
 
+        async function postCookieCloudConfig() {
+            const formData = new FormData();
+            formData.append('url', document.getElementById('cc_url').value.trim());
+            formData.append('uuid', document.getElementById('cc_uuid').value.trim());
+            formData.append('password', document.getElementById('cc_password').value.trim());
+            formData.append('auto_sync', document.getElementById('cc_auto_sync').checked ? 1 : 0);
+            formData.append('sync_interval', parseInt(document.getElementById('cc_sync_interval').value, 10) || 60);
+
+            const res = await fetch('/api/cookiecloud', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+            return await res.json();
+        }
+
         async function handleSaveCookieCloud(btn) {
             btn.disabled = true;
             const originalText = btn.textContent;
             btn.textContent = '保存中...';
 
-            const url = document.getElementById('cc_url').value.trim();
-            const uuid = document.getElementById('cc_uuid').value.trim();
-            const password = document.getElementById('cc_password').value.trim();
-            const autoSync = document.getElementById('cc_auto_sync').checked ? 1 : 0;
-            const syncInterval = parseInt(document.getElementById('cc_sync_interval').value, 10) || 60;
-
-            const formData = new FormData();
-            formData.append('url', url);
-            formData.append('uuid', uuid);
-            formData.append('password', password);
-            formData.append('auto_sync', autoSync);
-            formData.append('sync_interval', syncInterval);
-
             try {
-                const res = await fetch('/api/cookiecloud', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Accept': 'application/json' }
-                });
-                const data = await res.json();
+                const data = await postCookieCloudConfig();
                 if (data.ok) {
                     showToast(data.message || '配置已保存', 'success');
                     await loadCookieCloudConfig();
@@ -1866,19 +1860,8 @@
             if (resultBox) resultBox.classList.add('hidden');
 
             try {
-                // 如果当前输入框里有未保存的 URL/UUID/Password，自动先做一次保存
-                const url = document.getElementById('cc_url').value.trim();
-                const uuid = document.getElementById('cc_uuid').value.trim();
-                const password = document.getElementById('cc_password').value.trim();
-                const syncInterval = parseInt(document.getElementById('cc_sync_interval').value, 10) || 60;
-                if (url && uuid && password) {
-                    const fd = new FormData();
-                    fd.append('url', url);
-                    fd.append('uuid', uuid);
-                    fd.append('password', password);
-                    fd.append('auto_sync', document.getElementById('cc_auto_sync').checked ? 1 : 0);
-                    fd.append('sync_interval', syncInterval);
-                    await fetch('/api/cookiecloud', { method: 'POST', body: fd });
+                if (document.getElementById('cc_url').value.trim() && document.getElementById('cc_uuid').value.trim()) {
+                    await postCookieCloudConfig();
                 }
 
                 const res = await fetch('/api/cookiecloud/sync', {

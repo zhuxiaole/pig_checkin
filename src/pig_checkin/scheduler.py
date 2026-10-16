@@ -67,8 +67,11 @@ def running_site_ids() -> set:
     with _lock:
         return set(_running_site_ids)
 
-def try_auto_sync_cookiecloud():
-    """若启用了 CookieCloud 自动同步，拉取最新凭据并更新本地站点。"""
+def try_auto_sync_cookiecloud(last_sync: float) -> float:
+    """按设定冷却拉取最新凭据并更新本地站点；未到冷却直接跳过，避免 10s 循环频繁解密查库。"""
+    now_ts = time.time()
+    if now_ts - last_sync < 300:
+        return last_sync
     try:
         from pig_checkin.cookiecloud import (
             get_cookiecloud_config,
@@ -77,6 +80,10 @@ def try_auto_sync_cookiecloud():
             sync_cookies_to_sites
         )
         cfg = get_cookiecloud_config()
+        interval_sec = max(300, cfg.get("sync_interval", 60) * 60)
+        if now_ts - last_sync < interval_sec:
+            return last_sync
+        last_sync = now_ts
         if cfg["auto_sync"] and cfg["url"] and cfg["uuid"] and cfg["password"]:
             ok, _, data = fetch_and_decrypt_cookiecloud(cfg["url"], cfg["uuid"], cfg["password"])
             if ok:
@@ -87,19 +94,13 @@ def try_auto_sync_cookiecloud():
                                 len(synced), [s["name"] for s in synced])
     except Exception as e:
         logger.warning("☁️ [CookieCloud] 自动同步异常: %s", e)
+    return last_sync
 
 def _scheduler_loop():
     last_cc_sync = 0.0
     while True:
         try:
-            from pig_checkin.cookiecloud import get_cookiecloud_config
-            cfg = get_cookiecloud_config()
-            interval_sec = max(300, cfg.get("sync_interval", 60) * 60)
-            now_ts = time.time()
-            if now_ts - last_cc_sync >= interval_sec:
-                last_cc_sync = now_ts
-                if cfg.get("auto_sync"):
-                    try_auto_sync_cookiecloud()
+            last_cc_sync = try_auto_sync_cookiecloud(last_cc_sync)
 
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with get_db() as conn:

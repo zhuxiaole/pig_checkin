@@ -119,18 +119,20 @@ def _extract_cookie_map(decrypted: dict) -> dict[str, list[dict]]:
     return {k: v for k, v in decrypted.items() if isinstance(v, list)}
 
 
+def _extract_host(domain_or_url: str) -> str:
+    s = (domain_or_url or "").strip()
+    p = urllib.parse.urlparse(s)
+    return p.hostname or p.netloc or s
+
+
 def _match_domain_cookies(site_host: str, cookie_map: dict[str, list[dict]]) -> dict[str, str]:
     """匹配站点域名下的所有 Cookie 并合并成 {name: value} 字典。"""
     site_host = site_host.lower().strip()
     merged: dict[str, str] = {}
-    
     for domain_key, cookies in cookie_map.items():
         clean_key = domain_key.lstrip(".").lower().strip()
-        # 匹配: 完全一致、或者主域名匹配 (如 audiences.me 匹配 .audiences.me, www.audiences.me 匹配 audiences.me)
         if clean_key == site_host or site_host.endswith("." + clean_key) or clean_key.endswith("." + site_host):
-            for c in cookies:
-                if isinstance(c, dict) and "name" in c and "value" in c:
-                    merged[c["name"]] = c["value"]
+            merged.update({c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c})
     return merged
 
 
@@ -140,26 +142,16 @@ def sync_cookies_to_sites(cookie_map: dict[str, list[dict]]) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute("SELECT id, name, domain, auth_type FROM sites WHERE auth_type = 'cookie'").fetchall()
         for r in rows:
-            site_id = r["id"]
-            site_name = r["name"]
-            domain_str = r["domain"] or ""
-            
-            parsed = urllib.parse.urlparse(domain_str)
-            host = parsed.hostname or parsed.netloc or domain_str
+            site_id, site_name = r["id"], r["name"]
+            host = _extract_host(r["domain"])
             if not host:
                 continue
             
             matched_dict = _match_domain_cookies(host, cookie_map)
             if matched_dict:
                 cookie_str = "; ".join(f"{k}={v}" for k, v in matched_dict.items())
-                enc_cookies = encrypt_text(cookie_str)
-                conn.execute("UPDATE sites SET cookies = ? WHERE id = ?", (enc_cookies, site_id))
-                updated_sites.append({
-                    "id": site_id,
-                    "name": site_name,
-                    "host": host,
-                    "count": len(matched_dict)
-                })
+                conn.execute("UPDATE sites SET cookies = ? WHERE id = ?", (encrypt_text(cookie_str), site_id))
+                updated_sites.append({"id": site_id, "name": site_name, "host": host, "count": len(matched_dict)})
         conn.commit()
     return updated_sites
 
@@ -170,8 +162,7 @@ def get_cookies_for_domain(domain_or_url: str) -> tuple[bool, str, dict]:
     if not cfg["url"] or not cfg["uuid"] or not cfg["password"]:
         return False, "请先在系统设置中配置并保存 CookieCloud 服务器地址、KEY 与端对端密码", {}
 
-    parsed = urllib.parse.urlparse(domain_or_url.strip())
-    host = parsed.hostname or parsed.netloc or domain_or_url.strip()
+    host = _extract_host(domain_or_url)
     if not host:
         return False, "无效的站点域名", {}
 
