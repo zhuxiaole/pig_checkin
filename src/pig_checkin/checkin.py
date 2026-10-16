@@ -47,15 +47,16 @@ def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dic
         import zendriver as zd
         import zendriver.cdp.network as network
 
-        exe = find_browser_executable()
-        logger.info("[zendriver] 启动无头浏览器: %s (超时限制: %d 秒)", exe or "系统默认Chrome", BROWSER_TIMEOUT)
+        headless = os.environ.get("PIG_HEADLESS", "true").lower() not in ("0", "false", "no")
+        mode_str = "无头浏览器" if headless else "有头浏览器"
+        logger.info("[zendriver] 启动%s: %s (超时限制: %d 秒)", mode_str, exe or "系统默认Chrome", BROWSER_TIMEOUT)
         browser = None
         try:
             browser = await zd.start(
                 browser_executable_path=exe,
-                headless=True,
+                headless=headless,
                 sandbox=False,
-                browser_args=["--disable-gpu"]
+                browser_args=["--disable-gpu"] if headless else []
             )
             parsed = urlparse(url)
             domain = parsed.netloc or "audiences.me"

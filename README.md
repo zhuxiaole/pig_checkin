@@ -88,7 +88,8 @@ services:
 | **`TZ`** | `Asia/Shanghai` | **推荐配置** | 容器系统时区。依赖预置的 `tzdata`，确保签到日志时间戳、每日定时触发时刻与您所在地区时间精准一致（例如 `Asia/Shanghai`、`UTC`、`America/New_York`）。 |
 | **`SECRET_KEY`** | *(内置默认密钥)* | **强烈建议修改** | 站点凭据（Cookies、密码、API 密钥）对称加密根密钥（Fernet / AES-128-CBC + HMAC-SHA256）。生产与公网部署务必修改为高强度随机字符串。 |
 | **`PIG_REQUEST_TIMEOUT`** | `30` | 可选 | 单次 HTTP 请求超时限制（秒）。网络较慢或站点响应迟缓时可调大。 |
-| **`PIG_BROWSER_TIMEOUT`** | `35` | 可选 | 无痕浏览器绕过 Cloudflare 时的单次页面加载超时限制（秒）。 |
+| **`PIG_BROWSER_TIMEOUT`** | `35` | 可选 | 浏览器绕过 Cloudflare 时的单次页面加载超时限制（秒）。 |
+| **`PIG_HEADLESS`** | `true` | 可选 | 浏览器模式开关。默认 `true`（无头静默）；在桌面环境下若遇严苛 Turnstile 验证可设为 `false`（有头弹窗秒过）。 |
 | **`PIG_RELOAD`** | `false` | 可选 | Uvicorn 服务热重载开关。生产容器环境保持 `false`；本地调试代码若需热加载可设为 `true`。 |
 
 ---
