@@ -370,3 +370,65 @@ def api_template_toggle(key: str = Form(...), enabled: int = Form(...), user: st
         return JSONResponse({"ok": False, "message": error}, status_code=400)
     state = "启用" if enabled else "停用"
     return JSONResponse({"ok": True, "message": f"已{state}模板 [{tpl_lib.get_template(key)['name']}]"})
+
+# ------------------------------------------------------------------ CookieCloud 配置与同步
+
+@app.get("/api/cookiecloud")
+def api_get_cookiecloud(user: str = Depends(get_current_user)):
+    from pig_checkin.cookiecloud import get_cookiecloud_config
+    cfg = get_cookiecloud_config()
+    return {
+        "ok": True,
+        "url": cfg["url"],
+        "uuid": cfg["uuid"],
+        "has_password": cfg["has_password"],
+        "auto_sync": cfg["auto_sync"],
+    }
+
+@app.post("/api/cookiecloud")
+def api_save_cookiecloud(
+    url: str = Form(""),
+    uuid: str = Form(""),
+    password: str = Form(""),
+    auto_sync: int = Form(0),
+    user: str = Depends(get_current_user),
+):
+    from pig_checkin.cookiecloud import save_cookiecloud_config
+    save_cookiecloud_config(url, uuid, password, auto_sync == 1)
+    return JSONResponse({"ok": True, "message": "CookieCloud 配置已保存"})
+
+@app.post("/api/cookiecloud/sync")
+def api_sync_cookiecloud(user: str = Depends(get_current_user)):
+    from pig_checkin.cookiecloud import (
+        get_cookiecloud_config,
+        fetch_and_decrypt_cookiecloud,
+        _extract_cookie_map,
+        sync_cookies_to_sites
+    )
+    cfg = get_cookiecloud_config()
+    if not cfg["url"] or not cfg["uuid"] or not cfg["password"]:
+        return JSONResponse(
+            {"ok": False, "message": "请先完整配置并保存 CookieCloud 服务器地址、用户 KEY 与端对端密码"},
+            status_code=400
+        )
+
+    ok, msg, data = fetch_and_decrypt_cookiecloud(cfg["url"], cfg["uuid"], cfg["password"])
+    if not ok:
+        return JSONResponse({"ok": False, "message": msg}, status_code=400)
+
+    cmap = _extract_cookie_map(data)
+    synced = sync_cookies_to_sites(cmap)
+    if not synced:
+        return JSONResponse({
+            "ok": True,
+            "message": f"连接成功！CookieCloud 中包含 {len(cmap)} 个域的数据，但未匹配到本地站点域名",
+            "synced_count": 0,
+            "synced_sites": []
+        })
+    site_names = [s["name"] for s in synced]
+    return JSONResponse({
+        "ok": True,
+        "message": f"同步成功！已更新 {len(synced)} 个站点的 Cookies: {', '.join(site_names)}",
+        "synced_count": len(synced),
+        "synced_sites": synced
+    })

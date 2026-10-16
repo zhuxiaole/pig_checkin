@@ -136,6 +136,12 @@ def init_db():
         CREATE TABLE IF NOT EXISTS enabled_templates (
             key TEXT PRIMARY KEY
         );
+
+        -- 系统键值配置（CookieCloud 地址/UUID/加密密码等）
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         """)
 
         # 增量字段迁移 (兼容旧表结构)
@@ -179,4 +185,19 @@ def init_db():
                     (encrypted["cookies"], encrypted["username"], encrypted["password"],
                      encrypted["token"], sid)
                 )
+        conn.commit()
+
+
+def get_setting(key: str, default: str = "") -> str:
+    with get_db() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else default
+
+
+def set_setting(key: str, value: str):
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value)
+        )
         conn.commit()

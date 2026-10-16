@@ -67,9 +67,36 @@ def running_site_ids() -> set:
     with _lock:
         return set(_running_site_ids)
 
+def try_auto_sync_cookiecloud():
+    """若启用了 CookieCloud 自动同步，拉取最新凭据并更新本地站点。"""
+    try:
+        from pig_checkin.cookiecloud import (
+            get_cookiecloud_config,
+            fetch_and_decrypt_cookiecloud,
+            _extract_cookie_map,
+            sync_cookies_to_sites
+        )
+        cfg = get_cookiecloud_config()
+        if cfg["auto_sync"] and cfg["url"] and cfg["uuid"] and cfg["password"]:
+            ok, _, data = fetch_and_decrypt_cookiecloud(cfg["url"], cfg["uuid"], cfg["password"])
+            if ok:
+                cmap = _extract_cookie_map(data)
+                synced = sync_cookies_to_sites(cmap)
+                if synced:
+                    logger.info("☁️ [CookieCloud] 自动同步已更新 %d 个站点的 Cookies: %s",
+                                len(synced), [s["name"] for s in synced])
+    except Exception as e:
+        logger.warning("☁️ [CookieCloud] 自动同步异常: %s", e)
+
 def _scheduler_loop():
+    last_cc_sync = 0.0
     while True:
         try:
+            now_ts = time.time()
+            if now_ts - last_cc_sync >= 1800:  # 每 30 分钟检查一次自动同步
+                last_cc_sync = now_ts
+                try_auto_sync_cookiecloud()
+
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with get_db() as conn:
                 sites = conn.execute(

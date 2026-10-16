@@ -697,6 +697,106 @@ def test_login_upgrades_legacy_hash():
             conn.commit()
 
 
+def test_cookiecloud_crypto_and_sync():
+    """CookieCloud: 端对端解密、域名聚合匹配写入、配置密码加密落库。"""
+    import base64
+    import hashlib
+    import os
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.backends import default_backend
+    from pig_checkin.cookiecloud import (
+        evp_bytes_to_key,
+        decrypt_cookiecloud_data,
+        save_cookiecloud_config,
+        get_cookiecloud_config,
+        sync_cookies_to_sites,
+        _match_domain_cookies
+    )
+    from pig_checkin.db import get_setting
+    from pig_checkin.crypto import decrypt_text, is_encrypted
+
+    # 1. 模拟生成端对端加密数据
+    uuid = "test-uuid-888"
+    password = "secret-cookiecloud-password"
+    salt = os.urandom(8)
+    key_password = hashlib.md5(f"{uuid}-{password}".encode("utf-8")).hexdigest()[:16].encode("utf-8")
+    key, iv = evp_bytes_to_key(key_password, salt, 32, 16)
+
+    raw_payload = {
+        "cookie_data": {
+            "audiences.me": [
+                {"name": "c_secure_uid", "value": "uid_888"},
+                {"name": "c_secure_pass", "value": "pass_999"}
+            ],
+            ".audiences.me": [
+                {"name": "cf_clearance", "value": "cf_token_xxx"}
+            ],
+            "unrelated.com": [
+                {"name": "foo", "value": "bar"}
+            ]
+        }
+    }
+    plaintext = json.dumps(raw_payload).encode("utf-8")
+    pad_len = 16 - (len(plaintext) % 16)
+    padded = plaintext + bytes([pad_len]) * pad_len
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    enc = cipher.encryptor()
+    ciphertext = enc.update(padded) + enc.finalize()
+    enc_b64 = base64.b64encode(b"Salted__" + salt + ciphertext).decode("utf-8")
+
+    # 2. 解密验证与密码错误测试
+    decrypted = decrypt_cookiecloud_data(enc_b64, uuid, password)
+    assert decrypted == raw_payload
+    try:
+        decrypt_cookiecloud_data(enc_b64, uuid, "wrong-password")
+        assert False, "错误密码应当解密失败"
+    except ValueError:
+        pass
+
+    # 3. 域名匹配合并
+    matched = _match_domain_cookies("audiences.me", decrypted["cookie_data"])
+    assert matched["c_secure_uid"] == "uid_888"
+    assert matched["c_secure_pass"] == "pass_999"
+    assert matched["cf_clearance"] == "cf_token_xxx"
+    assert "foo" not in matched
+
+    # 4. 本地站点数据自动同步更新（必须加密落库）
+    with get_db() as conn:
+        conn.execute("DELETE FROM sites WHERE name = '__unittest_cc__'")
+        cur = conn.execute(
+            "INSERT INTO sites (name, domain, auth_type, site_type, cookies) VALUES (?, ?, 'cookie', 'audiences', '')",
+            ("__unittest_cc__", "https://audiences.me/attendance.php")
+        )
+        test_site_id = cur.lastrowid
+        conn.commit()
+
+    try:
+        synced = sync_cookies_to_sites(decrypted["cookie_data"])
+        assert any(s["id"] == test_site_id for s in synced)
+        with get_db() as conn:
+            site_row = conn.execute("SELECT cookies FROM sites WHERE id = ?", (test_site_id,)).fetchone()
+            assert is_encrypted(site_row["cookies"]), "同步后的 cookies 必须加密落库"
+            plain_cookies = decrypt_text(site_row["cookies"])
+            assert "c_secure_uid=uid_888" in plain_cookies
+            assert "cf_clearance=cf_token_xxx" in plain_cookies
+    finally:
+        with get_db() as conn:
+            conn.execute("DELETE FROM sites WHERE id = ?", (test_site_id,))
+            conn.commit()
+
+    # 5. 配置加密保存与读取
+    save_cookiecloud_config("https://cc.example.org", "uuid-test", "password-123456", True)
+    raw_db_pw = get_setting("cookiecloud_password")
+    assert raw_db_pw and "password-123456" not in raw_db_pw, "密码不能明文落库"
+    assert is_encrypted(raw_db_pw), "密码必须用 Fernet 加密"
+
+    cfg = get_cookiecloud_config()
+    assert cfg["url"] == "https://cc.example.org"
+    assert cfg["uuid"] == "uuid-test"
+    assert cfg["password"] == "password-123456"
+    assert cfg["auto_sync"] is True
+
+
 def test_scheduler_and_db():
     assert len(compute_next_run("fixed", "12:00")) == 19
     assert len(compute_next_run("random", "09:00")) == 19

@@ -80,9 +80,9 @@
                     <span id="current-user-display">{{ current_user }}</span>
                 </div>
 
-                <button onclick="openModal('changeAccountModal')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 transition-all">
-                    <i class="ri-settings-4-line text-slate-400"></i>
-                    <span class="hidden sm:inline">账号设置</span>
+                <button onclick="openSettingsModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 transition-all">
+                    <i class="ri-settings-3-line text-slate-400"></i>
+                    <span class="hidden sm:inline">设置</span>
                 </button>
                 <a href="/logout" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-300 transition-all">
                     <i class="ri-logout-box-r-line"></i>
@@ -711,53 +711,134 @@
         </div>
     </div>
 
-    <!-- 账号设置 Modal -->
-    <div id="changeAccountModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+    <!-- 设置 Modal（账号设置 & CookieCloud） -->
+    <div id="settingsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 dark:bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
         <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100 transition-colors">
-            <div class="px-6 sm:px-8 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
-                <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <i class="ri-user-settings-line text-indigo-500 dark:text-indigo-400 text-xl"></i>
-                    <span>管理员账号设置</span>
-                </h3>
-                <button onclick="closeModal('changeAccountModal')" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg">
-                    <i class="ri-close-line text-xl"></i>
-                </button>
+            <!-- 头部与 Tab 切换 -->
+            <div class="px-6 sm:px-8 pt-5 pb-0 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <div class="flex items-center justify-between pb-3">
+                    <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="ri-settings-3-line text-indigo-500 dark:text-indigo-400 text-xl"></i>
+                        <span>设置</span>
+                    </h3>
+                    <button onclick="closeModal('settingsModal')" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+                <!-- Tabs -->
+                <div class="flex gap-6 text-xs sm:text-sm font-medium">
+                    <button type="button" id="tab-btn-account" onclick="switchSettingsTab('account')"
+                            class="pb-2.5 border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 transition-colors flex items-center gap-1.5">
+                        <i class="ri-user-settings-line"></i>账号
+                    </button>
+                    <button type="button" id="tab-btn-cookiecloud" onclick="switchSettingsTab('cookiecloud')"
+                            class="pb-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors flex items-center gap-1.5">
+                        <i class="ri-cloud-line"></i>CookieCloud
+                    </button>
+                </div>
             </div>
-            
-            <form id="changeAccountForm" onsubmit="return handleChangeAccount(event)" class="flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div class="px-6 sm:px-8 py-6 space-y-4 text-sm flex-1">
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">用户名</label>
-                        <input type="text" name="new_username" id="acc_new_username" value="{{ current_user }}" required
-                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+
+            <!-- Tab 1: 账号设置 Panel -->
+            <div id="settings-panel-account" class="flex flex-col flex-1 min-h-0">
+                <form id="changeAccountForm" onsubmit="return handleChangeAccount(event)" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+                    <div class="px-6 sm:px-8 py-6 space-y-4 text-sm flex-1 overflow-y-auto">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">用户名</label>
+                            <input type="text" name="new_username" id="acc_new_username" value="{{ current_user }}" required
+                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">原密码 <span class="text-rose-500 dark:text-rose-400">*</span></label>
+                            <input type="password" name="old_password" id="acc_old_pwd" required placeholder="验证当前密码"
+                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">新密码 (可选)</label>
+                            <input type="password" name="new_password" id="acc_new_pwd" minlength="8" maxlength="64"
+                                   placeholder="留空则不改；≥8 位，字母开头，仅字母/数字/常见符号"
+                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">确认新密码</label>
+                            <input type="password" name="confirm_password" id="acc_confirm_pwd" placeholder="再次输入新密码"
+                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <!-- 底部操作按钮 -->
+                    <div class="px-6 sm:px-8 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3 shrink-0">
+                        <button type="button" onclick="closeModal('settingsModal')" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">取消</button>
+                        <button type="submit" id="btn-submit-account" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs sm:text-sm font-medium shadow-md shadow-indigo-500/20 disabled:opacity-50 transition-all">保存账号</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tab 2: CookieCloud Panel -->
+            <div id="settings-panel-cookiecloud" class="hidden flex flex-col flex-1 min-h-0">
+                <div class="px-6 sm:px-8 py-5 space-y-4 text-sm flex-1 overflow-y-auto">
+                    <div class="p-3 bg-indigo-50/70 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-xl text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                        <div class="font-semibold flex items-center gap-1.5 mb-1">
+                            <i class="ri-information-line text-sm"></i>
+                            <span>端对端加密 Cookie 同步</span>
+                        </div>
+                        支持自建或第三方 <a href="https://github.com/easychen/CookieCloud" target="_blank" rel="noopener noreferrer" class="underline hover:text-indigo-500">CookieCloud</a> 服务，自动将浏览器插件同步的 Cookies 匹配并写入本地对应站点。
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">原密码 <span class="text-rose-500 dark:text-rose-400">*</span></label>
-                        <input type="password" name="old_password" id="acc_old_pwd" required placeholder="验证当前密码"
-                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">服务器地址 (URL)</label>
+                        <input type="text" id="cc_url" placeholder="例如: https://cookiecloud.example.com"
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">新密码 (可选)</label>
-                        <input type="password" name="new_password" id="acc_new_pwd" minlength="8" maxlength="64"
-                               placeholder="留空则不改；≥8 位，字母开头，仅字母/数字/常见符号"
-                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">用户 KEY (UUID)</label>
+                        <input type="text" id="cc_uuid" placeholder="例如: 12345678-abcd-1234-abcd-1234567890ab"
+                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1.5">确认新密码</label>
-                        <input type="password" name="confirm_password" id="acc_confirm_pwd" placeholder="再次输入新密码"
-                               class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">端对端加密密码</label>
+                            <span id="cc_pw_status" class="text-xs font-medium"></span>
+                        </div>
+                        <div class="relative">
+                            <input type="password" id="cc_password" placeholder="客户端填写的端对端加密密码"
+                                   class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl pl-4 pr-10 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                            <button type="button" onclick="togglePasswordVisibility('cc_password', this)" class="absolute right-3 inset-y-0 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i class="ri-eye-line text-base"></i>
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">本地以 AES-128/Fernet 加密保存；若留空则保持原密码不变。</p>
                     </div>
+
+                    <div class="pt-1">
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" id="cc_auto_sync" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <div class="text-xs">
+                                <span class="font-medium text-slate-800 dark:text-slate-200">启用定时自动同步</span>
+                                <p class="text-slate-400 mt-0.5">每 30 分钟在后台自动拉取最新 Cookies 并匹配更新各站点。</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="cc_sync_result" class="hidden p-3 rounded-xl border text-xs"></div>
                 </div>
 
-                <!-- 底部操作按钮：固定在底部 -->
-                <div class="px-6 sm:px-8 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3 shrink-0">
-                    <button type="button" onclick="closeModal('changeAccountModal')" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">取消</button>
-                    <button type="submit" id="btn-submit-account" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs sm:text-sm font-medium shadow-md shadow-indigo-500/20 disabled:opacity-50 transition-all">保存设置</button>
+                <!-- 底部操作按钮 -->
+                <div class="px-6 sm:px-8 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-between gap-3 shrink-0">
+                    <button type="button" id="btn-sync-cc" onclick="handleSyncCookieCloud(this)" class="px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50">
+                        <i class="ri-refresh-line text-base"></i>
+                        <span>同步 Cookies</span>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeModal('settingsModal')" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition-colors">取消</button>
+                        <button type="button" id="btn-save-cc" onclick="handleSaveCookieCloud(this)" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs sm:text-sm font-medium shadow-md shadow-indigo-500/20 disabled:opacity-50 transition-all">保存配置</button>
+                    </div>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -1641,7 +1722,7 @@
                 const data = await res.json();
                 if (data.ok) {
                     showToast(data.message || '账号设置保存成功', 'success');
-                    closeModal('changeAccountModal');
+                    closeModal('settingsModal');
                     if (data.logout) {
                         setTimeout(() => { window.location.href = '/login'; }, 800);
                     }
@@ -1655,6 +1736,160 @@
                 submitBtn.textContent = '保存设置';
             }
             return false;
+        }
+
+        // 9. 系统设置 Modal (账号设置 / CookieCloud)
+        function openSettingsModal(tab = 'account') {
+            openModal('settingsModal');
+            switchSettingsTab(tab);
+        }
+
+        function openChangeAccountModal() {
+            openSettingsModal('account');
+        }
+
+        function switchSettingsTab(tab) {
+            const btnAcc = document.getElementById('tab-btn-account');
+            const btnCc = document.getElementById('tab-btn-cookiecloud');
+            const panelAcc = document.getElementById('settings-panel-account');
+            const panelCc = document.getElementById('settings-panel-cookiecloud');
+            if (!btnAcc || !btnCc || !panelAcc || !panelCc) return;
+
+            if (tab === 'cookiecloud') {
+                btnCc.className = "pb-2.5 border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 font-medium transition-colors flex items-center gap-1.5";
+                btnAcc.className = "pb-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium transition-colors flex items-center gap-1.5";
+                panelAcc.classList.add('hidden');
+                panelCc.classList.remove('hidden');
+                loadCookieCloudConfig();
+            } else {
+                btnAcc.className = "pb-2.5 border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 font-medium transition-colors flex items-center gap-1.5";
+                btnCc.className = "pb-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium transition-colors flex items-center gap-1.5";
+                panelCc.classList.add('hidden');
+                panelAcc.classList.remove('hidden');
+            }
+        }
+
+        async function loadCookieCloudConfig() {
+            try {
+                const res = await fetch('/api/cookiecloud', { headers: { 'Accept': 'application/json' } });
+                const data = await res.json();
+                if (!data.ok) return;
+
+                document.getElementById('cc_url').value = data.url || '';
+                document.getElementById('cc_uuid').value = data.uuid || '';
+                document.getElementById('cc_password').value = '';
+                document.getElementById('cc_auto_sync').checked = !!data.auto_sync;
+
+                const pwStatus = document.getElementById('cc_pw_status');
+                if (data.has_password) {
+                    pwStatus.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><i class="ri-checkbox-circle-fill"></i>已保存密码</span>`;
+                } else {
+                    pwStatus.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1"><i class="ri-error-warning-fill"></i>未设置</span>`;
+                }
+            } catch (e) {
+                console.error('loadCookieCloudConfig error:', e);
+            }
+        }
+
+        async function handleSaveCookieCloud(btn) {
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = '保存中...';
+
+            const url = document.getElementById('cc_url').value.trim();
+            const uuid = document.getElementById('cc_uuid').value.trim();
+            const password = document.getElementById('cc_password').value.trim();
+            const autoSync = document.getElementById('cc_auto_sync').checked ? 1 : 0;
+
+            const formData = new FormData();
+            formData.append('url', url);
+            formData.append('uuid', uuid);
+            formData.append('password', password);
+            formData.append('auto_sync', autoSync);
+
+            try {
+                const res = await fetch('/api/cookiecloud', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showToast(data.message || '配置已保存', 'success');
+                    await loadCookieCloudConfig();
+                } else {
+                    showToast(data.message || '保存失败', 'error');
+                }
+            } catch (e) {
+                showToast('保存异常: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        async function handleSyncCookieCloud(btn) {
+            btn.disabled = true;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<i class="ri-loader-4-line animate-spin text-base"></i><span>同步中...</span>`;
+            const resultBox = document.getElementById('cc_sync_result');
+            if (resultBox) resultBox.classList.add('hidden');
+
+            try {
+                // 如果当前输入框里有未保存的 URL/UUID/Password，自动先做一次保存
+                const url = document.getElementById('cc_url').value.trim();
+                const uuid = document.getElementById('cc_uuid').value.trim();
+                const password = document.getElementById('cc_password').value.trim();
+                if (url && uuid && password) {
+                    const fd = new FormData();
+                    fd.append('url', url);
+                    fd.append('uuid', uuid);
+                    fd.append('password', password);
+                    fd.append('auto_sync', document.getElementById('cc_auto_sync').checked ? 1 : 0);
+                    await fetch('/api/cookiecloud', { method: 'POST', body: fd });
+                }
+
+                const res = await fetch('/api/cookiecloud/sync', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showToast(data.message, 'success');
+                    if (resultBox) {
+                        resultBox.className = "p-3 rounded-xl border text-xs bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-300";
+                        resultBox.innerHTML = `<div><strong>同步成功：</strong>${escapeHtml(data.message)}</div>`;
+                        resultBox.classList.remove('hidden');
+                    }
+                    await refreshDashboard();
+                    await loadCookieCloudConfig();
+                } else {
+                    showToast(data.message || '同步失败', 'error');
+                    if (resultBox) {
+                        resultBox.className = "p-3 rounded-xl border text-xs bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-800 dark:text-rose-300";
+                        resultBox.innerHTML = `<div><strong>同步失败：</strong>${escapeHtml(data.message)}</div>`;
+                        resultBox.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                showToast('请求异常: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                if (icon) icon.className = 'ri-eye-off-line text-base text-indigo-500';
+            } else {
+                input.type = 'password';
+                if (icon) icon.className = 'ri-eye-line text-base text-slate-400';
+            }
         }
 
         // ========== 主题系统控制 ==========
