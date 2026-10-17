@@ -58,7 +58,10 @@ def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dic
                 browser_executable_path=exe,
                 headless=headless,
                 sandbox=False,
-                browser_args=["--disable-gpu"] if headless else []
+                lang="zh-CN",
+                browser_connection_max_tries=60,
+                browser_connection_timeout=0.5,
+                browser_args=["--disable-gpu", "--disable-setuid-sandbox", "--no-zygote"] if headless else []
             )
             parsed = urlparse(url)
             domain = parsed.netloc or "audiences.me"
