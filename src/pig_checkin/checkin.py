@@ -134,19 +134,25 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, 
             for _ in range(max(1, BROWSER_TIMEOUT // 2)):
                 await asyncio.sleep(2)
                 content = await page.get_content()
-                if "attendance-card--done" in content or "今天已经签到" in content:
+                if "attendance-card--done" in content or "今天已经签到" in content or "今日已打" in content:
                     break
-                if is_cloudflare_challenge(content) or "attendance-card--verify" in content:
+                if is_cloudflare_challenge(content) or "attendance-card--verify" in content or "dev8133_cloudflare" in content:
                     try:
-                        await page.verify_cf(click_delay=2, timeout=8)
+                        await page.verify_cf(click_delay=2, timeout=6)
                     except Exception:
-                        pass
-                elif "</body" in content:
+                        # 兼容非标准 ShadowRoot 插件（如多看 #turnstile），直接精准定位容器坐标点击
+                        try:
+                            rect = await page.evaluate("document.getElementById('turnstile')?.getBoundingClientRect()")
+                            if rect and rect.get("x") is not None:
+                                await page.mouse_click(rect["x"] + 25, rect["y"] + 32)
+                        except Exception:
+                            pass
+                elif "</body" in content and "dev8133_cloudflare" not in content:
                     break
             else:
                 content = await page.get_content()
 
-            if is_cloudflare_challenge(content) or "attendance-card--verify" in content:
+            if is_cloudflare_challenge(content) or "attendance-card--verify" in content or "dev8133_cloudflare" in content:
                 logger.error("[zendriver] 超时未通过 Cloudflare / 人机验证")
                 return False, "未能通过 Cloudflare / 人机验证", {}
 
@@ -261,8 +267,8 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     except Exception:
         res_text = res.text
 
-    if is_cloudflare_challenge(res_text, res.status_code):
-        logger.warning("[%s] 检测到 Cloudflare 防护拦截 (HTTP %d)，启动浏览器过盾处理...", site_label, res.status_code)
+    if is_cloudflare_challenge(res_text, res.status_code) or _contains_any(res_text, tpl["gate_keywords"]):
+        logger.warning("[%s] 检测到 Cloudflare 防护或人机验证拦截 (HTTP %d)，启动浏览器过盾处理...", site_label, res.status_code)
         ok, content, new_cookies = solve_with_zendriver(sign_page_url, cookies)
         if not ok:
             logger.error("[%s] 浏览器绕过 Cloudflare 失败: %s", site_label, content)
