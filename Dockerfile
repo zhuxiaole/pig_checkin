@@ -1,8 +1,8 @@
-# 两阶段构建：uv 只在构建期用，不进最终镜像（省约 35MB）。
-# 两阶段必须用同一个基础镜像 —— venv/bin/python 是指向基础镜像解释器的符号链接。
+# 两阶段构建：uv 只在构建期用，不进最终镜像。
+# 两阶段使用相同的 debian-slim 基础镜像，确保 glibc 与 CloakBrowser 原生二进制兼容。
 
-# ---------- 构建阶段：把依赖装进 /app/.venv ----------
-FROM python:3.14-alpine AS builder
+# ---------- 构建阶段：把依赖装进 /app/.venv 并预装 CloakBrowser ----------
+FROM python:3.14-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -16,34 +16,50 @@ ENV UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-# 再复制源码并完成项目自身安装（editable，.pth 指向 /app/src）
+# 复制源码并完成项目安装
 COPY . .
 RUN uv sync --frozen --no-dev
 
-# ---------- 运行阶段：只带运行时需要的东西 ----------
-FROM python:3.14-alpine
+# 预下载 CloakBrowser Stealth Chromium 二进制，固化在镜像内，避免容器启动时动态下载
+ENV CLOAKBROWSER_CACHE_DIR=/app/.cloakbrowser
+RUN /app/.venv/bin/python -m cloakbrowser install
+
+# ---------- 运行阶段：仅包含运行时系统库与产物 ----------
+FROM python:3.14-slim-bookworm
 
 WORKDIR /app
 
-# 系统依赖：
-# - tzdata: 支持 TZ 环境变量自定义时区
-# - ca-certificates: HTTPS 证书链校验
-# - chromium: zendriver 原生无头浏览器
-# - font-wqy-zenhei: 轻量中文字体支持 (相比 font-noto-cjk 省约 72MB)
-RUN apk add --no-cache \
+# 系统依赖：时区数据、CA 证书、中文字体、以及无头 Chromium 必需的运行时共享库
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     ca-certificates \
-    chromium \
-    font-wqy-zenhei \
-    && find /usr/lib/chromium/locales/ -type f ! -name 'en-US.pak' ! -name 'zh-CN.pak' -delete
+    fonts-wqy-zenhei \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai \
     PIG_RELOAD=false \
-    PIG_BROWSER_PATH=/usr/bin/chromium
+    CLOAKBROWSER_CACHE_DIR=/app/.cloakbrowser
 
-# 只搬 venv 与源码；uv 的缓存不在 /app 下，本来就不会被带进来
+# 复制虚拟环境、源码及已预装的 CloakBrowser 二进制
 COPY --from=builder /app /app
 
 VOLUME ["/app/data"]
