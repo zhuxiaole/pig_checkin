@@ -159,7 +159,6 @@ def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dic
         logger.error("[zendriver] 浏览器执行失败或超时: %s", e)
         return False, f"zendriver 执行失败: {e}", {}
 
-solve_with_cloakbrowser = solve_with_zendriver
 
 def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
     domain = (domain or "").strip()
@@ -231,12 +230,12 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         res_text = res.text
 
     if is_cloudflare_challenge(res_text, res.status_code):
-        logger.warning("[%s] 检测到 Cloudflare 防护拦截 (HTTP %d)，启动无头浏览器处理...", site_label, res.status_code)
-        ok, content, new_cookies = solve_with_cloakbrowser(sign_page_url, cookies)
+        logger.warning("[%s] 检测到 Cloudflare 防护拦截 (HTTP %d)，启动浏览器过盾处理...", site_label, res.status_code)
+        ok, content, new_cookies = solve_with_zendriver(sign_page_url, cookies)
         if not ok:
-            logger.error("[%s] 无头浏览器绕过 Cloudflare 失败: %s", site_label, content)
-            return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
-        logger.info("[%s] 无头浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_label)
+            logger.error("[%s] 浏览器绕过 Cloudflare 失败: %s", site_label, content)
+            return False, f"检测到 Cloudflare 防护，且浏览器绕过失败: {content}"
+        logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_label)
         session.cookies.update(new_cookies)
         res_text = content
 
@@ -453,12 +452,12 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         return False, f"网络请求失败: {e}"
 
     if is_cloudflare_challenge(res.text, res.status_code) or _contains_any(res.text, tpl["verify_keywords"]):
-        logger.warning("[%s] 检测到 Cloudflare / 人机验证拦截 (HTTP %d)，启动无头浏览器处理...", site_name, res.status_code)
-        ok, content, new_cookies = solve_with_cloakbrowser(attendance_url, cookies)
+        logger.warning("[%s] 检测到 Cloudflare / 人机验证拦截 (HTTP %d)，启动浏览器过盾处理...", site_name, res.status_code)
+        ok, content, new_cookies = solve_with_zendriver(attendance_url, cookies)
         if not ok:
-            logger.error("[%s] 无头浏览器绕过失败: %s", site_name, content)
-            return False, f"检测到 Cloudflare 防护，且无头浏览器绕过失败: {content}"
-        logger.info("[%s] 无头浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_name)
+            logger.error("[%s] 浏览器绕过失败: %s", site_name, content)
+            return False, f"检测到 Cloudflare 防护，且浏览器绕过失败: {content}"
+        logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_name)
         session.cookies.update(new_cookies)
         res_text = content
     else:
