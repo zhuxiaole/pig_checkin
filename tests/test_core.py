@@ -824,32 +824,32 @@ def test_cookiecloud_crypto_and_sync():
         requests.get = orig_get
 
 
-def test_solve_with_cloakbrowser():
-    """回归：solve_with_cloakbrowser 正确调用 CloakBrowser 并处理 cookies。"""
-    from unittest.mock import patch, MagicMock
-    from pig_checkin.checkin import solve_with_cloakbrowser
+def test_solve_with_zendriver_and_xvfb():
+    """回归：solve_with_zendriver 支持 Xvfb 虚拟屏幕判定与参数绑定。"""
+    from unittest.mock import patch, AsyncMock
+    from pig_checkin.checkin import solve_with_zendriver, ensure_xvfb
 
     called = {}
-    mock_browser = MagicMock()
-    mock_context = MagicMock()
-    mock_page = MagicMock()
-
-    mock_page.content.return_value = "<html><body>attendance-card--done</body></html>"
-    mock_context.new_page.return_value = mock_page
-    mock_context.cookies.return_value = [{"name": "cf_clearance", "value": "test_cf"}]
-    mock_browser.new_context.return_value = mock_context
-
-    def mock_launch(**kwargs):
+    async def mock_start(**kwargs):
         called.update(kwargs)
-        return mock_browser
+        mock_b = AsyncMock()
+        mock_p = AsyncMock()
+        mock_p.get_content.return_value = "<html><body>attendance-card--done</body></html>"
+        mock_b.get.return_value = mock_p
+        mock_b.cookies.get_all.return_value = []
+        mock_b.cookies.set_all = AsyncMock()
+        mock_b.stop = AsyncMock()
+        return mock_b
 
-    with patch("cloakbrowser.launch", side_effect=mock_launch):
-        ok, content, cookies = solve_with_cloakbrowser("https://audiences.me/attendance.php", {"uid": "1"})
+    with patch("zendriver.start", side_effect=mock_start), \
+         patch("pig_checkin.checkin.ensure_xvfb", return_value=True), \
+         patch("pig_checkin.checkin.find_browser_executable", return_value="/usr/bin/chromium"):
+        ok, content, _ = solve_with_zendriver("https://audiences.me/attendance.php", {"uid": "1"})
         assert ok is True
-        assert called["headless"] is True
-        assert called["humanize"] is True
-        assert cookies.get("cf_clearance") == "test_cf"
-        mock_browser.close.assert_called_once()
+        assert called["browser_executable_path"] == "/usr/bin/chromium"
+        # 当具有 Xvfb 时，默认有头模式跑在虚拟桌面里
+        assert called["headless"] is False
+        assert called["sandbox"] is False
 
 
 def test_scheduler_and_db():
