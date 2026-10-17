@@ -577,7 +577,7 @@ wheels = [
 
 [[package]]
 name = "pig-checkin"
-version = "0.5.2"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
