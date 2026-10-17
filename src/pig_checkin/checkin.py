@@ -4,6 +4,7 @@ import time
 import random
 import logging
 import functools
+import threading
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -32,6 +33,9 @@ def is_cloudflare_challenge(text: str, status_code: int = 200) -> bool:
     signals = ["cf-turnstile-wrapper", "cf-turnstile-response", "<title>Just a moment...</title>", "<title>Checking your browser...</title>"]
     return any(sig in text for sig in signals)
 
+_xvfb_lock = threading.Lock()
+_browser_lock = threading.Lock()
+
 def ensure_xvfb() -> bool:
     """在无 DISPLAY 的 Linux/Docker 环境下自动拉起 Xvfb 虚拟桌面，供真实有头浏览器渲染。"""
     import sys
@@ -39,22 +43,25 @@ def ensure_xvfb() -> bool:
     if sys.platform != "linux" or os.environ.get("DISPLAY"):
         return bool(os.environ.get("DISPLAY"))
 
-    display = ":99"
-    lock_file = "/tmp/.X99-lock"
-    try:
-        if not os.path.exists(lock_file):
-            subprocess.Popen(
-                ["Xvfb", display, "-screen", "0", "1920x1080x24", "-nolisten", "tcp"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
-            time.sleep(1)
-            logger.info("[Xvfb] 已在 Linux 环境启动虚拟桌面 (%s 1920x1080x24)", display)
-        os.environ["DISPLAY"] = display
-        return True
-    except Exception as e:
-        logger.debug("[Xvfb] 启动虚拟桌面异常: %s", e)
-        return False
+    with _xvfb_lock:
+        if os.environ.get("DISPLAY"):
+            return True
+        display = ":99"
+        lock_file = "/tmp/.X99-lock"
+        try:
+            if not os.path.exists(lock_file):
+                subprocess.Popen(
+                    ["Xvfb", display, "-screen", "0", "1920x1080x24", "-nolisten", "tcp"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                time.sleep(1)
+                logger.info("[Xvfb] 已在 Linux 环境启动虚拟桌面 (%s 1920x1080x24)", display)
+            os.environ["DISPLAY"] = display
+            return True
+        except Exception as e:
+            logger.debug("[Xvfb] 启动虚拟桌面异常: %s", e)
+            return False
 
 def find_browser_executable() -> str:
     env_path = os.environ.get("PIG_BROWSER_PATH")
@@ -67,6 +74,11 @@ def find_browser_executable() -> str:
         return None
 
 def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dict]:
+    # 互斥锁：同一时间严格只允许 1 个浏览器实例执行过盾，彻底杜绝并发吃爆系统内存 (OOM)
+    with _browser_lock:
+        return _solve_with_zendriver_locked(url, cookies)
+
+def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, str, dict]:
     import asyncio
     async def _async_solve():
         import zendriver as zd

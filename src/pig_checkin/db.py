@@ -4,6 +4,7 @@ import hmac
 import re
 import secrets
 from pathlib import Path
+from contextlib import contextmanager
 
 DB_DIR = Path.cwd() / "data"
 DB_PATH = DB_DIR / "checkin.db"
@@ -25,10 +26,14 @@ COMMON_PASSWORDS = {
     "iloveyou", "letmein1", "welcome1", "sunshine1", "monkey123", "football1",
 }
 
+@contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=15)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
