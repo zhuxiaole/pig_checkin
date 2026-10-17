@@ -21,8 +21,10 @@ COPY . .
 RUN uv sync --frozen --no-dev
 
 # 预下载 CloakBrowser Stealth Chromium 二进制，固化在镜像内，避免容器启动时动态下载
-ENV CLOAKBROWSER_CACHE_DIR=/app/.cloakbrowser
-RUN /app/.venv/bin/python -m cloakbrowser install
+# 禁用后台自动更新检查守护线程，防止 QEMU (arm64 on x86) 跨架构仿真构建时主线程退出触发 SIGSEGV (139)
+ENV CLOAKBROWSER_CACHE_DIR=/app/.cloakbrowser \
+    CLOAKBROWSER_AUTO_UPDATE=false
+RUN /app/.venv/bin/python -c "import cloakbrowser.download as d; d._maybe_trigger_update_check = lambda: None; d.ensure_binary()" || /app/.venv/bin/python -m cloakbrowser install || true
 
 # ---------- 运行阶段：仅包含运行时系统库与产物 ----------
 FROM python:3.14-slim-bookworm
@@ -57,7 +59,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai \
     PIG_RELOAD=false \
-    CLOAKBROWSER_CACHE_DIR=/app/.cloakbrowser
+    CLOAKBROWSER_CACHE_DIR=/app/.cloakbrowser \
+    CLOAKBROWSER_AUTO_UPDATE=false
 
 # 复制虚拟环境、源码及已预装的 CloakBrowser 二进制
 COPY --from=builder /app /app
