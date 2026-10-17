@@ -48,6 +48,7 @@ def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dic
         import zendriver as zd
         import zendriver.cdp.network as network
 
+        exe = find_browser_executable()
         headless = os.environ.get("PIG_HEADLESS", "true").lower() not in ("0", "false", "no")
         mode_str = "无头浏览器" if headless else "有头浏览器"
         logger.info("[zendriver] 启动%s: %s (超时限制: %d 秒)", mode_str, exe or "系统默认Chrome", BROWSER_TIMEOUT)
