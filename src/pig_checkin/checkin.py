@@ -276,7 +276,12 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_label)
         session.cookies.update(new_cookies)
         _persist_site_cookies_merge(site_dict.get("id"), new_cookies)
-        res_text = content
+        # 过盾成功并获取最新 Cookies 后，使用更新后的会话重新发起 GET 访问，加载真正的签到主页
+        try:
+            res_refreshed = session.get(sign_page_url, timeout=REQUEST_TIMEOUT)
+            res_text = res_refreshed.content.decode(encoding, errors="replace")
+        except Exception:
+            res_text = content
 
     # 登录状态判定：UID 或退出链接存在，且无未登录提示
     if _contains_any(res_text, tpl["gate_keywords"]):
@@ -499,7 +504,14 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_name)
         session.cookies.update(new_cookies)
         _persist_site_cookies_merge(site_dict.get("id"), new_cookies)
-        res_text = content
+        if "attendance-card--done" in content or "今天已经签到" in content:
+            res_text = content
+        else:
+            try:
+                res_refreshed = session.get(attendance_url, timeout=REQUEST_TIMEOUT)
+                res_text = res_refreshed.text
+            except Exception:
+                res_text = content
     else:
         res_text = res.text
 
