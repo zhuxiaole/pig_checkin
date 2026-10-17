@@ -172,6 +172,26 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, 
         return False, f"zendriver 执行失败: {e}", {}
 
 
+def _persist_site_cookies_merge(site_id: int | None, new_cookies: dict):
+    """将过盾获取到的新 Cookies (重点如 cf_clearance) 增量合并持久化到 sites 表。"""
+    if not site_id or not new_cookies:
+        return
+    try:
+        from pig_checkin.db import get_db
+        from pig_checkin.crypto import encrypt_text, decrypt_text
+        with get_db() as conn:
+            row = conn.execute("SELECT cookies FROM sites WHERE id = ?", (site_id,)).fetchone()
+            if row:
+                curr = parse_cookies_str(decrypt_text(row["cookies"] or ""))
+                curr.update(new_cookies)
+                merged_str = "; ".join(f"{k}={v}" for k, v in curr.items())
+                conn.execute("UPDATE sites SET cookies = ? WHERE id = ?", (encrypt_text(merged_str), site_id))
+                conn.commit()
+                logger.info("💾 [持久化] 站点 ID=%d Cookies 已自动增量更新落库 (更新凭据: %s)", site_id, list(new_cookies.keys()))
+    except Exception as e:
+        logger.warning("💾 [持久化] 增量更新站点 ID=%d Cookies 异常: %s", site_id, e)
+
+
 def format_domain(domain: str, default: str = "https://cnlang.org") -> str:
     domain = (domain or "").strip()
     if not domain:
@@ -249,6 +269,7 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
             return False, f"检测到 Cloudflare 防护，且浏览器绕过失败: {content}"
         logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_label)
         session.cookies.update(new_cookies)
+        _persist_site_cookies_merge(site_dict.get("id"), new_cookies)
         res_text = content
 
     # 登录状态判定：UID 或退出链接存在，且无未登录提示
@@ -471,6 +492,7 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
             return False, f"检测到 Cloudflare 防护，且浏览器绕过失败: {content}"
         logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_name)
         session.cookies.update(new_cookies)
+        _persist_site_cookies_merge(site_dict.get("id"), new_cookies)
         res_text = content
     else:
         res_text = res.text

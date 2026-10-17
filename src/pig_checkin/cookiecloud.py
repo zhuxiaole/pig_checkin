@@ -140,7 +140,7 @@ def sync_cookies_to_sites(cookie_map: dict[str, list[dict]]) -> list[dict]:
     """将从 CookieCloud 解析出的 Cookie 匹配并加密写入 sites 表中的 cookie 认证站点。"""
     updated_sites = []
     with get_db() as conn:
-        rows = conn.execute("SELECT id, name, domain, auth_type FROM sites WHERE auth_type = 'cookie'").fetchall()
+        rows = conn.execute("SELECT id, name, domain, auth_type, cookies FROM sites WHERE auth_type = 'cookie'").fetchall()
         for r in rows:
             site_id, site_name = r["id"], r["name"]
             host = _extract_host(r["domain"])
@@ -149,6 +149,12 @@ def sync_cookies_to_sites(cookie_map: dict[str, list[dict]]) -> list[dict]:
             
             matched_dict = _match_domain_cookies(host, cookie_map)
             if matched_dict:
+                # 智能增量合并：若 CookieCloud 中暂无 cf_clearance，保留本地已有有效盾牌凭据，避免被覆盖冲掉
+                local_plain = decrypt_text(r["cookies"] or "")
+                local_cookies = {k.strip(): v.strip() for item in local_plain.split(";") if "=" in item for k, v in [item.split("=", 1)]}
+                if "cf_clearance" not in matched_dict and "cf_clearance" in local_cookies:
+                    matched_dict["cf_clearance"] = local_cookies["cf_clearance"]
+
                 cookie_str = "; ".join(f"{k}={v}" for k, v in matched_dict.items())
                 conn.execute("UPDATE sites SET cookies = ? WHERE id = ?", (encrypt_text(cookie_str), site_id))
                 updated_sites.append({"id": site_id, "name": site_name, "host": host, "count": len(matched_dict)})

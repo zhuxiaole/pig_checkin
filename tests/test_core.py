@@ -852,6 +852,51 @@ def test_solve_with_zendriver_and_xvfb():
         assert called["sandbox"] is False
 
 
+def test_smart_cookie_merge_and_persistence():
+    """过盾后自动增量更新站点 Cookies，且 CookieCloud 定时同步时智能保留本地已有 cf_clearance。"""
+    from pig_checkin.checkin import _persist_site_cookies_merge, parse_cookies_str
+    from pig_checkin.cookiecloud import sync_cookies_to_sites
+    from pig_checkin.crypto import encrypt_text, decrypt_text
+
+    # 1. 测试 _persist_site_cookies_merge
+    with get_db() as conn:
+        conn.execute("DELETE FROM sites WHERE name = '__unittest_merge__'")
+        cur = conn.execute(
+            "INSERT INTO sites (name, domain, auth_type, site_type, cookies) VALUES (?, ?, 'cookie', 'audiences', ?)",
+            ("__unittest_merge__", "https://audiences.me/attendance.php", encrypt_text("c_secure_uid=123; c_secure_pass=old_pwd"))
+        )
+        site_id = cur.lastrowid
+        conn.commit()
+
+    try:
+        # 模拟过盾拿到新 cf_clearance 与更新的 uid
+        _persist_site_cookies_merge(site_id, {"cf_clearance": "fresh_token_999", "c_secure_uid": "123"})
+        with get_db() as conn:
+            row = conn.execute("SELECT cookies FROM sites WHERE id = ?", (site_id,)).fetchone()
+            curr = parse_cookies_str(decrypt_text(row["cookies"]))
+            assert curr["cf_clearance"] == "fresh_token_999", "过盾后新 cf_clearance 必须已持久化"
+            assert curr["c_secure_pass"] == "old_pwd", "原有登录 Cookie 必须完整保留"
+
+        # 2. 模拟 CookieCloud 定时拉取（云端无 cf_clearance，只有新密码凭据）
+        cloud_cookie_map = {
+            "audiences.me": [
+                {"name": "c_secure_uid", "value": "123"},
+                {"name": "c_secure_pass", "value": "new_cloud_pwd"}
+            ]
+        }
+        sync_cookies_to_sites(cloud_cookie_map)
+
+        with get_db() as conn:
+            row = conn.execute("SELECT cookies FROM sites WHERE id = ?", (site_id,)).fetchone()
+            after = parse_cookies_str(decrypt_text(row["cookies"]))
+            assert after["c_secure_pass"] == "new_cloud_pwd", "云端最新密码凭据必须已同步覆盖"
+            assert after["cf_clearance"] == "fresh_token_999", "本地已过盾的 cf_clearance 绝不能被反向冲掉！"
+    finally:
+        with get_db() as conn:
+            conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
+            conn.commit()
+
+
 def test_scheduler_and_db():
     assert len(compute_next_run("fixed", "12:00")) == 19
     assert len(compute_next_run("random", "09:00")) == 19
