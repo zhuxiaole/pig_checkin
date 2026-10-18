@@ -25,6 +25,7 @@
 | **熊猫 PT** | `https://pandapt.net` | `pandapt` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **PTHome** | `https://pthome.net` | `pthome` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **憨憨** | `https://hhanclub.net` | `hhanclub` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
+| **大摄会** | `https://dstudio.me` | `dstudio` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **BTSchool** | `https://pt.btschool.club` | `btschool` | NexusPHP (`/index.php?action=addbonus`) | Cookies 认证 | - |
 | **人人字幕组** | `https://yysub.cc` | `yyets` | 原生 API (`/User/Login/ajaxLogin`) | 账号密码认证 | - |
 

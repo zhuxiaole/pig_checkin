@@ -152,7 +152,7 @@ def test_dropdown_only_lists_enabled_or_in_use():
 
 def test_all_templates_and_dispatch():
     merged = tl.all_templates()
-    for key in ("cnlang", "audiences", "acgrip", "yyets"):
+    for key in ("cnlang", "audiences", "acgrip", "yyets", "dstudio"):
         assert key in merged, f"缺少模板 {key}"
     assert tl.get_template("no-such-key") is None
 
