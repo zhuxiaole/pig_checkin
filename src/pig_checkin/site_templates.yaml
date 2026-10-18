@@ -183,7 +183,7 @@ templates:
     sign_path: /attendance.php
 
   - key: dstudio
-    name: 大摄会
+    name: Depth Studio
     flow: nexusphp
     auth_type: cookie
     auth_label: Cookies 认证
