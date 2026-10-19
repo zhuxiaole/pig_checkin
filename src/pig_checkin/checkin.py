@@ -706,9 +706,12 @@ def execute_checkin(site_dict: dict) -> tuple[bool, str]:
                 )
             else:
                 final_status = "签到失败"
+                next_run_str = ""
                 if site_id:
-                    conn.execute("UPDATE sites SET last_status = ?, last_run = ? WHERE id = ?", (final_status, now_str, site_id))
-                log_msg = f"尝试 {max_retries + 1} 次均失败，最终错误: {msg}"
+                    from pig_checkin.scheduler import compute_failure_next_run
+                    next_run_str = compute_failure_next_run(site_dict.get("schedule_type", "random"), site_dict.get("schedule_time", "09:00"))
+                    conn.execute("UPDATE sites SET last_status = ?, last_run = ?, next_run = ? WHERE id = ?", (final_status, now_str, next_run_str, site_id))
+                log_msg = f"尝试 {max_retries + 1} 次均失败，最终错误: {msg} (已推迟至 {next_run_str} 重新尝试)" if next_run_str else f"尝试 {max_retries + 1} 次均失败，最终错误: {msg}"
                 conn.execute(
                     "INSERT INTO logs (site_id, site_name, status, message, created_at) VALUES (?, ?, '失败', ?, ?)",
                     (site_id, site_name, log_msg, now_str)

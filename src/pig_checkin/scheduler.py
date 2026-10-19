@@ -37,6 +37,16 @@ def compute_next_run(schedule_type: str, schedule_time: str, next_day: bool = Fa
         )
     return target.strftime("%Y-%m-%d %H:%M:%S")
 
+def compute_failure_next_run(schedule_type: str, schedule_time: str) -> str:
+    """重试耗尽后的救场退避：当天剩余 >=1.5 小时则推迟 1~2 小时再试，否则顺延明天。"""
+    now = datetime.datetime.now()
+    cur_sec = now.hour * 3600 + now.minute * 60 + now.second
+    day_end = 23 * 3600 + 45 * 60
+    if day_end - cur_sec >= 5400:
+        delay_sec = min(random.randint(3600, 7200), day_end - cur_sec)
+        return (now + datetime.timedelta(seconds=delay_sec)).strftime("%Y-%m-%d %H:%M:%S")
+    return compute_next_run(schedule_type, schedule_time, next_day=True)
+
 def run_site_checkin(site_id: int):
     try:
         with get_db() as conn:

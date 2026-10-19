@@ -897,6 +897,47 @@ def test_smart_cookie_merge_and_persistence():
             conn.commit()
 
 
+def test_failure_backoff_and_reschedule():
+    """失败重试耗尽后：更新 next_run 避免死循环，且时间推迟到未来。"""
+    from pig_checkin.scheduler import compute_failure_next_run
+    from pig_checkin.checkin import execute_checkin
+    import datetime
+
+    # 1. compute_failure_next_run 测试
+    t_fixed = compute_failure_next_run("fixed", "09:00")
+    t_rand = compute_failure_next_run("random", "09:00")
+    assert len(t_fixed) == 19 and len(t_rand) == 19
+    dt_fixed = datetime.datetime.strptime(t_fixed, "%Y-%m-%d %H:%M:%S")
+    assert dt_fixed > datetime.datetime.now(), "失败推迟时间必须在未来"
+
+    # 2. 模拟站点 0 次重试且失败，检查数据库中 next_run 是否被推进
+    past_time = "2020-01-01 09:00:00"
+    with get_db() as conn:
+        conn.execute("DELETE FROM sites WHERE name = '__unittest_fail_site__'")
+        cur = conn.execute(
+            "INSERT INTO sites (name, domain, auth_type, site_type, cookies, max_retries, retry_interval, next_run) "
+            "VALUES (?, ?, 'cookie', 'no-such-type', '', 0, 1, ?)",
+            ("__unittest_fail_site__", "https://invalid.example", past_time)
+        )
+        site_id = cur.lastrowid
+        conn.commit()
+
+    try:
+        with get_db() as conn:
+            site_dict = dict(conn.execute("SELECT * FROM sites WHERE id = ?", (site_id,)).fetchone())
+        ok, msg = execute_checkin(site_dict)
+        assert ok is False
+        with get_db() as conn:
+            row = conn.execute("SELECT last_status, next_run FROM sites WHERE id = ?", (site_id,)).fetchone()
+            assert row["last_status"] == "签到失败"
+            assert row["next_run"] != past_time, "失败后 next_run 必须被更新，绝不能停留在过去导致死循环！"
+            assert row["next_run"] > datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    finally:
+        with get_db() as conn:
+            conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
+            conn.commit()
+
+
 def test_scheduler_and_db():
     assert len(compute_next_run("fixed", "12:00")) == 19
     assert len(compute_next_run("random", "09:00")) == 19
