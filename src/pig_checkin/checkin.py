@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import time
 import random
 import logging
@@ -11,11 +12,21 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger("pig_checkin")
 if not logger.handlers:
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    _handler = logging.StreamHandler()
+    _formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    _handler.setFormatter(_formatter)
+    logger.addHandler(_handler)
     logger.setLevel(logging.INFO)
+else:
+    _handler = logger.handlers[0]
+
+# zendriver 自己的日志默认没有任何 handler（不打印），容器里排查“浏览器起不来”只能靠猜；
+# 把它接到本服务的 handler 上，Chromium stderr 与启动失败原因才会真正落到日志里。
+_zlogger = logging.getLogger("zendriver")
+if _handler not in _zlogger.handlers:
+    _zlogger.addHandler(_handler)
+    _zlogger.setLevel(logging.INFO)
+    _zlogger.propagate = False
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
@@ -37,30 +48,45 @@ _xvfb_lock = threading.Lock()
 _browser_lock = threading.Lock()
 
 def ensure_xvfb() -> bool:
-    """在无 DISPLAY 的 Linux/Docker 环境下自动拉起 Xvfb 虚拟桌面，供真实有头浏览器渲染。"""
-    import sys
+    """无 DISPLAY 的 Linux/Docker 环境自动拉起 Xvfb 供有头浏览器渲染；失败则回退无头模式。"""
+    import shutil
     import subprocess
-    if sys.platform != "linux" or os.environ.get("DISPLAY"):
+    if sys.platform != "linux":
         return bool(os.environ.get("DISPLAY"))
+    if os.environ.get("DISPLAY"):
+        return True
+    if not shutil.which("Xvfb"):
+        logger.info("[Xvfb] 系统未安装 Xvfb，回退无头模式")
+        return False
 
     with _xvfb_lock:
         if os.environ.get("DISPLAY"):
             return True
         display = ":99"
         lock_file = "/tmp/.X99-lock"
+        sock_path = "/tmp/.X11-unix/X99"
         try:
-            if not os.path.exists(lock_file):
+            # 陈旧锁：进程已死但锁文件残留，会让 Xvfb 拒绝启动、浏览器连上一个不存在的 X server
+            if os.path.exists(lock_file) and not os.path.exists(sock_path):
+                os.remove(lock_file)
+            if not os.path.exists(sock_path):
                 subprocess.Popen(
                     ["Xvfb", display, "-screen", "0", "1920x1080x24", "-nolisten", "tcp"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
-                time.sleep(1)
-                logger.info("[Xvfb] 已在 Linux 环境启动虚拟桌面 (%s 1920x1080x24)", display)
+                for _ in range(50):
+                    if os.path.exists(sock_path):
+                        break
+                    time.sleep(0.1)
+            if not os.path.exists(sock_path):
+                logger.warning("[Xvfb] 虚拟桌面未能就绪，回退无头模式")
+                return False
             os.environ["DISPLAY"] = display
+            logger.info("[Xvfb] 虚拟桌面就绪 (%s 1920x1080x24)", display)
             return True
         except Exception as e:
-            logger.debug("[Xvfb] 启动虚拟桌面异常: %s", e)
+            logger.warning("[Xvfb] 启动虚拟桌面异常，回退无头模式: %s", e)
             return False
 
 def find_browser_executable() -> str:
@@ -104,8 +130,12 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, 
             "--no-default-browser-check",
             "--disable-blink-features=AutomationControlled",
         ]
-        if headless:
-            browser_args.extend(["--disable-gpu", "--disable-setuid-sandbox", "--no-zygote"])
+        if sys.platform == "linux":
+            # 容器内以 root 运行必需；缺了这两项 Chromium 会直接起不来（DevTools 端口永不监听）
+            browser_args += ["--no-zygote", "--disable-setuid-sandbox"]
+        if headless or has_xvfb:
+            # 无头 / Xvfb 虚拟屏都没有真实 GPU，不禁用 GPU 加速 Chromium 同样会卡死起不来
+            browser_args.append("--disable-gpu")
 
         browser = None
         try:

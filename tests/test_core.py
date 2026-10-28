@@ -850,6 +850,18 @@ def test_solve_with_zendriver_and_xvfb():
         # 当具有 Xvfb 时，默认有头模式跑在虚拟桌面里
         assert called["headless"] is False
         assert called["sandbox"] is False
+        # Xvfb 虚拟屏没有真实 GPU，有头模式同样必须禁用 GPU 才能起来
+        assert "--disable-gpu" in called["browser_args"]
+
+    # Linux/容器下必须追加 --no-zygote 与 --disable-setuid-sandbox，否则 Chromium 起不来
+    called.clear()
+    with patch("zendriver.start", side_effect=mock_start), \
+         patch("pig_checkin.checkin.ensure_xvfb", return_value=True), \
+         patch("pig_checkin.checkin.sys.platform", "linux"), \
+         patch("pig_checkin.checkin.find_browser_executable", return_value="/usr/bin/chromium"):
+        solve_with_zendriver("https://audiences.me/attendance.php", None)
+        for flag in ("--no-zygote", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage"):
+            assert flag in called["browser_args"], f"容器启动参数缺少 {flag}"
 
 
 def test_smart_cookie_merge_and_persistence():
