@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import json
 import time
 import random
 import logging
@@ -43,6 +44,51 @@ def is_cloudflare_challenge(text: str, status_code: int = 200) -> bool:
         return True
     signals = ["cf-turnstile-wrapper", "cf-turnstile-response", "<title>Just a moment...</title>", "<title>Checking your browser...</title>"]
     return any(sig in text for sig in signals)
+
+# 真正的拦截页特征：正常的签到页正文里也会出现 cf-turnstile-response（表单字段），
+# 只看这个字符串会把「已经通过验证的正常页面」误判成还在验证。
+_HARD_VERIFY_SIGNALS = (
+    "<title>Just a moment...</title>",
+    "<title>Checking your browser...</title>",
+    "attendance-card--verify",
+    "dev8133_cloudflare",
+)
+
+def _page_still_verifying(content: str) -> bool:
+    return any(sig in content for sig in _HARD_VERIFY_SIGNALS) or "</body" not in content
+
+# 表单型 Turnstile：令牌解出后必须由页面自身提交（Discuz 插件会校验表单里的 cf-turnstile-response）
+# 另外像国语视界这种 dsu_paulsign 必须选一个「签到心情」，默认一个都不勾，服务端会报「心情不正确」
+_SUBMIT_TURNSTILE_FORM_JS = """(function(){
+    var i = document.querySelector('input[name="cf-turnstile-response"]');
+    if (!i || !i.value) return false;
+    var f = i.form || i.closest('form');
+    if (!f) return false;
+    var groups = {};
+    f.querySelectorAll('input[type=radio]').forEach(function(r){
+        (groups[r.name] = groups[r.name] || []).push(r);
+    });
+    Object.keys(groups).forEach(function(name){
+        var g = groups[name];
+        if (!g.some(function(r){ return r.checked; })) g[0].checked = true;
+    });
+    f.submit();
+    return true;
+})()"""
+
+# 在浏览器内用「页面自己解出的 Turnstile 令牌 + 我们的签到参数」直接 POST，
+# 既满足插件对令牌的校验，又能带上 qdxq / todaysay 这类站内要求的字段。
+_FETCH_SIGN_FORM_JS = """(async function(payload){
+    var i = document.querySelector('input[name="cf-turnstile-response"]');
+    if (!i || !i.value) return '';
+    var f = i.form || i.closest('form');
+    if (!f) return '';
+    var fd = new FormData(f);
+    Object.keys(payload).forEach(function(k){ fd.set(k, payload[k]); });
+    fd.set('cf-turnstile-response', i.value);
+    var r = await fetch(f.getAttribute('action') || f.action, {method: 'POST', body: fd, credentials: 'include'});
+    return await r.text();
+})(__PAYLOAD__)"""
 
 _xvfb_lock = threading.Lock()
 _browser_lock = threading.Lock()
@@ -99,12 +145,33 @@ def find_browser_executable() -> str:
     except Exception:
         return None
 
-def solve_with_zendriver(url: str, cookies: dict = None) -> tuple[bool, str, dict]:
+def _can_run_headed() -> bool:
+    """能否用有头模式：Windows/macOS 有桌面即可；Linux 需要 Xvfb 虚拟屏。"""
+    if sys.platform in ("win32", "darwin"):
+        return True
+    return ensure_xvfb()
+
+
+def solve_with_zendriver(url: str, cookies: dict = None, submit_payload: dict = None) -> tuple[bool, str, dict]:
     # 互斥锁：同一时间严格只允许 1 个浏览器实例执行过盾，彻底杜绝并发吃爆系统内存 (OOM)
     with _browser_lock:
-        return _solve_with_zendriver_locked(url, cookies)
+        env_headless = os.environ.get("PIG_HEADLESS")
+        if env_headless is not None:
+            headless = env_headless.lower() not in ("0", "false", "no")
+        else:
+            headless = not _can_run_headed()
 
-def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, str, dict]:
+        ok, content, new_cookies = _solve_with_zendriver_locked(url, cookies, headless, submit_payload)
+        # 部分站点（如国语视界）的 Turnstile 在无头模式根本不渲染控件、拿不到令牌；
+        # 有头模式能解决时自动重试一次，避免整个签到直接失败。
+        if not ok and headless and _can_run_headed():
+            logger.info("[zendriver] 无头模式未能拿到人机验证令牌，改用有头模式重试一次")
+            ok, content, new_cookies = _solve_with_zendriver_locked(url, cookies, False, submit_payload)
+        return ok, content, new_cookies
+
+
+def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool = True,
+                                 submit_payload: dict = None) -> tuple[bool, str, dict]:
     import asyncio
     async def _async_solve():
         import zendriver as zd
@@ -112,13 +179,6 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, 
 
         has_xvfb = ensure_xvfb()
         exe = find_browser_executable()
-
-        env_headless = os.environ.get("PIG_HEADLESS")
-        if env_headless is not None:
-            headless = env_headless.lower() not in ("0", "false", "no")
-        else:
-            # 默认：存在 DISPLAY（Xvfb 虚拟桌面或本地桌面）时一律使用有头模式秒过盾
-            headless = not has_xvfb and not os.environ.get("DISPLAY")
 
         mode_str = "无头浏览器" if headless else ("有头浏览器 (Xvfb虚拟桌面)" if has_xvfb else "有头浏览器")
         logger.info("[zendriver] 启动%s: %s (超时限制: %d 秒)", mode_str, exe or "系统默认Chrome", BROWSER_TIMEOUT)
@@ -152,21 +212,21 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, 
             domain = parsed.hostname or parsed.netloc or "audiences.me"
             cookie_domain = domain if domain.startswith(".") else f".{domain}"
 
-            page = await browser.get(url)
+            # 必须先注入 Cookie 再首次导航：否则站点会先种下 host-only 的同名 Cookie（saltkey/sid），
+            # 和注入的 .domain 版本共存，服务端读到错的那个 saltkey，直接判定未登录跳登录页。
             if cookies:
-                cookie_params = [
+                await browser.cookies.set_all([
                     network.CookieParam(name=k, value=v, domain=cookie_domain, path="/")
                     for k, v in cookies.items()
-                ]
-                await browser.cookies.set_all(cookie_params)
-                page = await browser.get(url)
+                ])
+            page = await browser.get(url)
 
             for _ in range(max(1, BROWSER_TIMEOUT // 2)):
                 await asyncio.sleep(2)
                 content = await page.get_content()
-                if "attendance-card--done" in content or "今天已经签到" in content or "今日已打" in content:
+                if _contains_any(content, ("attendance-card--done", "今天已经签到", "今日已打", "今日已签到")):
                     break
-                if is_cloudflare_challenge(content) or "attendance-card--verify" in content or "dev8133_cloudflare" in content:
+                if _page_still_verifying(content):
                     try:
                         await page.verify_cf(click_delay=2, timeout=6)
                     except Exception:
@@ -177,13 +237,58 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None) -> tuple[bool, 
                                 await page.mouse_click(rect["x"] + 25, rect["y"] + 32)
                         except Exception:
                             pass
-                elif "</body" in content and "dev8133_cloudflare" not in content:
-                    break
-            else:
-                content = await page.get_content()
+                    continue
+                break
+            content = await page.get_content()
 
-            if is_cloudflare_challenge(content) or "attendance-card--verify" in content or "dev8133_cloudflare" in content:
+            if _page_still_verifying(content):
                 logger.error("[zendriver] 超时未通过 Cloudflare / 人机验证")
+                return False, "未能通过 Cloudflare / 人机验证", {}
+
+            # 表单型 Turnstile（如国语视界 dsu_paulsign）：控件要 5~10 秒才出令牌，
+            # 且令牌必须由页面自身随表单一起提交，否则服务端会以「请先完成人机安全验证」拒收 requests 的 POST。
+            submitted = False
+            widget_api = "challenges.cloudflare.com/turnstile" in content
+            if widget_api:
+                for _ in range(12):
+                    token_len = await page.evaluate("""(function(){
+                        var i = document.querySelector('input[name="cf-turnstile-response"]');
+                        return i ? i.value.length : -1;
+                    })()""")
+                    if token_len and token_len > 0:
+                        if submit_payload:
+                            # 直接在浏览器里 POST：既有页面解出的合法令牌，又能带上站内必填字段
+                            try:
+                                html = await page.evaluate(
+                                    _FETCH_SIGN_FORM_JS.replace("__PAYLOAD__", json.dumps(submit_payload, ensure_ascii=False)),
+                                    await_promise=True,
+                                )
+                            except Exception as e:
+                                logger.warning("[zendriver] 浏览器内提交签到表单失败: %s", e)
+                                html = ""
+                            if html:
+                                logger.info("[zendriver] 已在浏览器内用 Turnstile 令牌提交签到表单（%d 字节结果页）", len(html))
+                                content = html
+                                submitted = True
+                        if not submitted:
+                            try:
+                                submitted = await page.evaluate(_SUBMIT_TURNSTILE_FORM_JS)
+                            except Exception:
+                                submitted = False
+                            if submitted:
+                                logger.info("[zendriver] 已用页面自身的 Turnstile 令牌提交签到表单，等待结果页")
+                                before_url = page.url
+                                for _ in range(10):
+                                    await asyncio.sleep(1.2)
+                                    content = await page.get_content()
+                                    if page.url != before_url or "id=\"qiandao\"" not in content:
+                                        break
+                        break
+                    await asyncio.sleep(1.5)
+
+            # 站点要求令牌、但控件始终没解出令牌：等于过盾失败，交给上层改有头模式重试
+            if widget_api and not submitted:
+                logger.error("[zendriver] Turnstile 控件未生成令牌（当前模式下该站点不渲染）")
                 return False, "未能通过 Cloudflare / 人机验证", {}
 
             all_cookies = await browser.cookies.get_all()
@@ -264,6 +369,29 @@ def _dig(obj, path: str):
     return functools.reduce(lambda d, k: d.get(k) if isinstance(d, dict) else None, path.split("."), obj)
 
 
+def _discuz_message_result(text: str, site_label: str, user_name: str, tpl: dict) -> tuple[bool, str]:
+    """按 Discuz showmessage 页/提示块判定签到结果。"""
+    soup = BeautifulSoup(text, "html.parser")
+    msg = ""
+    for tag, name in tpl["message_selectors"]:
+        node = soup.find(tag, {"class": name}) or soup.find(tag, {"id": name})
+        if node and node.text.strip():
+            msg = node.text.strip()
+            break
+    msg = msg or text[:120].strip() or "签到提交完成"
+    # Discuz 的 showmessage 把「请稍候，本站将自动跳转…」塞在同一个节点里，只留第一行
+    msg = msg.splitlines()[0].strip() or msg
+
+    if _contains_any(text, tpl["success_keywords"]):
+        logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, msg)
+        return True, f"用户 [{user_name}] 签到成功: {msg}"
+    if _contains_any(text, tpl["already_signed_keywords"]):
+        logger.info("[%s] 用户 [%s] 今日已签到过: %s", site_label, user_name, msg)
+        return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
+    logger.warning("[%s] 签到返回提示: %s", site_label, msg)
+    return False, f"签到返回提示: {msg}"
+
+
 def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     site_label = tpl["name"]
     domain = format_domain(site_dict.get("domain"), default=tpl["default_domain"])
@@ -297,16 +425,36 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     except Exception:
         res_text = res.text
 
+    # 过盾前先从页面里取 formhash / 心情，浏览器内提交时要把这些字段一起带上
+    pre_soup = BeautifulSoup(res_text, "html.parser")
+    pre_formhash = _first_group(res_text, tpl["formhash_patterns"])
+    if not pre_formhash:
+        pre_input = pre_soup.find("input", {"name": tpl["formhash_field"]})
+        pre_formhash = pre_input.get("value") if pre_input else None
+    pre_payload = None
+    if pre_formhash:
+        pre_payload = {**tpl["submit_body"], tpl["formhash_field"]: pre_formhash}
+        if tpl["greeting_field"]:
+            pre_payload[tpl["greeting_field"]] = random.choice(tpl["greetings"] or [""]).replace("{site}", site_label)
+
     if is_cloudflare_challenge(res_text, res.status_code) or _contains_any(res_text, tpl["gate_keywords"]):
         logger.warning("[%s] 检测到 Cloudflare 防护或人机验证拦截 (HTTP %d)，启动浏览器过盾处理...", site_label, res.status_code)
-        ok, content, new_cookies = solve_with_zendriver(sign_page_url, cookies)
+        ok, content, new_cookies = solve_with_zendriver(sign_page_url, cookies, submit_payload=pre_payload)
         if not ok:
             logger.error("[%s] 浏览器绕过 Cloudflare 失败: %s", site_label, content)
             return False, f"检测到 Cloudflare 防护，且浏览器绕过失败: {content}"
         logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_label)
         session.cookies.update(new_cookies)
         _persist_site_cookies_merge(site_dict.get("id"), new_cookies)
-        # 过盾成功并获取最新 Cookies 后，使用更新后的会话重新发起 GET 访问，加载真正的签到主页
+        # 浏览器里已经带着 Turnstile 令牌把签到表单提交掉了，content 就是结果页（此时页面已无签到表单）
+        soup_c = BeautifulSoup(content, "html.parser")
+        has_sign_form = any(soup_c.find(tag, {"name": name}) is not None for tag, name in tpl["sign_form_selectors"])
+        has_message = any(soup_c.find(tag, {"class": name}) or soup_c.find(tag, {"id": name})
+                          for tag, name in tpl["message_selectors"])
+        if not has_sign_form and (has_message or _contains_any(content, tpl["success_keywords"])
+                                  or _contains_any(content, tpl["already_signed_keywords"])):
+            return _discuz_message_result(content, site_label, site_dict.get("name", "用户"), tpl)
+        # 否则用更新后的会话重新 GET，加载真正的签到主页
         try:
             res_refreshed = session.get(sign_page_url, timeout=REQUEST_TIMEOUT)
             res_text = res_refreshed.content.decode(encoding, errors="replace")
@@ -371,17 +519,6 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         except Exception:
             sign_text = sign_res.text
 
-        sign_soup = BeautifulSoup(sign_text, "html.parser")
-        msg = ""
-        for tag, name in tpl["message_selectors"]:
-            node = sign_soup.find(tag, {"class": name}) or sign_soup.find(tag, {"id": name})
-            if node and node.text.strip():
-                msg = node.text.strip()
-                break
-        msg = msg or sign_text[:120].strip() or "签到提交完成"
-        # Discuz 的 showmessage 把「请稍候，本站将自动跳转…」塞在同一个节点里，只留第一行
-        msg = msg.splitlines()[0].strip() or msg
-
         # 部分 Discuz 插件（如 erling_qd）的签到按钮走 AJAX，返回 JSON 而非 HTML 提示
         try:
             sign_json = sign_res.json()
@@ -395,14 +532,7 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
             logger.warning("[%s] 签到接口返回失败: %s", site_label, msg)
             return False, f"签到失败: {msg}"
 
-        if _contains_any(sign_text, tpl["success_keywords"]):
-            logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, msg)
-            return True, f"用户 [{user_name}] 签到成功: {msg}"
-        if _contains_any(sign_text, tpl["already_signed_keywords"]):
-            logger.info("[%s] 用户 [%s] 今日已签到过: %s", site_label, user_name, msg)
-            return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
-        logger.warning("[%s] 签到返回提示: %s", site_label, msg)
-        return False, f"签到返回提示: {msg}"
+        return _discuz_message_result(sign_text, site_label, user_name, tpl)
     except requests.exceptions.Timeout:
         logger.error("[%s] 提交签到表单超时 (超过 %d 秒)", site_label, REQUEST_TIMEOUT)
         return False, f"签到提交超时 (超过 {REQUEST_TIMEOUT} 秒)"

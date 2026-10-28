@@ -864,6 +864,43 @@ def test_solve_with_zendriver_and_xvfb():
             assert flag in called["browser_args"], f"容器启动参数缺少 {flag}"
 
 
+def test_turnstile_form_submit_payload():
+    """回归：表单型 Turnstile 必须由浏览器带页面自身令牌提交，且自动勾选站内必填单选（签到心情）。"""
+    from unittest.mock import patch
+    from pig_checkin.checkin import (
+        _SUBMIT_TURNSTILE_FORM_JS, _FETCH_SIGN_FORM_JS,
+        _page_still_verifying, solve_with_zendriver,
+    )
+
+    # 表单型 Turnstile 的提交脚本要自动勾选未选中的单选组，否则服务端报「心情不正确」
+    assert "input[type=radio]" in _SUBMIT_TURNSTILE_FORM_JS
+    assert "checked = true" in _SUBMIT_TURNSTILE_FORM_JS
+    # 浏览器内 POST 要带上令牌与业务字段
+    assert "cf-turnstile-response" in _FETCH_SIGN_FORM_JS
+    assert "__PAYLOAD__" in _FETCH_SIGN_FORM_JS
+
+    # 正常页面正文里出现 cf-turnstile-response 不能算「还在验证」
+    ok_page = "<html><body><form><input name='cf-turnstile-response'></form></body></html>"
+    assert _page_still_verifying(ok_page) is False
+    assert _page_still_verifying("<html><head><title>Just a moment...</title></head></html>") is True
+    assert _page_still_verifying("<html><body>attendance-card--verify</body></html>") is True
+
+    # submit_payload 必须一路透传给浏览器；无头失败且有桌面时自动改有头重试
+    calls = []
+    def fake_locked(url, cookies, headless, submit_payload=None):
+        calls.append((headless, submit_payload))
+        return (len(calls) > 1), "content", {}
+
+    with patch("pig_checkin.checkin._solve_with_zendriver_locked", side_effect=fake_locked), \
+         patch("pig_checkin.checkin._can_run_headed", return_value=True), \
+         patch.dict("os.environ", {"PIG_HEADLESS": "1"}):
+        payload = {"formhash": "abc", "qdxq": "kx"}
+        ok, _, _ = solve_with_zendriver("https://x.test/sign", {"a": "b"}, submit_payload=payload)
+        assert ok is True, "无头失败后应改有头重试并成功"
+        assert calls[0][1] is payload and calls[1][1] is payload, "业务字段必须透传给浏览器"
+        assert calls[0][0] is True and calls[1][0] is False, "首次无头、重试有头"
+
+
 def test_smart_cookie_merge_and_persistence():
     """过盾后自动增量更新站点 Cookies，且 CookieCloud 定时同步时智能保留本地已有 cf_clearance。"""
     from pig_checkin.checkin import _persist_site_cookies_merge, parse_cookies_str
