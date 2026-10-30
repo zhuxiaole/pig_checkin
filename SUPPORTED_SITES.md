@@ -17,7 +17,7 @@
 | **SSD 论坛** | `https://ssdforum.org` | `ssdforum` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **PTShare 论坛** | `http://bbs.ptshare.org` | `ptshare` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **恩山无线论坛** | `https://www.right.com.cn/forum` | `right` | Discuz! (`erling_qd` 插件，AJAX + JSON) | Cookies 认证 | ✔ 自动穿透 |
-| **多看聚影** | `https://duokan.club` | `duokan` | Discuz! (`zqlj_sign` 插件，令牌在 URL) | Cookies 认证 | ⚠ 自动过盾被 Cloudflare 拒发令牌，需人工过一次（24 小时有效，可 CookieCloud 同步） |
+| **多看聚影** | `https://duokan.club` | `duokan` | Discuz! (`zqlj_sign` 插件，令牌在 URL，GET 打卡) | Cookies 认证 | ✔ 自动穿透（出口走代理/机房 IP 时会拒发令牌） |
 | **高清鸭** | `https://hdduck.com` | `hdduck` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **肉丝** | `https://rousi.pro` | `rousi` | PeerGo (`POST /api/points/attendance`) | 密钥认证 | - |
 | **红豆饭** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
@@ -133,9 +133,9 @@
 | ① 打开签到页 | `GET {domain}{sign_path}` | **Header**：`User-Agent`（固定 Chrome UA）、`Referer`（=签到页自身）、`Accept-Language: zh-CN`、`Upgrade-Insecure-Requests: 1`<br>**Cookie**：用户配置的完整 Cookie 串<br>**URL**：`sign_path` 可自带查询串（如 cnlang 的 `?mobile=no`） |
 | ② 编码识别 | — | 按 `Content-Type` 与字节内容自动判定 `utf-8` / `gbk` / `gb2312` 后解码 |
 | ③ 过盾（按需） | 唤起浏览器 | 命中 Cloudflare 盾时由 `zendriver` 过盾（有桌面 / Xvfb 时用有头模式，没有显示环境才退无头），用新 Cookie 回写本次会话并落库，页面内容替换为过盾后的 HTML |
-| ③′ 站点自带人机验证闸门 | — | 页面命中 `gate_keywords`（如多看的 `dev8133_cloudflare`）时同样走浏览器过盾；若 Turnstile 控件停在「正在验证」拿不到令牌（Cloudflare 按网络风险拒发），20 秒内直接按 `gate_message` 报错，提示人工过验证（凭据 24 小时有效） |
+| ③′ 站点自带人机验证闸门 | — | 页面命中 `gate_keywords`（如多看的 `dev8133_cloudflare`）时同样走浏览器过盾。**注意出口网络**：走代理 / 机房 IP 时 Cloudflare 会拒发令牌，控件一直停在「正在验证」，此时 20 秒内按 `gate_message` 快速报错 |
 | ④ 提取令牌 | 解析步骤①的 HTML | **优先**模板正则 `formhash_patterns`；取不到再兜底页面隐藏域 `<input name="formhash" value="...">`。（页面里常有登录/搜索表单的同名字段，故正则优先） |
-| ⑤ 提交签到 | `POST {domain}{submit_path}` | **URL**：`submit_path` 支持 `{formhash}` 占位，令牌在 URL 上的插件（如多看 `?sign={formhash}`）用它<br>**Body**（`application/x-www-form-urlencoded`）：`submit_body` 的固定字段 + `formhash`；`greeting_field` 非空时附带随机祝福语，留空则不带（如恩山、多看）；GBK 站点按对应编码重新 urlencode |
+| ⑤ 提交签到 | 表单型 `POST {domain}{submit_path}`；URL 令牌型 `GET {domain}{submit_path}` | **URL**：`submit_path` 支持 `{formhash}` 占位；含该占位的模板（多看 `?sign={formhash}`）签到就是点那个链接，必须用 **GET**，POST 服务端不认<br>**Body**（表单型，`application/x-www-form-urlencoded`）：`submit_body` 的固定字段 + `formhash`；`greeting_field` 非空时附带随机祝福语，留空则不带（如恩山）；GBK 站点按对应编码重新 urlencode |
 
 **登录态判定**（步骤①之后立即执行）：命中 `discuz_uid = <数字>`（需大于 0）或页面存在 `action=logout` 视为已登录；命中 `need_login_keywords` 视为 Cookie 失效。
 
@@ -217,7 +217,7 @@ MoviePilot 等自动化工具准备的兼容接口。密钥必须有 `attendance
 - **幂等**：四个协议都把“今日已签到”判定为**成功**，因此重复执行不会重复打卡。
 - **浏览器兜底**：Cloudflare 盾（HTTP 403/503 或 `Just a moment...`）与页面内 Turnstile 都会自动唤起 `zendriver` 处理，过盾后新 Cookie（含 `cf_clearance`）会回写到本次 HTTP 会话并加密落库。
   浏览器默认**有头**运行（Windows/macOS 直接用桌面，Linux/容器自动拉起 Xvfb 虚拟屏），只有既没桌面也没 Xvfb 时才退无头。
-  少数站点（目前只有多看）的 Turnstile 会被 Cloudflare 按网络风险拒发令牌，控件一直停在「正在验证」，此时 20 秒内快速失败并提示人工过验证——过一次可用 24 小时，CookieCloud 同步也能把这个凭据带进来。
+  少数站点（如多看）的 Turnstile 会被 Cloudflare 按网络风险拒发令牌——**最常见原因就是出口走了代理或机房 IP**，直连家宽时能自动通过；被拒时控件会一直停在「正在验证」，代码 20 秒内快速失败，避免空等。
 
 ---
 

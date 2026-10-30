@@ -283,10 +283,17 @@ def test_discuz_already_signed_needs_no_token():
     sent = {}
     orig_get, orig_post = requests.Session.get, requests.Session.post
     try:
-        requests.Session.get = lambda self, url, **kw: Resp(sent["page"])
+        def fake_get(self, url, **kw):
+            if "sign=" in url:            # 签到链接：多看是 GET 这个 URL
+                sent["sign_url"] = url
+                return Resp('<div class="c">打卡成功，获得 5 个爆米花</div>')
+            return Resp(sent["page"])
+
         def fake_post(self, url, **kw):
-            sent["url"] = url
-            return Resp('<div class="c">打卡成功，获得 5 个爆米花</div>')
+            sent["post_url"] = url
+            return Resp("<html><body>unexpected</body></html>")
+
+        requests.Session.get = fake_get
         requests.Session.post = fake_post
 
         site = {"domain": "https://duokan.club", "cookies": "L76L_2132_auth=x"}
@@ -294,13 +301,14 @@ def test_discuz_already_signed_needs_no_token():
         sent["page"] = UNSIGNED
         ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
         assert ok is True and "打卡成功" in msg, msg
-        assert sent["url"].endswith("sign.php?sign=abc123def456"), sent["url"]
+        assert sent["sign_url"].endswith("sign.php?sign=abc123def456"), sent["sign_url"]
+        assert "post_url" not in sent, "URL 令牌型签到必须用 GET"
 
-        sent.pop("url", None)
+        sent.pop("sign_url", None)
         sent["page"] = SIGNED
         ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
         assert ok is True and "今日已签到" in msg, msg
-        assert "url" not in sent, "没有签到入口时不该再发提交请求"
+        assert "sign_url" not in sent, "没有签到入口时不该再发提交请求"
     finally:
         requests.Session.get, requests.Session.post = orig_get, orig_post
 
@@ -370,14 +378,14 @@ def test_discuz_token_in_url_placeholder():
     sent = {}
     orig_get, orig_post = requests.Session.get, requests.Session.post
     try:
-        requests.Session.get = lambda self, url, **kw: Resp(html)
+        def fake_get(self, url, **kw):
+            if "sign=" in url:            # 多看是 GET 签到链接
+                sent["url"] = url
+                return Resp(reply)
+            return Resp(html)
 
-        def fake_post(self, url, **kw):
-            sent["url"] = url
-            sent["data"] = kw.get("data")
-            return Resp(reply)
-
-        requests.Session.post = fake_post
+        requests.Session.get = fake_get
+        requests.Session.post = lambda self, url, **kw: Resp(reply)
         ok, msg = checkin_discuz_dsu_paulsign({"domain": "https://duokan.club", "cookies": "x=y"}, tpl)
     finally:
         requests.Session.get, requests.Session.post = orig_get, orig_post

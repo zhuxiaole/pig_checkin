@@ -559,16 +559,21 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
 
     todaysay = random.choice(tpl["greetings"] or [""]).replace("{site}", site_label)
 
-    # 部分插件的令牌走 URL 而不是表单字段，submit_path 里可用 {formhash} 占位
+    # 部分插件的令牌走 URL 而不是表单字段（多看：点 <a href="sign.php?sign=xxx">点击打卡</a>），
+    # 这种签到要 GET 那个链接，发 POST 服务端不认，页面原样返回。
+    url_token_flow = "{formhash}" in tpl["submit_path"]
     post_url = f"{domain}{tpl['submit_path']}".replace("{formhash}", formhash)
     payload = {**tpl["submit_body"], tpl["formhash_field"]: formhash}
     if tpl["greeting_field"]:
         payload[tpl["greeting_field"]] = todaysay
 
-    logger.info("[%s] 提交签到表单 POST: %s (formhash: %s%s)", site_label, post_url, formhash,
+    logger.info("[%s] 提交签到%s: %s (formhash: %s%s)", site_label,
+                "（URL 令牌，GET）" if url_token_flow else "表单 POST", post_url, formhash,
                 f", {tpl['greeting_field']}: {todaysay}" if tpl["greeting_field"] else "")
     try:
-        if encoding in ("gbk", "gb2312"):
+        if url_token_flow:
+            sign_res = session.get(post_url, timeout=REQUEST_TIMEOUT)
+        elif encoding in ("gbk", "gb2312"):
             import urllib.parse
             data_encoded = urllib.parse.urlencode(payload, encoding=encoding).encode("ascii")
             sign_res = session.post(
