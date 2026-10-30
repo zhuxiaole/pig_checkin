@@ -886,20 +886,20 @@ def test_turnstile_form_submit_payload():
     assert _page_still_verifying("<html><head><title>Just a moment...</title></head></html>") is True
     assert _page_still_verifying("<html><body>attendance-card--verify</body></html>") is True
 
-    # submit_payload 必须一路透传给浏览器；无头失败且有桌面时自动改有头重试
+    # 有桌面/Xvfb 时只用有头跑一次；submit_payload 必须一路透传给浏览器
     calls = []
     def fake_locked(url, cookies, headless, submit_payload=None):
         calls.append((headless, submit_payload))
-        return (len(calls) > 1), "content", {}
+        return True, "content", {}
 
     with patch("pig_checkin.checkin._solve_with_zendriver_locked", side_effect=fake_locked), \
-         patch("pig_checkin.checkin._can_run_headed", return_value=True), \
-         patch.dict("os.environ", {"PIG_HEADLESS": "1"}):
+         patch("pig_checkin.checkin._can_run_headed", return_value=True):
         payload = {"formhash": "abc", "qdxq": "kx"}
         ok, _, _ = solve_with_zendriver("https://x.test/sign", {"a": "b"}, submit_payload=payload)
-        assert ok is True, "无头失败后应改有头重试并成功"
-        assert calls[0][1] is payload and calls[1][1] is payload, "业务字段必须透传给浏览器"
-        assert calls[0][0] is True and calls[1][0] is False, "首次无头、重试有头"
+        assert ok is True
+        assert len(calls) == 1, "不该再换模式重试第二次"
+        assert calls[0][0] is False, "有桌面时应该直接有头模式"
+        assert calls[0][1] is payload
 
 
 def test_smart_cookie_merge_and_persistence():

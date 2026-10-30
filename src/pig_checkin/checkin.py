@@ -163,23 +163,9 @@ def solve_with_zendriver(url: str, cookies: dict = None, submit_payload: dict = 
         if env_headless is not None:
             headless = env_headless.lower() not in ("0", "false", "no")
         else:
+            # 有桌面 / Xvfb 虚拟屏就一律有头：过盾成功率最高，也省掉「换模式再试一遍」的 35 秒
             headless = not _can_run_headed()
-
-        modes = [headless]
-        if headless:
-            if _can_run_headed():
-                modes.append(False)   # 无头拿不到令牌时，有头再试一次
-        else:
-            modes.append(True)        # 有头仍失败时，无头再试一次
-
-        result = (False, "", {})
-        for i, mode in enumerate(modes):
-            if i:
-                logger.info("[zendriver] 当前模式过盾失败，改用%s模式重试一次", "无头" if mode else "有头")
-            result = _solve_with_zendriver_locked(url, cookies, mode, submit_payload)
-            if result[0] or result[1] == _CF_REFUSED_MSG:
-                break
-        return result
+        return _solve_with_zendriver_locked(url, cookies, headless, submit_payload)
 
 
 def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool = True,
