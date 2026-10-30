@@ -543,9 +543,13 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         formhash_input = soup.find("input", {"name": tpl["formhash_field"]})
         formhash = formhash_input.get("value") if formhash_input else None
 
-    # 只有「既没有签到表单、也提取不到签到令牌」时才判定今日已签到：
-    # 光看表单会误判——多看这类站点的打卡记录表里也印着别人的「今日已打」
-    if not has_sign_form and not formhash and _contains_any(res_text, tpl["already_signed_page_keywords"]):
+    # 只有「既没有签到表单、也拿不到签到令牌」时才判定今日已签到：
+    # 光看表单会误判——多看这类站点（令牌在 URL 里）的打卡记录表里也印着别人的「今日已打」。
+    # 表单型站点不受影响，仍按原来「表单消失 = 已签到」判断。
+    url_token_flow = "{formhash}" in tpl["submit_path"]
+    if (not has_sign_form
+            and not (url_token_flow and formhash)
+            and _contains_any(res_text, tpl["already_signed_page_keywords"])):
         logger.info("[%s] 用户 [%s] 今日已完成签到 (无待提交表单/令牌)，无需重复签到", site_label, user_name)
         return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
 
