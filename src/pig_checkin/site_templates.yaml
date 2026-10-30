@@ -105,6 +105,15 @@ templates:
     user_patterns:
       - 'class="vwmy"><a [^>]*>(.*?)</a>'
 
+  - key: hdduck
+    name: 高清鸭
+    flow: discuz
+    auth_type: cookie
+    auth_label: Cookies 认证
+    default_domain: https://hdduck.com
+    cookie_placeholder: 请粘贴登录 hdduck.com 后的完整 Cookie 字符串
+    sign_path: /plugin.php?id=dsu_paulsign:sign
+
   # 恩山用的是 erling_qd 插件（AJAX 提交表单 + JSON 应答），不是 dsu_paulsign。
   # 签到页必须走 plugin.php 形式：伪静态的 erling_qd-sign_in.html 会撞上阿里云 ESA 滑块验证。
   - key: right

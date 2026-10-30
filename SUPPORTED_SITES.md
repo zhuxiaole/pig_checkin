@@ -18,6 +18,7 @@
 | **PTShare 论坛** | `http://bbs.ptshare.org` | `ptshare` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **恩山无线论坛** | `https://www.right.com.cn/forum` | `right` | Discuz! (`erling_qd` 插件，AJAX + JSON) | Cookies 认证 | ✔ 自动穿透 |
 | **多看聚影** | `https://duokan.club` | `duokan` | Discuz! (`zqlj_sign` 插件，令牌在 URL) | Cookies 认证 | ⚠ 需手动过一次人机验证 |
+| **高清鸭** | `https://hdduck.com` | `hdduck` | Discuz! (`dsu_paulsign` 插件) | Cookies 认证 | ✔ 自动穿透 |
 | **肉丝** | `https://rousi.pro` | `rousi` | PeerGo (`POST /api/points/attendance`) | 密钥认证 | - |
 | **红豆饭** | `https://hdfans.org` | `hdfans` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
 | **PT 劳改所** | `https://ptlgs.org` | `ptlgs` | NexusPHP (`/attendance.php`) | Cookies 认证 | ✔ 自动穿透 |
