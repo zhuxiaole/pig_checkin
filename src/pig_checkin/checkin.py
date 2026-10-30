@@ -537,16 +537,18 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     soup = BeautifulSoup(res_text, "html.parser")
     has_sign_form = any(soup.find(tag, {"name": name}) is not None for tag, name in tpl["sign_form_selectors"])
 
-    # 只有当签到表单不存在时，才判定为今日已签到（严禁使用“今日已签”裸字，否则会误命中侧边栏的“xxx人今日已签到”全站统计数据）
-    if not has_sign_form and _contains_any(res_text, tpl["already_signed_page_keywords"]):
-        logger.info("[%s] 用户 [%s] 今日已完成签到 (未检测到待提交表单)，无需重复签到", site_label, user_name)
-        return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
-
     # 先按模板正则取（有些站点页面里还有个登录表单的 formhash 会干扰 input 兜底）
     formhash = _first_group(res_text, tpl["formhash_patterns"])
     if not formhash:
         formhash_input = soup.find("input", {"name": tpl["formhash_field"]})
         formhash = formhash_input.get("value") if formhash_input else None
+
+    # 只有「既没有签到表单、也提取不到签到令牌」时才判定今日已签到：
+    # 光看表单会误判——多看这类站点的打卡记录表里也印着别人的「今日已打」
+    if not has_sign_form and not formhash and _contains_any(res_text, tpl["already_signed_page_keywords"]):
+        logger.info("[%s] 用户 [%s] 今日已完成签到 (无待提交表单/令牌)，无需重复签到", site_label, user_name)
+        return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
+
     if not formhash:
         logger.error("[%s] 未能从页面中提取到 formhash", site_label)
         return False, "未能提取到 formhash"

@@ -257,6 +257,54 @@ def test_discuz_erling_qd_plugin_flow():
         requests.Session.get, requests.Session.post = orig_get, orig_post
 
 
+def test_discuz_already_signed_needs_no_token():
+    """回归（多看）：打卡记录表里印着别人的「今日已打」，不能因此判成本人已签到。"""
+    import requests
+    from pig_checkin.checkin import checkin_discuz_dsu_paulsign
+
+    tpl = tl.get_template("duokan")
+    marker = '<a class="btna">今日已打</a>'
+    head = '<html><body><script>var discuz_uid = 123;</script><span class="vwmy"><a href="x">zhuxiaole</a></span>'
+    # 未签到：页面有 token（真的还能签），打卡记录表里也有别人的「今日已打」
+    UNSIGNED = head + marker + '<a href="sign.php?sign=abc123def456">立即打卡</a></body></html>'
+    # 已签到：既没有签到表单，也拿不到 token
+    SIGNED = head + marker + '</body></html>'
+
+    class Resp:
+        def __init__(self, text):
+            self.status_code = 200
+            self.text = text
+            self.content = text.encode("utf-8")
+            self.headers = {"Content-Type": "text/html; charset=utf-8"}
+
+        def json(self):
+            raise ValueError("not json")
+
+    sent = {}
+    orig_get, orig_post = requests.Session.get, requests.Session.post
+    try:
+        requests.Session.get = lambda self, url, **kw: Resp(sent["page"])
+        def fake_post(self, url, **kw):
+            sent["url"] = url
+            return Resp('<div class="c">打卡成功，获得 5 个爆米花</div>')
+        requests.Session.post = fake_post
+
+        site = {"domain": "https://duokan.club", "cookies": "L76L_2132_auth=x"}
+
+        sent["page"] = UNSIGNED
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is True and "打卡成功" in msg, msg
+        assert sent["url"].endswith("sign.php?sign=abc123def456"), sent["url"]
+
+        sent.pop("url", None)
+        sent["page"] = SIGNED
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is True and "今日已签到" in msg, msg
+        assert "url" not in sent, "没有签到入口时不该再发提交请求"
+    finally:
+        requests.Session.get, requests.Session.post = orig_get, orig_post
+
+
 def test_discuz_dsu_paulsign_path_unchanged():
     """dsu_paulsign 站点（cnlang 等）：提交体仍是旧的 5 个字段，应答走关键字判定。"""
     import requests
