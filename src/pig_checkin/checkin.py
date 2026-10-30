@@ -57,6 +57,10 @@ _HARD_VERIFY_SIGNALS = (
 def _page_still_verifying(content: str) -> bool:
     return any(sig in content for sig in _HARD_VERIFY_SIGNALS) or "</body" not in content
 
+# Cloudflare 把当前网络判为高风险时，Turnstile 控件会一直转圈、永不下发令牌。
+# 这种情况换无头/有头都一样，别再浪费第二次 35 秒。
+_CF_REFUSED_MSG = "Cloudflare 人机验证无法自动通过（站点判定当前网络风险过高）；请用浏览器打开该站点过一次验证，之后凭据可复用 24 小时"
+
 # 表单型 Turnstile：令牌解出后必须由页面自身提交（Discuz 插件会校验表单里的 cf-turnstile-response）
 # 另外像国语视界这种 dsu_paulsign 必须选一个「签到心情」，默认一个都不勾，服务端会报「心情不正确」
 _SUBMIT_TURNSTILE_FORM_JS = """(function(){
@@ -173,7 +177,7 @@ def solve_with_zendriver(url: str, cookies: dict = None, submit_payload: dict = 
             if i:
                 logger.info("[zendriver] 当前模式过盾失败，改用%s模式重试一次", "无头" if mode else "有头")
             result = _solve_with_zendriver_locked(url, cookies, mode, submit_payload)
-            if result[0]:
+            if result[0] or result[1] == _CF_REFUSED_MSG:
                 break
         return result
 
@@ -229,24 +233,60 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool 
                 ])
             page = await browser.get(url)
 
+            # 部分站点（如多看）首包只回 <head>，body 要再等几秒才流式到达；不等完就当成「还在验证」会白白失败
+            for _ in range(12):
+                if await page.evaluate("!!document.body && document.readyState !== 'loading'"):
+                    break
+                await asyncio.sleep(1)
+
+            verify_tried = False
+            stuck_since = None
             for _ in range(max(1, BROWSER_TIMEOUT // 2)):
                 await asyncio.sleep(2)
                 content = await page.get_content()
                 if _contains_any(content, ("attendance-card--done", "今天已经签到", "今日已打", "今日已签到")):
                     break
-                if _page_still_verifying(content):
+                if not _page_still_verifying(content):
+                    break
+                # 控件在、页面已加载完、15 秒仍吐不出令牌 = Cloudflare 拒绝，换模式也没用，直接收工
+                pending = await page.evaluate("""(function(){
+                    var i = document.querySelector('input[name="cf-turnstile-response"]');
+                    if (!i || i.value) return 0;
+                    return document.readyState === 'complete' ? 1 : 0;
+                })()""")
+                if pending:
+                    stuck_since = stuck_since or time.monotonic()
+                    if time.monotonic() - stuck_since >= 15:
+                        logger.error("[zendriver] Turnstile 控件一直停在验证中，Cloudflare 拒绝下发令牌")
+                        return False, _CF_REFUSED_MSG, {}
+                # verify_cf 只对 ShadowRoot 型 CF 挑战有效，对 <div id=turnstile> 这类插件型控件纯等 6 秒
+                if not verify_tried:
+                    verify_tried = True
                     try:
                         await page.verify_cf(click_delay=2, timeout=6)
+                        continue
                     except Exception:
-                        # 兼容非标准 ShadowRoot 插件（如多看 #turnstile），直接精准定位容器坐标点击
-                        try:
-                            rect = await page.evaluate("document.getElementById('turnstile')?.getBoundingClientRect()")
-                            if rect and rect.get("x") is not None:
-                                await page.mouse_click(rect["x"] + 25, rect["y"] + 32)
-                        except Exception:
-                            pass
-                    continue
-                break
+                        pass
+                # 点一下实际渲染出来的 Turnstile 复选框（插件型控件要靠这一下才解令牌）
+                try:
+                    rect = await page.evaluate("""(function(){
+                        var fs = document.querySelectorAll('iframe'), best = null;
+                        for (var i = 0; i < fs.length; i++) {
+                            var r = fs[i].getBoundingClientRect();
+                            if (r.width > 60 && r.height > 20 && (!best || r.width * r.height > best.w * best.h))
+                                best = {x: r.x, y: r.y, w: r.width, h: r.height};
+                        }
+                        if (!best) {
+                            var box = document.getElementById('turnstile');
+                            if (box) { var br = box.getBoundingClientRect();
+                                if (br.width > 0) best = {x: br.x, y: br.y, w: br.width, h: Math.max(br.height, 60)}; }
+                        }
+                        return best;
+                    })()""")
+                    if rect:
+                        await page.mouse_click(rect["x"] + 25, rect["y"] + rect["h"] / 2)
+                except Exception:
+                    pass
             content = await page.get_content()
 
             if _page_still_verifying(content):
@@ -474,6 +514,8 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         ok, content, new_cookies = solve_with_zendriver(sign_page_url, cookies, submit_payload=pre_payload)
         if not ok:
             logger.error("[%s] 浏览器绕过 Cloudflare 失败: %s", site_label, content)
+            if content == _CF_REFUSED_MSG:
+                return False, content
             return False, f"检测到 Cloudflare 防护，且浏览器绕过失败: {content}"
         logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_label)
         session.cookies.update(new_cookies)
@@ -692,6 +734,8 @@ def checkin_nexusphp(site_dict: dict, tpl: dict) -> tuple[bool, str]:
         ok, content, new_cookies = solve_with_zendriver(attendance_url, cookies)
         if not ok:
             logger.error("[%s] 浏览器绕过失败: %s", site_name, content)
+            if content == _CF_REFUSED_MSG:
+                return False, content
             return False, f"检测到 Cloudflare 防护，且浏览器绕过失败: {content}"
         logger.info("[%s] 浏览器成功通过 Cloudflare 质询，已更新会话凭据", site_name)
         session.cookies.update(new_cookies)
