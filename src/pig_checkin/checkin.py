@@ -255,9 +255,11 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool 
 
             # 表单型 Turnstile（如国语视界 dsu_paulsign）：控件要 5~10 秒才出令牌，
             # 且令牌必须由页面自身随表单一起提交，否则服务端会以「请先完成人机安全验证」拒收 requests 的 POST。
+            # 只认「页面里真有 cf-turnstile-response 输入框」的站点；观众那种把令牌放在 cf-token 的卡片站不进来。
             submitted = False
-            widget_api = "challenges.cloudflare.com/turnstile" in content
-            if widget_api:
+            has_token_input = await page.evaluate(
+                """!!document.querySelector('input[name="cf-turnstile-response"]')""")
+            if has_token_input:
                 clicked = False
                 for _ in range(16):
                     token_len = await page.evaluate("""(function(){
@@ -316,8 +318,8 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool 
                             pass
                     await asyncio.sleep(1.5)
 
-            # 站点要求令牌、但控件始终没解出令牌：等于过盾失败，交给上层改有头模式重试
-            if widget_api and not submitted:
+            # 站点要求令牌、但控件始终没解出令牌：等于过盾失败，交给上层换模式重试
+            if has_token_input and not submitted:
                 logger.error("[zendriver] Turnstile 控件未生成令牌（当前模式下该站点不渲染）")
                 return False, "未能通过 Cloudflare / 人机验证", {}
 

@@ -835,6 +835,7 @@ def test_solve_with_zendriver_and_xvfb():
         mock_b = AsyncMock()
         mock_p = AsyncMock()
         mock_p.get_content.return_value = "<html><body>attendance-card--done</body></html>"
+        mock_p.evaluate.return_value = False   # 该页没有表单型 Turnstile 令牌输入框
         mock_b.get.return_value = mock_p
         mock_b.cookies.get_all.return_value = []
         mock_b.cookies.set_all = AsyncMock()
