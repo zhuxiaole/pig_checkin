@@ -161,13 +161,21 @@ def solve_with_zendriver(url: str, cookies: dict = None, submit_payload: dict = 
         else:
             headless = not _can_run_headed()
 
-        ok, content, new_cookies = _solve_with_zendriver_locked(url, cookies, headless, submit_payload)
-        # 部分站点（如国语视界）的 Turnstile 在无头模式根本不渲染控件、拿不到令牌；
-        # 有头模式能解决时自动重试一次，避免整个签到直接失败。
-        if not ok and headless and _can_run_headed():
-            logger.info("[zendriver] 无头模式未能拿到人机验证令牌，改用有头模式重试一次")
-            ok, content, new_cookies = _solve_with_zendriver_locked(url, cookies, False, submit_payload)
-        return ok, content, new_cookies
+        modes = [headless]
+        if headless:
+            if _can_run_headed():
+                modes.append(False)   # 无头拿不到令牌时，有头再试一次
+        else:
+            modes.append(True)        # 有头仍失败时，无头再试一次
+
+        result = (False, "", {})
+        for i, mode in enumerate(modes):
+            if i:
+                logger.info("[zendriver] 当前模式过盾失败，改用%s模式重试一次", "无头" if mode else "有头")
+            result = _solve_with_zendriver_locked(url, cookies, mode, submit_payload)
+            if result[0]:
+                break
+        return result
 
 
 def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool = True,
@@ -250,7 +258,8 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool 
             submitted = False
             widget_api = "challenges.cloudflare.com/turnstile" in content
             if widget_api:
-                for _ in range(12):
+                clicked = False
+                for _ in range(16):
                     token_len = await page.evaluate("""(function(){
                         var i = document.querySelector('input[name="cf-turnstile-response"]');
                         return i ? i.value.length : -1;
@@ -284,6 +293,27 @@ def _solve_with_zendriver_locked(url: str, cookies: dict = None, headless: bool 
                                     if page.url != before_url or "id=\"qiandao\"" not in content:
                                         break
                         break
+                    # 容器/软件渲染环境里 Turnstile 常常退化成需要点一下复选框，
+                    # 干等是等不出令牌的；找到那个 iframe 就点一次左侧复选框位置。
+                    if not clicked:
+                        try:
+                            rect = await page.evaluate("""(function(){
+                                var fs = document.querySelectorAll('iframe'), best = null;
+                                for (var i = 0; i < fs.length; i++) {
+                                    var r = fs[i].getBoundingClientRect();
+                                    if (r.width > 60 && r.height > 20) {
+                                        if (!best || r.width * r.height > best.w * best.h)
+                                            best = {x: r.x, y: r.y, w: r.width, h: r.height};
+                                    }
+                                }
+                                return best;
+                            })()""")
+                            if rect:
+                                await page.mouse_click(rect["x"] + rect["w"] * 0.1, rect["y"] + rect["h"] / 2)
+                                clicked = True
+                                logger.info("[zendriver] 已点击 Turnstile 复选框，等待令牌")
+                        except Exception:
+                            pass
                     await asyncio.sleep(1.5)
 
             # 站点要求令牌、但控件始终没解出令牌：等于过盾失败，交给上层改有头模式重试
