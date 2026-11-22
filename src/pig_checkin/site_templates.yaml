@@ -99,7 +99,8 @@ templates:
     gate_keywords: ["dev8133_cloudflare"]
     gate_message: 站点人机验证已过期：请用浏览器打开 https://duokan.club/sign.php 过一次验证，再把 Cookie（含 L76L_2132_cloudflare_check）重新粘贴进来
     # 未打卡：<a href="sign.php?sign=xxx" class="btna">点击打卡</a>；打过之后按钮文字变「今日已打卡」，
-    # 但 href 里的令牌照样还在，所以「有没有令牌」判断不了状态，只能看服务端返回的提示块。
+    # 但 href 里的令牌照样还在，所以「有没有令牌」判断不了状态——要先看这个标记。
+    already_signed_page_keywords: ['>今日已打卡</a>']
     success_keywords: ["打卡成功", "签到成功", "恭喜您"]
     already_signed_keywords: ["今日已打", "已经打过卡", "今天已经打卡", "请勿重复"]
     # 打卡结果用的是 alert_error / alert_right 提示块，不是标准 showmessage 的 div.c

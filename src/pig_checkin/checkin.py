@@ -452,7 +452,13 @@ def _discuz_message_result(text: str, site_label: str, user_name: str, tpl: dict
         logger.warning("[%s] 签到返回提示: %s", site_label, block)
         return False, f"签到返回提示: {block}"
 
-    # 没有提示块：站点把签到页原样吐回来（令牌没被接受）时，签到页里仍有打卡令牌。
+    # 没有提示块：站点直接重渲染签到页。先看页面自己的「已签到」标记——
+    # 多看打卡成功后会把按钮文字换成「今日已打卡」，但 href 里的令牌照样在。
+    if _contains_any(text, tpl["already_signed_page_keywords"]):
+        logger.info("[%s] 用户 [%s] 签到成功: 页面已显示今日已打卡", site_label, user_name)
+        return True, f"用户 [{user_name}] 签到成功: 页面已显示今日已打卡"
+
+    # 还是可打卡状态（令牌在、又没已签到标记）= 令牌没被接受。
     # 这类页面的打卡记录表印着别人的「今日已打」，所以只能靠状态判，不能扫关键字。
     if "{formhash}" in tpl["submit_path"] and _first_group(text, tpl["formhash_patterns"]):
         logger.warning("[%s] 签到未生效：返回页面仍显示可打卡", site_label)

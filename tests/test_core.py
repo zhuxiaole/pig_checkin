@@ -325,6 +325,13 @@ def test_discuz_already_signed_needs_no_token():
         ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
         assert ok is False and "未生效" in msg, msg
 
+        # ③′ 打卡成功但服务端直接重渲染签到页（令牌还在、按钮已变成「今日已打卡」）→ 判成功
+        sent.pop("sign_url", None)
+        sent["page"] = UNSIGNED
+        sent["reply"] = SIGNED
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is True and "签到成功" in msg, msg
+
         # ④ 已打卡 → 按钮文字变了但令牌还在，所以仍去问服务端，由提示块判已签到
         sent.pop("sign_url", None)
         sent["page"] = SIGNED
