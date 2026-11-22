@@ -129,10 +129,14 @@ def _pattern_list(key: str, value) -> list[str]:
     return []
 
 
+SELECTOR_KEYS = ("sign_form_selectors", "message_selectors")
+
+
 def _check_flow_fields(flow: str, raw: dict) -> list[str]:
     errors = []
     for key, default in FLOW_DEFAULTS[flow].items():
-        if key not in raw:
+        # 选择器是 [[标签, name], ...] 的嵌套数组，下面有专门的校验，跳过通用标量/数组检查
+        if key not in raw or key in SELECTOR_KEYS:
             continue
         value = raw[key]
         if isinstance(default, dict):
@@ -156,7 +160,7 @@ def _check_flow_fields(flow: str, raw: dict) -> list[str]:
             except re.error as e:
                 errors.append(f"{key} 正则非法：{e}")
 
-    for key in ("sign_form_selectors", "message_selectors"):
+    for key in SELECTOR_KEYS:
         if key not in raw:
             continue
         value = raw[key]

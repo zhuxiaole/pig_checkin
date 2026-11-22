@@ -427,25 +427,41 @@ def _dig(obj, path: str):
     return functools.reduce(lambda d, k: d.get(k) if isinstance(d, dict) else None, path.split("."), obj)
 
 
-def _discuz_message_result(text: str, site_label: str, user_name: str, tpl: dict) -> tuple[bool, str]:
-    """按 Discuz showmessage 页/提示块判定签到结果。"""
+def _discuz_message_block(text: str, tpl: dict) -> str:
+    """取 Discuz showmessage 的提示块文本；没有提示块返回空串。"""
     soup = BeautifulSoup(text, "html.parser")
-    msg = ""
     for tag, name in tpl["message_selectors"]:
         node = soup.find(tag, {"class": name}) or soup.find(tag, {"id": name})
         if node and node.text.strip():
-            msg = node.text.strip()
-            break
-    msg = msg or text[:120].strip() or "签到提交完成"
-    # Discuz 的 showmessage 把「请稍候，本站将自动跳转…」塞在同一个节点里，只留第一行
-    msg = msg.splitlines()[0].strip() or msg
+            # Discuz 把「请稍候，本站将自动跳转…」塞在同一个节点里，只留第一行
+            return node.text.strip().splitlines()[0].strip()
+    return ""
 
+
+def _discuz_message_result(text: str, site_label: str, user_name: str, tpl: dict) -> tuple[bool, str]:
+    """按 Discuz showmessage 页/提示块判定签到结果。"""
+    block = _discuz_message_block(text, tpl)
+
+    if block:
+        if _contains_any(block, tpl["success_keywords"]):
+            logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, block)
+            return True, f"用户 [{user_name}] 签到成功: {block}"
+        if _contains_any(block, tpl["already_signed_keywords"]):
+            logger.info("[%s] 用户 [%s] 今日已签到过: %s", site_label, user_name, block)
+            return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
+        logger.warning("[%s] 签到返回提示: %s", site_label, block)
+        return False, f"签到返回提示: {block}"
+
+    # 没有提示块：站点把签到页原样吐回来（令牌没被接受）时，签到页里仍有打卡令牌。
+    # 这类页面的打卡记录表印着别人的「今日已打」，所以只能靠状态判，不能扫关键字。
+    if "{formhash}" in tpl["submit_path"] and _first_group(text, tpl["formhash_patterns"]):
+        logger.warning("[%s] 签到未生效：返回页面仍显示可打卡", site_label)
+        return False, "签到未生效（服务端返回的仍是可打卡页面）"
+
+    msg = text[:120].strip() or "签到提交完成"
     if _contains_any(text, tpl["success_keywords"]):
         logger.info("[%s] 用户 [%s] 签到成功: %s", site_label, user_name, msg)
         return True, f"用户 [{user_name}] 签到成功: {msg}"
-    if _contains_any(text, tpl["already_signed_keywords"]):
-        logger.info("[%s] 用户 [%s] 今日已签到过: %s", site_label, user_name, msg)
-        return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
     logger.warning("[%s] 签到返回提示: %s", site_label, msg)
     return False, f"签到返回提示: {msg}"
 
@@ -537,18 +553,19 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
     soup = BeautifulSoup(res_text, "html.parser")
     has_sign_form = any(soup.find(tag, {"name": name}) is not None for tag, name in tpl["sign_form_selectors"])
 
+    url_token_flow = "{formhash}" in tpl["submit_path"]
+
     # 先按模板正则取（有些站点页面里还有个登录表单的 formhash 会干扰 input 兜底）
     formhash = _first_group(res_text, tpl["formhash_patterns"])
-    if not formhash:
+    if not formhash and not url_token_flow:
+        # 兜底的隐藏域只对表单型站点可靠：多看这类令牌在 URL 里的站，页面上的
+        # formhash 来自登录/搜索表单，拿它去打卡必然无效，绝不能当签到令牌用
         formhash_input = soup.find("input", {"name": tpl["formhash_field"]})
         formhash = formhash_input.get("value") if formhash_input else None
 
-    # 只有「既没有签到表单、也拿不到签到令牌」时才判定今日已签到：
-    # 光看表单会误判——多看这类站点（令牌在 URL 里）的打卡记录表里也印着别人的「今日已打」。
-    # 表单型站点不受影响，仍按原来「表单消失 = 已签到」判断。
-    url_token_flow = "{formhash}" in tpl["submit_path"]
-    if (not has_sign_form
-            and not (url_token_flow and formhash)
+    # 今日已签到判定（表单型站点）：签到表单和令牌都消失才算打过卡。
+    # 令牌在 URL 的站（多看）不算——打卡后令牌照样留在按钮里，只能问服务端。
+    if (not url_token_flow and not has_sign_form and not formhash
             and _contains_any(res_text, tpl["already_signed_page_keywords"])):
         logger.info("[%s] 用户 [%s] 今日已完成签到 (无待提交表单/令牌)，无需重复签到", site_label, user_name)
         return True, f"用户 [{user_name}] 今日已签到过，无需重复签到"
@@ -559,9 +576,8 @@ def checkin_discuz_dsu_paulsign(site_dict: dict, tpl: dict) -> tuple[bool, str]:
 
     todaysay = random.choice(tpl["greetings"] or [""]).replace("{site}", site_label)
 
-    # 部分插件的令牌走 URL 而不是表单字段（多看：点 <a href="sign.php?sign=xxx">点击打卡</a>），
-    # 这种签到要 GET 那个链接，发 POST 服务端不认，页面原样返回。
-    url_token_flow = "{formhash}" in tpl["submit_path"]
+    # 令牌走 URL 的站（多看：点 <a href="sign.php?sign=xxx">点击打卡</a>）签到就是 GET 那个链接，
+    # 发 POST 服务端不认，只会把签到页原样返回。
     post_url = f"{domain}{tpl['submit_path']}".replace("{formhash}", formhash)
     payload = {**tpl["submit_body"], tpl["formhash_field"]: formhash}
     if tpl["greeting_field"]:

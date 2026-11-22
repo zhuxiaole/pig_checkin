@@ -258,17 +258,22 @@ def test_discuz_erling_qd_plugin_flow():
 
 
 def test_discuz_already_signed_needs_no_token():
-    """回归（多看）：打卡记录表里印着别人的「今日已打」，不能因此判成本人已签到。"""
+    """回归（多看）：别人的「今日已打卡」记录不能让你自己判成已签到，只能看服务端提示块。"""
     import requests
     from pig_checkin.checkin import checkin_discuz_dsu_paulsign
 
     tpl = tl.get_template("duokan")
-    marker = '<a class="btna">今日已打</a>'
+    # 打卡记录表里别人的行——未签到页面上也有，扫关键字必误判
+    others = '<tr><td>别人</td><td>2026-11-22 09:00:00</td><td>今日已打卡</td></tr>'
     head = '<html><body><script>var discuz_uid = 123;</script><span class="vwmy"><a href="x">zhuxiaole</a></span>'
-    # 未签到：页面有 token（真的还能签），打卡记录表里也有别人的「今日已打」
-    UNSIGNED = head + marker + '<a href="sign.php?sign=abc123def456">立即打卡</a></body></html>'
-    # 已签到：既没有签到表单，也拿不到 token
-    SIGNED = head + marker + '</body></html>'
+    # 未打卡：按钮是「点击打卡」，另外还藏着一个无关的 formhash 隐藏域当诱饵
+    UNSIGNED = (head + '<input type="hidden" name="formhash" value="deco y123">' + others
+                + '<a href="sign.php?sign=abc123def456" class="btna">点击打卡</a></body></html>').replace("deco y", "decoy")
+    # 已打卡：按钮文字变成「今日已打卡」，href 里的令牌照样还在（真实站点行为）
+    SIGNED = (head + others
+              + '<a class="btna" href="sign.php?sign=abc123def456">今日已打卡</a></body></html>')
+    SUCCESS = '<html><body><div class="alert_right">恭喜您，打卡成功！</div></body></html>'
+    ALREADY = '<html><body><div class="alert_error">您今天已经打过卡了，请勿重复操作！</div></body></html>'
 
     class Resp:
         def __init__(self, text):
@@ -286,7 +291,7 @@ def test_discuz_already_signed_needs_no_token():
         def fake_get(self, url, **kw):
             if "sign=" in url:            # 签到链接：多看是 GET 这个 URL
                 sent["sign_url"] = url
-                return Resp('<div class="c">打卡成功，获得 5 个爆米花</div>')
+                return Resp(sent.get("reply", SUCCESS))
             return Resp(sent["page"])
 
         def fake_post(self, url, **kw):
@@ -298,17 +303,35 @@ def test_discuz_already_signed_needs_no_token():
 
         site = {"domain": "https://duokan.club", "cookies": "L76L_2132_auth=x"}
 
+        # ① 未打卡 + 服务端说成功 → 成功
         sent["page"] = UNSIGNED
         ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
         assert ok is True and "打卡成功" in msg, msg
         assert sent["sign_url"].endswith("sign.php?sign=abc123def456"), sent["sign_url"]
         assert "post_url" not in sent, "URL 令牌型签到必须用 GET"
+        assert "decoy" not in sent["sign_url"], "用了无关隐藏域里的 formhash"
 
+        # ② 未打卡 + 服务端说已打过 → 如实报已签到
         sent.pop("sign_url", None)
-        sent["page"] = SIGNED
+        sent["page"] = UNSIGNED
+        sent["reply"] = ALREADY
         ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
         assert ok is True and "今日已签到" in msg, msg
-        assert "sign_url" not in sent, "没有签到入口时不该再发提交请求"
+
+        # ③ 未打卡 + 服务端把签到页原样吐回（令牌没生效）→ 必须报失败，不能谎报已签到
+        sent.pop("sign_url", None)
+        sent["page"] = UNSIGNED
+        sent["reply"] = UNSIGNED
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is False and "未生效" in msg, msg
+
+        # ④ 已打卡 → 按钮文字变了但令牌还在，所以仍去问服务端，由提示块判已签到
+        sent.pop("sign_url", None)
+        sent["page"] = SIGNED
+        sent["reply"] = ALREADY
+        ok, msg = checkin_discuz_dsu_paulsign(site, tpl)
+        assert ok is True and "今日已签到" in msg, msg
+        assert sent["sign_url"].endswith("sign.php?sign=abc123def456"), "令牌一直在，仍要用它问服务端"
     finally:
         requests.Session.get, requests.Session.post = orig_get, orig_post
 
@@ -363,6 +386,10 @@ def test_discuz_token_in_url_placeholder():
             '<input type="hidden" name="formhash" value="8b532b5c">'
             '<div class="bm signbtn cl"><a href="sign.php?sign=ea2fcc50" class="btna">立即打卡</a></div>'
             '</body></html>')
+    signed_html = ('<html><body><script>var discuz_uid = 573515;</script>'
+                   '<a href="home.php?mod=spacecp" class="vwmy"><a>猪小乐</a>'
+                   '<div class="showmsg">打卡成功，获得 10 铜板</div>'
+                   '</body></html>')
     reply = '<html><body><div class="showmsg">打卡成功，获得 10 铜板</div></body></html>'
 
     class Resp:
@@ -381,8 +408,9 @@ def test_discuz_token_in_url_placeholder():
         def fake_get(self, url, **kw):
             if "sign=" in url:            # 多看是 GET 签到链接
                 sent["url"] = url
+                sent["signed"] = True
                 return Resp(reply)
-            return Resp(html)
+            return Resp(signed_html if sent.get("signed") else html)
 
         requests.Session.get = fake_get
         requests.Session.post = lambda self, url, **kw: Resp(reply)
